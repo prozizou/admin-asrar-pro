@@ -34,6 +34,10 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
 }
+/* CORRECTION CRITIQUE : Force la disparition absolue des éléments masqués */
+[hidden] { 
+  display: none !important; 
+}
 
 /* SYSTÈME DE NOTIFICATIONS TOAST */
 #toast-container {
