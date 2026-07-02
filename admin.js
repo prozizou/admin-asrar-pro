@@ -32,18 +32,20 @@
     return data;
   }
 
-  // ── Connexion ────────────────────────────────────────────────
+  // ── Connexion (par REDIRECTION : contourne le blocage COOP des popups) ──
   $("btnLogin").addEventListener("click", () => {
-    $("loginMsg").textContent = "Connexion…";
+    $("loginMsg").textContent = "Redirection vers Google…";
     const p = new firebase.auth.GoogleAuthProvider();
     p.setCustomParameters({ prompt: "select_account" });
-    auth.signInWithPopup(p).catch((e) => {
-      if (["auth/popup-blocked", "auth/operation-not-supported-in-this-environment"].includes(e.code))
-        return auth.signInWithRedirect(p);
+    auth.signInWithRedirect(p).catch((e) => {
       $("loginMsg").textContent = "Erreur : " + e.message;
     });
   });
-  auth.getRedirectResult().catch(() => {});
+  // Récupère le résultat au retour de Google (sinon erreur silencieuse).
+  auth.getRedirectResult().catch((e) => {
+    if (e && e.code && e.code !== "auth/no-auth-event")
+      $("loginMsg").textContent = "Erreur : " + e.message;
+  });
   $("btnLogout").addEventListener("click", () => auth.signOut().then(() => location.reload()));
 
   auth.onAuthStateChanged(async (user) => {
