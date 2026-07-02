@@ -15,145 +15,122 @@
 </head>
 <body>
 
-  <!-- ÉCRAN DE CONNEXION -->
+  <div id="toast-container"></div>
+
   <div id="login" class="login-wrap">
     <div class="login-box">
       <img src="/assets/logo-mark.png" alt="ASRAR PRO" class="login-logo">
       <h1>Administration</h1>
-      <p class="muted">Panneau de contrôle ASRAR PRO — accès réservé.</p>
-      <button id="btnLogin" class="btn primary">Se connecter avec Google</button>
+      <p class="muted">Panneau de contrôle ASRAR PRO — Accès strictement réservé.</p>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <input type="email" id="loginEmail" placeholder="Email de l'administrateur" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <input type="password" id="loginPassword" placeholder="Mot de passe" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn primary full-width">Se connecter au sanctuaire</button>
+      </form>
+      
       <p id="loginMsg" class="msg"></p>
     </div>
   </div>
 
-  <!-- APPLICATION -->
   <div id="app" hidden>
     <header class="topbar">
       <div class="brand">
-        <img src="/assets/logo-mark.png" alt="">
-        <span>ASRAR PRO · Admin</span>
+        <img src="/assets/logo-full.png" alt="ASRAR PRO">
       </div>
-      <div class="who">
-        <span id="meEmail" class="muted"></span>
-        <button id="btnLogout" class="btn ghost small">Déconnexion</button>
-      </div>
+      <nav class="nav">
+        <button data-tab="content" class="active">Contenus</button>
+        <button data-tab="users">Utilisateurs</button>
+        <button data-tab="audit">Journal d'Audit</button>
+        <button data-tab="settings">Réglages</button>
+        <button id="btnLogout" class="btn-out">Quitter</button>
+      </nav>
     </header>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="dash">📊 Tableau de bord</button>
-      <button class="tab" data-tab="content">📝 Contenus</button>
-      <button class="tab" data-tab="market">🛒 Marché</button>
-      <button class="tab" data-tab="users">👥 Utilisateurs</button>
-      <button class="tab" data-tab="audit">🧾 Journal</button>
-      <button class="tab" data-tab="settings">⚙️ Réglages</button>
-    </nav>
+    <main class="main-container">
+      
+      <section id="tab-content" class="panel">
+        <div class="sidebar">
+          <h3>Bibliothèques</h3>
+          <div id="nodeList" class="menu"></div>
+        </div>
+        <div class="main-content">
+          <div class="bar">
+            <h2 id="currentNodeTitle">Sélectionnez une bibliothèque</h2>
+            <button id="btnAddItem" class="btn primary" style="display:none">+ Ajouter une entrée</button>
+          </div>
+          <div id="cardsGrid" class="grid"></div>
+        </div>
+      </section>
 
-    <!-- TABLEAU DE BORD -->
-    <section id="tab-dash" class="panel">
-      <div class="cards" id="kpis"></div>
-      <div class="grid2">
+      <section id="tab-users" class="panel" hidden>
         <div class="block">
-          <div class="block-head">
-            <h3>Visites journalières</h3>
-            <select id="rangeSel">
-              <option value="14">14 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="90">90 jours</option>
-            </select>
+          <div class="bar">
+            <h3>Comptes Utilisateurs & Permissions</h3>
+            <input type="text" id="userSearch" placeholder="Rechercher par email ou UID…">
           </div>
-          <div id="chartDaily" class="chart"></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur (Email / UID)</th>
+                  <th>Création</th>
+                  <th>Dernière Connexion</th>
+                  <th>Rôles & Privilèges</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersList"></tbody>
+            </table>
+          </div>
         </div>
+      </section>
+
+      <section id="tab-audit" class="panel" hidden>
         <div class="block">
-          <h3>Visites mensuelles</h3>
-          <div id="chartMonthly" class="chart"></div>
+          <h3>Historique des actions administratives</h3>
+          <p class="muted" style="margin-bottom:15px;">Les 100 dernières actions effectuées sur la base de données.</p>
+          <div id="auditList" class="list"></div>
         </div>
-      </div>
-      <div class="block">
-        <h3>Activité récente</h3>
-        <div id="feed" class="feed"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- CONTENUS -->
-    <section id="tab-content" class="panel" hidden>
-      <div class="block">
-        <div class="block-head">
-          <h3 class="star">Contenus par page</h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="nodeSel"></select>
-            <button id="btnExport" class="btn ghost sm">⬇️ Exporter</button>
-            <button id="btnAdd" class="btn primary sm">➕ Ajouter</button>
-          </div>
+      <section id="tab-settings" class="panel" hidden>
+        <div class="block max-width-sm">
+          <h3 class="star">Contrôle global du système</h3>
+          
+          <label class="switch-row">
+            <span class="switch">
+              <input type="checkbox" id="cfgMaintenance">
+              <span></span>
+            </span>
+            <span><b>Mode maintenance général</b> — Bloque l'accès aux clients et affiche un écran de mise à jour.</span>
+          </label>
+
+          <label class="field-lg">
+            <span>Annonce globale (Bandeau défilant dans l'application · Laisser vide pour masquer)</span>
+            <textarea id="cfgAnnouncement" rows="4" maxlength="300" placeholder="Ex. : Maintenance planifiée ce vendredi à 22h..."></textarea>
+          </label>
+
+          <button id="btnSaveCfg" class="btn primary">Sauvegarder les configurations</button>
+          <p id="cfgMsg" class="msg"></p>
         </div>
-        <p class="muted sm" id="nodeInfo" style="margin-bottom:14px"></p>
-        <div id="itemList" class="card-grid"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- MARCHÉ -->
-    <section id="tab-market" class="panel" hidden>
-      <div class="cards" id="marketKpis"></div>
-      <div class="block">
-        <div class="block-head">
-          <h3 class="star">Produits</h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="prodSearch" type="search" placeholder="Rechercher…">
-            <button id="btnAddProduct" class="btn primary sm">➕ Produit</button>
-          </div>
-        </div>
-        <div id="prodList" class="card-grid"></div>
-      </div>
-      <div class="block">
-        <h3 class="star">Vendeurs &amp; boutiques</h3>
-        <div id="sellerList" class="list"></div>
-      </div>
-    </section>
-
-    <!-- UTILISATEURS -->
-    <section id="tab-users" class="panel" hidden>
-      <div class="block">
-        <div class="block-head">
-          <h3>Utilisateurs <span id="userCount" class="muted"></span></h3>
-          <input id="userSearch" type="search" placeholder="Rechercher un email…">
-        </div>
-        <div id="userList" class="list"></div>
-      </div>
-    </section>
-
-    <!-- JOURNAL -->
-    <section id="tab-audit" class="panel" hidden>
-      <div class="block">
-        <h3>Journal des actions admin</h3>
-        <div id="auditList" class="list"></div>
-      </div>
-    </section>
-
-    <!-- RÉGLAGES -->
-    <section id="tab-settings" class="panel" hidden>
-      <div class="block">
-        <h3 class="star">Contrôle global de l'application</h3>
-        <label class="switch-row">
-          <span class="switch"><input type="checkbox" id="cfgMaintenance"><span></span></span>
-          <span><b>Mode maintenance</b> — l'app affiche un écran d'attente aux utilisateurs.</span>
-        </label>
-        <label class="field-lg">
-          <span>Annonce globale (bandeau dans l'app · vide = masqué)</span>
-          <textarea id="cfgAnnouncement" rows="3" maxlength="300"
-            placeholder="Ex. : Nouvelle bibliothèque disponible cette semaine…"></textarea>
-        </label>
-        <button id="btnSaveCfg" class="btn primary">Enregistrer</button>
-        <p id="cfgMsg" class="msg"></p>
-      </div>
-    </section>
+    </main>
   </div>
 
-  <!-- GRANDE VUE (édition confortable) -->
-  <div id="big" class="bigwrap" hidden><div class="bigcard" id="bigcard"></div></div>
+  <div id="big" class="bigwrap" hidden>
+    <div class="bigcard" id="bigcard"></div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="/api/config.js"></script>
-  <script src="admin.js"></script>
+  <script src="/api/config" defer></script>
+  <script src="admin.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
 </html>

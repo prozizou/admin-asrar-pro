@@ -1,0 +1,84 @@
+// api/content.js — Gestion des contenus PAGE PAR PAGE (Admin SDK, admins seulement).
+const { app, verifyAdmin, audit } = require("./_lib/fb");
+
+const NODES = {
+  "db_sirr_deblocage":        { label: "Sirr — Déblocage",       page: "Secret Mystique", group: "Secrets" },
+  "db_sirr_domptage":         { label: "Sirr — Domptage",        page: "Secret Mystique", group: "Secrets" },
+  "db_sirr_ilham":            { label: "Sirr — Ilham",           page: "Secret Mystique", group: "Secrets" },
+  "db_sirr_protection":       { label: "Sirr — Protection",      page: "Secret Mystique", group: "Secrets" },
+  "db_sirr_ouverture":        { label: "Sirr — Ouverture",       page: "Secret Mystique", group: "Secrets" },
+  "almaqtab":                 { label: "Almaqtab",               page: "Bibliothèque",     group: "Lettres" },
+  "theme_fondamental":        { label: "Thème Fondamental",      page: "Calcul Numérique", group: "Calculs" },
+  "sourate":                  { label: "Sourates & Propriétés",  page: "Coran",            group: "Coran" },
+  "versetRef":                { label: "Versets Références",     page: "Coran",            group: "Coran" },
+  "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran" }
+};
+
+const SAFE_KEY = /^[a-zA-Z0-9_\-]+$/;
+
+module.exports = async (req, res) => {
+  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
+  const body = typeof req.body === "object" && req.body ? req.body
+             : (() => { try { return JSON.parse(req.body || "{}"); } catch { return {}; } })();
+  const { idToken, action, node, key, value } = body;
+
+  let who;
+  try { who = await verifyAdmin(idToken); }
+  catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
+
+  if (action === "nodes") return res.json({ nodes: NODES });
+
+  if (!NODES[node]) return res.status(400).json({ error: "Nœud interdit ou inconnu" });
+
+  const db = app().database();
+  const base = db.ref(node);
+
+  try {
+    if (action === "list") {
+      const snap = await base.once("value");
+      return res.json({ node, value: snap.val() });
+    }
+
+    if (action === "get") {
+      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      const snap = await base.child(key).once("value");
+      return res.json({ key, value: snap.val() });
+    }
+
+    if (action === "export") {
+      const snap = await base.once("value");
+      await audit(who, "export", node);
+      return res.json({ node, value: snap.val() });
+    }
+
+    if (action === "set") {
+      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      if (value === undefined) return res.status(400).json({ error: "Valeur manquante" });
+      await base.child(key).set(value);
+      await audit(who, "set", node + "/" + key);
+      return res.json({ ok: true });
+    }
+
+    if (action === "add") {
+      const ref = await base.push(value === undefined ? {} : value);
+      await audit(who, "add", node + "/" + ref.key);
+      return res.json({ ok: true, key: ref.key });
+    }
+
+    if (action === "delete") {
+      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      const snap = await base.child(key).once("value");
+      if (snap.exists()) {
+        await db.ref("trash").push({ node, key, value: snap.val(), by: who.email, at: Date.now() });
+      }
+      await base.child(key).remove();
+      await audit(who, "delete", node + "/" + key);
+      return res.json({ ok: true });
+    }
+
+    return res.status(400).json({ error: "Action inconnue" });
+  } catch (e) {
+    return res.status(500).json({ error: "Erreur serveur : " + e.message });
+  }
+};
+
