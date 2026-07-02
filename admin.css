@@ -189,17 +189,44 @@ input:focus, textarea:focus {
 .btn.danger:hover { background: rgba(209, 104, 92, 0.35); }
 .full-width { width: 100%; }
 
-/* STRUCTURE DES PANNEAUX (LAYOUT) */
-.main-container { padding: 32px; max-width: 1400px; margin: 0 auto; }
+/* Structure de base des panneaux */
 .panel {
+  display: block; /* On enlève le flex ici pour éviter les conflits */
+  width: 100%;
+  max-width: 800px; /* Largeur maximale pour que ce ne soit pas trop étiré */
+  margin: 0 auto 40px auto; /* Centré avec de l'espace entre les blocs */
+  padding: 20px;
+}
+
+/* On utilise le Grid pour les listes d'éléments */
+.list {
+  display: grid;
+  grid-template-columns: 1fr; /* Une seule colonne sur mobile */
+  gap: 15px; /* Espacement fixe et propre entre chaque carte */
+  margin-top: 20px;
+}
+
+/* La grande fenêtre d'édition (Bigwrap) */
+.bigwrap {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0,0,0,0.85);
   display: flex;
+  justify-content: center;
+  align-items: center; /* Centre parfaitement au milieu de l'écran */
+  padding: 20px;
+}
+
+.bigcard {
+  width: 100%;
+  max-width: 500px;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  backdrop-filter: var(--blur);
-  min-height: 650px;
+  border: 1px solid var(--gold-soft);
+  border-radius: 20px;
+  padding: 25px;
+  max-height: 90vh; /* Empêche le débordement vertical */
+  overflow-y: auto;
 }
 .sidebar {
   width: 280px;
