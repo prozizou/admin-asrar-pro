@@ -1,0 +1,9 @@
+{
+  "name": "asrar-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Panneau d'administration ASRAR PRO (projet Vercel dissocié)",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
