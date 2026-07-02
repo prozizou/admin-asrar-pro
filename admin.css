@@ -181,3 +181,29 @@ select:focus,input[type=search]:focus{outline:none;border-color:var(--gold)}
 .field-lg textarea{width:100%;min-height:80px;background:var(--panel);border:1px solid var(--line);
   color:var(--ink);border-radius:10px;padding:10px 12px;font-family:var(--body);resize:vertical}
 .switch-row{display:flex;gap:12px;align-items:center;margin:12px 0;font-size:.9rem;cursor:pointer}
+
+/* Vignette dans les cartes */
+.thumb{width:100%;height:120px;border-radius:10px;overflow:hidden;background:var(--panel);
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb .noimg{color:var(--muted);font-size:.75rem}
+.card.clickable{cursor:pointer}
+.card.clickable:hover .card-title{color:#fff}
+
+/* Grande vue (modal d'édition confortable) */
+.bigwrap{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
+  display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto}
+.bigcard{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line-2);
+  border-radius:18px;max-width:620px;width:100%;padding:22px;box-shadow:var(--shadow);margin:auto}
+.bighead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.bighead h3{font-size:1.3rem;color:var(--gold-2)}
+.bigimg{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px}
+.bigimg .frame{width:100%;max-width:340px;aspect-ratio:1;border-radius:14px;overflow:hidden;
+  background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+.bigimg .frame img{width:100%;height:100%;object-fit:cover}
+.bigimg .noimg{color:var(--muted);font-size:.85rem;text-align:center;padding:20px}
+.bigimg .btn{position:relative;overflow:hidden}
+.bigimg .btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.bigcard .card-fields{margin-bottom:8px}
+.bigcard .card-f{margin-top:14px}
+.bigcard .card-f #bigdel{margin-right:auto}

@@ -88,3 +88,29 @@ db.ref('config').on('value', (s) => {
 - Le super-admin ne peut être ni banni ni rétrogradé depuis l'interface.
 - La liste blanche de `api/content.js` empêche d'éditer les nœuds de droits
   (`purchased_user`, `admins`, `vip_users`) hors des routes dédiées et auditées.
+
+## Images (Cloudinary) — upload signé
+
+Le bouton **Ajouter** (Contenus) et le clic sur une carte ouvrent la **grande vue** :
+on y choisit une image depuis le téléphone → elle est envoyée sur Cloudinary et son
+URL est enregistrée dans le nœud RTDB interrogé (l'app crée la clé automatiquement ;
+pour un ajout, seuls **Titre** + **Faida** + **image** sont demandés).
+
+L'upload est **signé côté serveur** (`/api/cloudinary-sign`) : le secret ne quitte
+jamais Vercel. Variables d'env à ajouter :
+
+```
+CLOUDINARY_CLOUD_NAME=dqixuyqqh
+CLOUDINARY_API_KEY=...        (Cloudinary → Settings → API Keys)
+CLOUDINARY_API_SECRET=...     (idem — SECRET, ne jamais exposer)
+```
+
+Le champ image écrit dans RTDB s'appelle `image` (URL) + `imageId` (public_id, pour
+suppression ultérieure). Si un enregistrement utilise déjà `img`/`url`, ce nom est conservé.
+
+## PWA (panneau installable, cache dynamique)
+
+`manifest.json` + `sw.js` + `pwa.js` : le panneau est installable et fonctionne avec
+un **cache dynamique network-first**. À chaque déploiement, incrémente `SW_VERSION`
+dans `sw.js` → l'ancien cache est purgé et la page se recharge sur la nouvelle version.
+L'API et Cloudinary ne sont jamais mis en cache.

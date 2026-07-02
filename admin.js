@@ -3,12 +3,16 @@
 (function () {
   "use strict";
 
-  firebase.initializeApp({
-    apiKey: "AIzaSyBLzPKzbiNYitUz7sv9Ftqm0oF20rA32Zk",
-    authDomain: "asrar-bc059.firebaseapp.com",
-    databaseURL: "https://asrar-bc059.firebaseio.com",
-    projectId: "asrar-bc059"
-  });
+  // Config Firebase PUBLIQUE fournie par /api/config.js (variables d'env Vercel).
+  const cfg = window.FIREBASE_CONFIG || {};
+  if (!cfg.apiKey || !cfg.projectId) {
+    document.body.innerHTML = "<div style='color:#e8cd78;font-family:system-ui;" +
+      "text-align:center;padding:60px 20px'><h2>Configuration manquante</h2>" +
+      "<p>Les variables d'environnement Firebase ne sont pas définies sur Vercel " +
+      "(FB_API_KEY, FB_AUTH_DOMAIN, FB_PROJECT_ID, FB_DB_URL).</p></div>";
+    throw new Error("FIREBASE_CONFIG manquant");
+  }
+  firebase.initializeApp(cfg);
   const auth = firebase.auth();
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
 
@@ -133,96 +137,163 @@
   }
 
   // Carte réutilisable (contenus & produits). Valeur chargée à l'ouverture de l'édition.
+  // Envoi d'image vers Cloudinary (upload SIGNÉ : le secret reste sur le serveur).
+  async function uploadImage(file, node) {
+    const idToken = await auth.currentUser.getIdToken();
+    const folder = "asrar_admin/" + String(node || "divers").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const sig = await (await fetch("/api/cloudinary-sign", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, folder })
+    })).json();
+    if (!sig.signature) throw new Error(sig.error || "Signature refusée.");
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("api_key", sig.apiKey);
+    fd.append("timestamp", sig.timestamp);
+    fd.append("folder", sig.folder);
+    fd.append("signature", sig.signature);
+    const r = await fetch("https://api.cloudinary.com/v1_1/" + sig.cloudName + "/image/upload", { method: "POST", body: fd });
+    const d = await r.json();
+    if (!d.secure_url) throw new Error((d.error && d.error.message) || "Échec de l'envoi Cloudinary.");
+    return { url: d.secure_url, id: d.public_id };
+  }
+
+  // Carte COMPACTE (vignette + titre). Un clic ouvre la GRANDE VUE éditable.
   function recordCard(opt) {
-    const { node, onChanged } = opt;
-    let key = opt.key || null, title = opt.title || key || "Nouvel élément";
-    let rootObject = true, loaded = false, curVal = opt.value;
     const card = document.createElement("article");
-    card.className = "card";
+    card.className = "card clickable";
+    card.innerHTML =
+      (opt.img ? "<div class='thumb'><img src='" + esc(opt.img) + "' alt='' loading='lazy'></div>"
+               : "<div class='thumb'><span class='noimg'>Aucune image</span></div>") +
+      "<div class='card-h'><h4 class='card-title'>" + esc(opt.title) + "</h4>" +
+      (opt.key ? "<div class='card-actions'><button class='icon-btn danger' data-a='del' title='Supprimer'>🗑</button></div>" : "") +
+      "</div>" + (opt.subtitle ? "<div class='card-sub'>" + opt.subtitle + "</div>" : "");
+    card.onclick = (e) => {
+      if (e.target.closest("[data-a=del]")) return;
+      openBig(opt);
+    };
+    const del = card.querySelector("[data-a=del]");
+    if (del) del.onclick = async () => {
+      if (!confirm("Supprimer « " + opt.title + " » ?")) return;
+      if (!confirm("⚠️ Confirmation finale — une copie part à la corbeille (30 jours).")) return;
+      try { await api("content", { action: "delete", node: opt.node, key: opt.key }); opt.onChanged && opt.onChanged(); }
+      catch (e) { alert(e.message); }
+    };
+    return card;
+  }
 
-    function view() {
-      card.classList.remove("editing");
-      card.innerHTML =
-        "<div class='card-h'><h4 class='card-title'>" + esc(title) + "</h4>" +
-        "<div class='card-actions'>" +
-        "<button class='icon-btn' data-a='edit' title='Modifier'>✎</button>" +
-        (key ? "<button class='icon-btn danger' data-a='del' title='Supprimer'>🗑</button>" : "") +
-        "</div></div>" +
-        (opt.subtitle ? "<div class='card-sub'>" + opt.subtitle + "</div>" : "");
-      card.querySelector("[data-a=edit]").onclick = enterEdit;
-      const del = card.querySelector("[data-a=del]");
-      if (del) del.onclick = doDelete;
-    }
+  // ══ GRANDE VUE (édition confortable + image) ═════════════════
+  async function openBig(opt) {
+    const wrap = $("big"), box = $("bigcard");
+    const node = opt.node, onChanged = opt.onChanged;
+    const isNew = !opt.key;
+    box.innerHTML = "<div class='empty'>Chargement…</div>";
+    wrap.hidden = false;
 
-    async function enterEdit() {
-      if (!loaded && key) {
-        card.classList.add("loading");
-        try { curVal = (await api("content", { action: "get", node, key })).value; loaded = true; }
-        catch (e) { card.classList.remove("loading"); return alert(e.message); }
-        card.classList.remove("loading");
+    let value = {};
+    if (!isNew) { try { value = (await api("content", { action: "get", node, key: opt.key })).value || {}; } catch (e) { box.innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; return; } }
+    const rootObject = value && typeof value === "object" && !Array.isArray(value);
+
+    // Détecte les clés d'image existantes pour préserver le schéma de la base.
+    const imgKey = rootObject && ("image" in value ? "image" : "img" in value ? "img" : "url" in value ? "url" : null);
+    const idKey = rootObject && ("imageId" in value ? "imageId" : "public_id" in value ? "public_id" : null);
+    let img = imgKey ? value[imgKey] : "";
+    let imgId = idKey ? value[idKey] : "";
+    const OUT_IMG = imgKey || "image", OUT_ID = idKey || "imageId";
+
+    function render() {
+      let fields;
+      if (isNew) {
+        // Formulaire d'ajout simplifié : Titre + Faida (la clé est créée par l'app).
+        fields =
+          "<div class='field' data-key='titre'><div class='field-h'><span class='lbl'>Titre</span></div>" +
+          "<input class='inp' data-type='string' value=''></div>" +
+          "<div class='field' data-key='faida'><div class='field-h'><span class='lbl'>Faida (bienfait)</span></div>" +
+          "<textarea class='inp' data-type='string' rows='4'></textarea></div>";
+      } else if (rootObject) {
+        const skip = [OUT_IMG, OUT_ID, "image", "img", "url", "imageId", "public_id"];
+        fields = Object.entries(value).filter(([k]) => !skip.includes(k)).map(([k, v]) => controlHtml(k, v)).join("") +
+          "<div class='addfield'><input class='inp' data-addk placeholder='nom du champ'>" +
+          "<button class='btn ghost sm' data-a='addf'>＋ champ</button></div>";
+      } else {
+        fields = "<div class='field' data-key='__root__'><div class='field-h'><span class='lbl'>Valeur</span></div>" +
+          "<textarea class='inp' data-type='string' rows='6'>" + esc(String(value ?? "")) + "</textarea></div>";
       }
-      rootObject = curVal && typeof curVal === "object" && !Array.isArray(curVal);
-      edit();
-    }
-
-    function edit() {
-      card.classList.add("editing");
-      const keyRow = key ? "" :
-        "<div class='field'><div class='field-h'><span class='lbl'>Identifiant (vide = automatique)</span></div>" +
-        "<input class='inp' data-newkey type='text' placeholder='clé unique'></div>";
-      const fields = rootObject
-        ? Object.entries(curVal || {}).map(([k, v]) => controlHtml(k, v)).join("")
-        : "<div class='field'><div class='field-h'><span class='lbl'>Valeur</span></div>" +
-          "<textarea class='inp' data-type='" + (detectType(curVal) === "number" ? "number" : detectType(curVal) === "json" ? "json" : "string") +
-          "' rows='5'>" + esc(detectType(curVal) === "json" ? JSON.stringify(curVal, null, 2) : String(curVal ?? "")) + "</textarea></div>";
-      card.innerHTML =
-        "<div class='card-h'><h4 class='card-title'>" + esc(title) + "</h4></div>" +
-        "<div class='card-fields'>" + keyRow + fields + "</div>" +
-        (rootObject ? "<div class='addfield'><input class='inp' data-addk placeholder='nom du champ'>" +
-          "<button class='btn ghost sm' data-a='addf'>＋ champ</button></div>" : "") +
+      box.innerHTML =
+        "<div class='bighead'><h3>" + esc(opt.title || (isNew ? "Nouvel élément" : opt.key)) + "</h3>" +
+        "<button class='icon-btn' data-a='close'>✕</button></div>" +
+        "<div class='bigimg'><div class='frame'>" +
+        (img ? "<img src='" + esc(img) + "' alt=''>" : "<span class='noimg'>Aucune image</span>") +
+        "</div><label class='btn ghost sm'>📷 Choisir une image<input type='file' accept='image/*' data-file></label>" +
+        "<span class='msg' data-imgmsg></span></div>" +
+        "<div class='card-fields'>" + fields + "</div>" +
         "<div class='msg' data-msg></div>" +
-        "<div class='card-f'><button class='btn ghost sm' data-a='cancel'>Annuler</button>" +
+        "<div class='card-f'>" +
+        (isNew ? "" : "<button class='btn sm' data-a='del' id='bigdel' style='color:var(--danger);border-color:var(--danger)'>🗑 Supprimer</button>") +
+        "<button class='btn ghost sm' data-a='close'>Fermer</button>" +
         "<button class='btn primary sm' data-a='save'>Enregistrer</button></div>";
       wire();
     }
 
+    const msg = (m, ok) => { const e = box.querySelector("[data-msg]"); if (e) { e.textContent = m; e.className = "msg " + (ok ? "ok" : "err"); } };
+    const imgmsg = (m) => { const e = box.querySelector("[data-imgmsg]"); if (e) e.textContent = m; };
+
     function wire() {
-      card.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => b.closest(".field").remove());
-      const addf = card.querySelector("[data-a=addf]");
+      box.querySelectorAll("[data-a=close]").forEach((b) => b.onclick = close);
+      box.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => b.closest(".field").remove());
+      const addf = box.querySelector("[data-a=addf]");
       if (addf) addf.onclick = () => {
-        const k = (card.querySelector("[data-addk]").value || "").trim();
+        const k = (box.querySelector("[data-addk]").value || "").trim();
         if (!k) return;
-        if (/[.#$\[\]\/]/.test(k)) return msg("Nom de champ invalide (pas de . # $ [ ] /).");
-        card.querySelector(".card-fields").insertAdjacentHTML("beforeend", controlHtml(k, ""));
+        if (/[.#$\[\]\/]/.test(k)) return msg("Nom de champ invalide.");
+        box.querySelector(".card-fields").insertAdjacentHTML("afterbegin", controlHtml(k, ""));
         wire();
       };
-      card.querySelector("[data-a=cancel]").onclick = () => (key ? view() : card.remove());
-      card.querySelector("[data-a=save]").onclick = doSave;
+      const file = box.querySelector("[data-file]");
+      if (file) file.onchange = async () => {
+        const f = file.files && file.files[0]; if (!f) return;
+        imgmsg("Envoi de l'image…");
+        try { const up = await uploadImage(f, node); img = up.url; imgId = up.id; render(); }
+        catch (e) { imgmsg("⛔ " + e.message); }
+      };
+      const del = box.querySelector("[data-a=del]");
+      if (del) del.onclick = doDelete;
+      box.querySelector("[data-a=save]").onclick = doSave;
     }
-    const msg = (m, ok) => { const e = card.querySelector("[data-msg]"); if (e) { e.textContent = m; e.className = "msg " + (ok ? "ok" : "err"); } };
+
+    function close() { wrap.hidden = true; box.innerHTML = ""; }
 
     async function doSave() {
-      let val; try { val = readFields(card, rootObject); } catch (e) { return msg(e.message); }
-      let k = key;
-      if (!k) { const nk = (card.querySelector("[data-newkey]").value || "").trim();
-        if (nk && /[.#$\[\]\/]/.test(nk)) return msg("Identifiant invalide."); k = nk || null; }
-      const btn = card.querySelector("[data-a=save]"); btn.disabled = true;
+      let val;
       try {
-        if (k) await api("content", { action: "set", node, key: k, value: val });
-        else await api("content", { action: "add", node, value: val });
-        onChanged && onChanged();
+        if (isNew) { const o = readFields(box, true); val = o; }
+        else if (rootObject) val = readFields(box, true);
+        else { val = readFields(box, false); }
+      } catch (e) { return msg(e.message); }
+
+      // Réintègre l'image (préserve le nom de champ d'origine).
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        if (img) { val[OUT_IMG] = img; if (imgId) val[OUT_ID] = imgId; }
+        if (isNew) val.createdAt = Date.now();
+      }
+      const btn = box.querySelector("[data-a=save]"); btn.disabled = true;
+      try {
+        if (isNew) await api("content", { action: "add", node, value: val });
+        else await api("content", { action: "set", node, key: opt.key, value: val });
+        close(); onChanged && onChanged();
       } catch (e) { msg(e.message); btn.disabled = false; }
     }
     async function doDelete() {
-      if (!confirm("Supprimer « " + title + " » ?")) return;
+      if (!confirm("Supprimer « " + (opt.title || opt.key) + " » ?")) return;
       if (!confirm("⚠️ Confirmation finale — une copie part à la corbeille (30 jours).")) return;
-      try { await api("content", { action: "delete", node, key }); onChanged && onChanged(); }
-      catch (e) { alert(e.message); }
+      try { await api("content", { action: "delete", node, key: opt.key }); close(); onChanged && onChanged(); }
+      catch (e) { msg(e.message); }
     }
 
-    opt.startEdit ? enterEdit() : view();
-    return card;
+    render();
   }
+  // Fermer la grande vue en cliquant sur le fond.
+  $("big").addEventListener("click", (e) => { if (e.target === $("big")) { $("big").hidden = true; $("bigcard").innerHTML = ""; } });
 
   // ══ CONTENUS ═════════════════════════════════════════════════
   let NODES = {}, curNode = null;
@@ -249,14 +320,12 @@
         node: curNode, key: it.key,
         title: it.preview && it.preview !== "" ? it.preview : it.key,
         subtitle: "<span class='muted'>ID : " + esc(it.key) + "</span>",
+        img: it.img || "",
         onChanged: loadItems
       })));
     } catch (e) { grid.innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   }
-  $("btnAdd").onclick = () => {
-    const c = recordCard({ node: curNode, key: null, title: "Nouvel élément", onChanged: loadItems, startEdit: true });
-    $("itemList").prepend(c); c.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  $("btnAdd").onclick = () => openBig({ node: curNode, key: null, title: "Nouvel élément", onChanged: loadItems });
   $("btnExport").onclick = async () => {
     const d = await api("content", { action: "export", node: curNode });
     const blob = new Blob([JSON.stringify(d.value, null, 2)], { type: "application/json" });
@@ -290,16 +359,13 @@
     const rows = PRODUCTS.filter((p) => !q || p.name.toLowerCase().includes(q) || String(p.seller).toLowerCase().includes(q));
     if (!rows.length) { grid.innerHTML = "<div class='empty'>Aucun produit.</div>"; return; }
     rows.slice(0, 300).forEach((p) => grid.appendChild(recordCard({
-      node: "det_produits", key: p.key, title: p.name,
+      node: "det_produits", key: p.key, title: p.name, img: p.img || "",
       subtitle: "<span class='pill'>" + fmtF(p.price) + "</span> <span class='muted'>" + esc(p.seller) + "</span>" +
         (p.active ? "" : " <span class='tag danger'>inactif</span>"),
       onChanged: loadMarket
     })));
   }
-  $("btnAddProduct").onclick = () => {
-    const c = recordCard({ node: "det_produits", key: null, title: "Nouveau produit", onChanged: loadMarket, startEdit: true });
-    $("prodList").prepend(c); c.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  $("btnAddProduct").onclick = () => openBig({ node: "det_produits", key: null, title: "Nouveau produit", onChanged: loadMarket });
 
   // ══ UTILISATEURS ═════════════════════════════════════════════
   let USERS = [];

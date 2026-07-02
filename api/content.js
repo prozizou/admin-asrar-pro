@@ -52,11 +52,13 @@ module.exports = async (req, res) => {
       const out = [];
       snap.forEach((c) => {
         const v = c.val();
-        let preview = "";
+        let preview = "", img = "";
         if (v && typeof v === "object") {
           preview = v.name || v.title || v.titre || v.label || v.verset || Object.keys(v).slice(0, 4).join(", ");
+          const cand = v.image || v.img || v.url || v.imageUrl || "";
+          if (typeof cand === "string" && /^https?:\/\//.test(cand)) img = cand;
         } else preview = String(v);
-        out.push({ key: c.key, preview: String(preview).slice(0, 90) });
+        out.push({ key: c.key, preview: String(preview).slice(0, 90), img });
       });
       return res.json({ items: out, count: out.length });
     }

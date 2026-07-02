@@ -99,7 +99,8 @@ module.exports = async (req, res) => {
           price: Number(v.price || v.prix || v.amount || 0),
           seller: v.sellerEmail || v.vendeur || v.uid || "—",
           active: v.active !== false && v.disponible !== false,
-          stock: v.stock
+          stock: v.stock,
+          img: (typeof (v.image || v.img || v.url) === "string" && /^https?:\/\//.test(v.image || v.img || v.url)) ? (v.image || v.img || v.url) : ""
         });
       });
 
