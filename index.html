@@ -68,6 +68,37 @@
       </section>
 
       <section id="tab-users" class="panel" hidden>
+
+        <div class="block">
+          <div class="bar"><h3 class="star">Donner l'accès premium (par e-mail)</h3></div>
+          <p class="muted" style="margin-bottom:6px">
+            Accordez l'accès à un e-mail (même s'il n'a pas encore de compte) jusqu'à une date choisie.
+            Passé cette date, l'utilisateur est automatiquement bloqué jusqu'au prochain abonnement.
+          </p>
+          <div class="access-form">
+            <label class="field-lg"><span>E-mail de l'utilisateur</span>
+              <input type="email" id="accEmail" placeholder="exemple@gmail.com" autocomplete="off"></label>
+            <label class="field-lg" id="accDateWrap"><span>Date d'expiration</span>
+              <input type="date" id="accDate"></label>
+            <div class="quick-durations">
+              <button type="button" class="btn text" data-add-months="1">+1 mois</button>
+              <button type="button" class="btn text" data-add-months="3">+3 mois</button>
+              <button type="button" class="btn text" data-add-months="6">+6 mois</button>
+              <button type="button" class="btn text" data-add-months="12">+1 an</button>
+              <label class="chk-lbl" style="margin-left:auto">
+                <input type="checkbox" id="accLifetime"> Accès à vie</label>
+            </div>
+            <button id="btnGrantAccess" class="btn primary">Accorder l'accès</button>
+            <p id="accMsg" class="msg"></p>
+          </div>
+
+          <div class="bar" style="margin-top:28px">
+            <h3>Accès accordés <span id="accCount" class="muted"></span></h3>
+            <input type="text" id="accSearch" placeholder="Filtrer par e-mail…">
+          </div>
+          <div id="accessList" class="list"></div>
+        </div>
+
         <div class="block">
           <div class="bar">
             <h3>Comptes Utilisateurs & Permissions</h3>

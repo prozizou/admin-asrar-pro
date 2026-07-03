@@ -369,3 +369,25 @@ input:checked + span:before { transform: translateX(20px); background-color: var
 .msg { margin-top: 12px; font-size: 0.9rem; font-weight: 500; }
 .msg.info { color: var(--gold); }
 .msg.err { color: var(--danger); }
+
+/* ══ Accès premium par e-mail (onglet Utilisateurs) ══ */
+.access-form { display: flex; flex-direction: column; gap: 4px; max-width: 580px; }
+.access-form .field-lg { margin-top: 14px; margin-bottom: 4px; }
+.access-form input[type="date"] { color-scheme: dark; }
+.quick-durations { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 16px; }
+.quick-durations .btn.text { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; }
+#accessList .row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+#accessList .acts { display: flex; gap: 6px; flex-shrink: 0; }
+#accessList .badge { margin-left: 8px; }
+.badge.expired { background: rgba(209,104,92,0.18); color: var(--danger); border: 1px solid rgba(209,104,92,0.4); }
+.success-text { color: #6bbf7a !important; }
+
+/* ══ Éditeur : champs supplémentaires ══ */
+.xfields-head { display: flex; align-items: center; justify-content: space-between; margin: 26px 0 6px; padding-top: 16px; border-top: 1px solid var(--line); }
+.xfields-head span { color: var(--gold); font-size: 0.9rem; font-weight: 500; }
+#xfields { display: flex; flex-direction: column; gap: 14px; }
+.xfield { display: flex; flex-direction: column; gap: 6px; }
+.xfield-h { display: flex; align-items: center; justify-content: space-between; }
+.xfield-h span { color: var(--gold-2); font-size: 0.85rem; font-weight: 600; }
+.xfield-h .btn.text { padding: 2px 6px; font-size: 0.75rem; }
+.xfield input[type="text"], .xfield textarea { width: 100%; }

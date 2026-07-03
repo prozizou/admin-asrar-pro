@@ -34,8 +34,17 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   `trash/` (corbeille) avant effacement.
 - **Utilisateurs** : recherche, badges (admin / VIP / abonné / banni),
   **bannissement réel** (compte Firebase Auth désactivé + jetons révoqués →
-  déconnecté partout en ≤ 1 h, reconnexion impossible), offrir/retirer un
-  abonnement, VIP, promotion admin (**réservée au super-admin**).
+  déconnecté partout en ≤ 1 h, reconnexion impossible), VIP, promotion admin
+  (**réservée au super-admin**).
+- **Accès premium par e-mail (avec date d'expiration)** : dans l'onglet
+  Utilisateurs, saisir un e-mail + une **date d'expiration** (ou boutons rapides
+  +1/+3/+6 mois, +1 an, ou « à vie ») pour accorder l'accès — **même à un e-mail
+  qui n'a pas encore de compte**. L'accès est écrit dans `purchased_user/{clé}`
+  avec `expiresAt`. Le hub laisse alors passer l'utilisateur **jusqu'à cette
+  date** ; passé le délai, il est **automatiquement bloqué** jusqu'à un nouvel
+  accès. La liste « Accès accordés » montre le statut (actif/expiré) et permet de
+  **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
+  `list_access`.)
 - **Journal d'audit** : chaque action admin est tracée (`audit_log`).
 - **Réglages** : mode **maintenance** + **annonce globale** (`config/`).
 

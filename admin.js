@@ -23,6 +23,44 @@
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   const when = (t) => t ? new Date(t).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—";
 
+  // ── Aperçu des cartes : tolérant à tous les schémas de nœuds ──
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const cardTitle = (v, k) => isObj(v)
+    ? (v.title || v.titre || v.nom || v.name || v.label || v.verset || v.sourate || k)
+    : String(v ?? k);
+  const cardDesc = (v) => isObj(v)
+    ? String(v.faida || v.content || v.description || v.sirr || v.texte || v.details || v.benefit || "")
+    : String(v ?? "");
+  const cardImg = (v) => isObj(v) ? String(v.image || v.img || v.url || v.imageUrl || "") : "";
+
+  // Champs « cœur » gérés par les grands encarts dédiés (les autres = champs libres).
+  const CORE_FIELDS = ["title", "faida", "content", "image", "imageId"];
+  // Convertit la valeur d'un champ libre selon son type détecté.
+  function coerceField(el) {
+    const t = el.getAttribute("data-ftype");
+    if (t === "bool") return el.checked;
+    if (t === "number") { const n = Number(el.value); return el.value.trim() === "" ? "" : (isNaN(n) ? el.value : n); }
+    return el.value;
+  }
+  // Génère l'éditeur d'un champ libre (bool → interrupteur, nombre, texte court/long).
+  function extraFieldHtml(key, val) {
+    const type = typeof val === "boolean" ? "bool" : typeof val === "number" ? "number" : "string";
+    let ctrl;
+    if (type === "bool")
+      ctrl = `<label class="switch"><input type="checkbox" data-ftype="bool" ${val ? "checked" : ""}><span></span></label>`;
+    else if (type === "number")
+      ctrl = `<input type="text" inputmode="decimal" data-ftype="number" value="${esc(val)}">`;
+    else {
+      const s = String(val ?? "");
+      ctrl = (s.length > 60 || s.includes("\n"))
+        ? `<textarea rows="3" data-ftype="string">${esc(s)}</textarea>`
+        : `<input type="text" data-ftype="string" value="${esc(s)}">`;
+    }
+    return `<div class="xfield" data-fkey="${esc(key)}">
+      <div class="xfield-h"><span>${esc(key)}</span>
+      <button type="button" class="btn text danger-text xf-rm">✕ retirer</button></div>${ctrl}</div>`;
+  }
+
   let USER_TOKEN = null;
   let CURRENT_NODE = null;
 
@@ -102,6 +140,7 @@
     loadAudit();
     loadConfig();
     loadUsers();
+    loadAccess();
   }
 
   // GESTION ET NAVIGATION ENTRE LES ONGLETS
@@ -116,7 +155,7 @@
       $("tab-audit").hidden = target !== "audit";
       $("tab-settings").hidden = target !== "settings";
       
-      if (target === "users") loadUsers();
+      if (target === "users") { loadUsers(); loadAccess(); }
       if (target === "audit") loadAudit();
     };
   });
@@ -159,15 +198,17 @@
         return;
       }
       
-      $("cardsGrid").innerHTML = entries.reverse().map(([k, v]) => `
-        <div class="card clickable" data-key="${k}">
-          <div class="thumb">${v.image ? `<img src="${esc(v.image)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
+      $("cardsGrid").innerHTML = entries.reverse().map(([k, v]) => {
+        const img = cardImg(v), desc = cardDesc(v);
+        return `
+        <div class="card clickable" data-key="${esc(k)}">
+          <div class="thumb">${img ? `<img src="${esc(img)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
           <div class="card-body">
-            <div class="card-title">${esc(v.title || "Sans Titre")}</div>
-            <p class="muted">${esc(v.faida || v.content || "").slice(0, 95)}…</p>
+            <div class="card-title">${esc(cardTitle(v, k))}</div>
+            <p class="muted">${esc(desc).slice(0, 95)}${desc.length > 95 ? "…" : ""}</p>
           </div>
-        </div>
-      `).join("");
+        </div>`;
+      }).join("");
 
       document.querySelectorAll(".card.clickable").forEach((c) => {
         c.onclick = () => openEditor(c.getAttribute("data-key"));
@@ -181,45 +222,68 @@
     if (key) {
       try {
         const d = await api("content", { action: "get", node: CURRENT_NODE, key });
-        item = d.value || item;
+        item = isObj(d.value) ? d.value
+             : { title: "", faida: "", content: String(d.value ?? ""), image: "", imageId: "" };
       } catch (e) { return showToast(e.message, "err"); }
     }
 
+    // Champs libres = tout ce qui n'est pas un champ « cœur » (préservés + éditables).
+    const extra = Object.entries(item).filter(([k]) => !CORE_FIELDS.includes(k));
+
     $("bigcard").innerHTML = `
       <div class="bighead">
-        <h3>${key ? "Édition du Document" : "Nouvel Enregistrement Mystique"}</h3>
+        <h3>${key ? "Édition du document" : "Nouvel enregistrement"}</h3>
         <button id="btnCancelBig" class="btn text">Fermer</button>
       </div>
       <div class="bigimg">
-        <div class="frame">${item.image ? `<img src="${esc(item.image)}" id="previewImg" alt="Aperçu">` : `<div class="noimg" id="previewImg">Aucun média associé</div>`}</div>
+        <div class="frame" id="previewImg">${item.image ? `<img src="${esc(item.image)}" alt="Aperçu">` : `<div class="noimg">Aucun média associé</div>`}</div>
         <input type="file" id="fileField" accept="image/*" style="display:none">
-        <button id="btnUpload" class="btn text">✨ Assigner un visuel précieux</button>
+        <button id="btnUpload" class="btn text">✨ Choisir une image</button>
       </div>
-      <label class="field-lg"><span>Titre Sacré</span><input type="text" id="editTitle" value="${esc(item.title)}"></label>
-      <label class="field-lg"><span>Résumé court (Faida)</span><textarea id="editFaida" rows="3">${esc(item.faida || "")}</textarea></label>
-      <label class="field-lg"><span>Contenu Textuel Explicatif Extrême</span><textarea id="editContent" rows="8">${esc(item.content || "")}</textarea></label>
+      <label class="field-lg"><span>Titre</span><input type="text" id="editTitle" value="${esc(item.title || "")}"></label>
+      <label class="field-lg"><span>Faïda (résumé court)</span><textarea id="editFaida" rows="3">${esc(item.faida || "")}</textarea></label>
+      <label class="field-lg"><span>Contenu détaillé</span><textarea id="editContent" rows="8">${esc(item.content || "")}</textarea></label>
+
+      <div class="xfields-head">
+        <span>Champs supplémentaires</span>
+        <button type="button" id="btnAddField" class="btn text">＋ Ajouter un champ</button>
+      </div>
+      <div id="xfields">${extra.map(([k, v]) => extraFieldHtml(k, v)).join("")}</div>
+
       <div style="display:flex; justify-content:space-between; margin-top:25px; gap:15px;">
-        ${key ? `<button id="btnDeleteBig" class="btn danger">Détruire l'entrée</button>` : `<div></div>`}
-        <button id="btnSaveBig" class="btn primary">Sauvegarder dans la base</button>
+        ${key ? `<button id="btnDeleteBig" class="btn danger">Supprimer</button>` : `<div></div>`}
+        <button id="btnSaveBig" class="btn primary">Enregistrer</button>
       </div>
     `;
 
     $("big").hidden = false;
     let localFile = null;
 
-    $("btnCancelBig").onclick = () => $("big").hidden = true;
+    const bindRemovers = () => document.querySelectorAll("#xfields .xf-rm")
+      .forEach((b) => b.onclick = () => b.closest(".xfield").remove());
+    bindRemovers();
+
+    $("btnCancelBig").onclick = closeBig;
     $("btnUpload").onclick = () => $("fileField").click();
     $("fileField").onchange = (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
+      const f = e.target.files[0]; if (!f) return;
       localFile = f;
-      const url = URL.createObjectURL(f);
-      $("previewImg").innerHTML = `<img src="${url}" alt="Aperçu local">`;
+      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
+    };
+
+    $("btnAddField").onclick = () => {
+      const name = (prompt("Nom du nouveau champ (ex. auteur, prix, lien) :") || "").trim();
+      if (!name) return;
+      if (!/^[a-zA-Z0-9_\-]+$/.test(name)) return showToast("Nom de champ invalide (lettres, chiffres, _ ou -).", "err");
+      if (CORE_FIELDS.includes(name) || document.querySelector(`#xfields [data-fkey="${name}"]`))
+        return showToast("Ce champ existe déjà.", "err");
+      $("xfields").insertAdjacentHTML("beforeend", extraFieldHtml(name, ""));
+      bindRemovers();
     };
 
     $("btnSaveBig").onclick = async () => {
-      $("btnSaveBig").disabled = true;
-      $("btnSaveBig").textContent = "Fusion transitoire avec le cloud…";
+      const btn = $("btnSaveBig");
+      btn.disabled = true; btn.textContent = "Enregistrement…";
       try {
         if (localFile) {
           const sign = await api("cloudinary-sign", { folder: CURRENT_NODE });
@@ -229,43 +293,60 @@
           fd.append("timestamp", sign.timestamp);
           fd.append("signature", sign.signature);
           fd.append("folder", sign.folder);
-          
           const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, { method: "POST", body: fd });
           const cData = await cRes.json();
-          if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média Cloudinary a échoué.");
+          if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média a échoué.");
           item.image = cData.secure_url;
           item.imageId = cData.public_id;
         }
 
-        item.title = $("editTitle").value.trim();
-        item.faida = $("editFaida").value.trim();
-        item.content = $("editContent").value.trim();
+        // Reconstruit l'enregistrement : champs cœur + champs libres du formulaire.
+        const out = {};
+        const title = $("editTitle").value.trim();
+        if (!title) throw new Error("Le champ « Titre » ne peut rester vide.");
+        out.title = title;
+        const faida = $("editFaida").value.trim();
+        const content = $("editContent").value.trim();
+        if (faida) out.faida = faida;
+        if (content) out.content = content;
+        if (item.image) { out.image = item.image; if (item.imageId) out.imageId = item.imageId; }
 
-        if (!item.title) throw new Error("Le champ 'Titre' ne peut rester vide.");
+        document.querySelectorAll("#xfields .xfield").forEach((f) => {
+          const k = f.getAttribute("data-fkey");
+          const el = f.querySelector("[data-ftype]");
+          if (k && el && !CORE_FIELDS.includes(k)) out[k] = coerceField(el);
+        });
 
-        await api("content", { action: key ? "set" : "add", node: CURRENT_NODE, key, value: item });
+        if (!key && item.createdAt == null) out.createdAt = Date.now();
+        else if (item.createdAt != null && out.createdAt == null) out.createdAt = item.createdAt;
+
+        await api("content", { action: key ? "set" : "add", node: CURRENT_NODE, key, value: out });
         $("big").hidden = true;
-        showToast("Modifications appliquées avec succès.");
+        showToast("Modifications enregistrées.");
         loadGrid();
       } catch (err) {
         showToast(err.message, "err");
-        $("btnSaveBig").disabled = false;
-        $("btnSaveBig").textContent = "Sauvegarder dans la base";
+        btn.disabled = false; btn.textContent = "Enregistrer";
       }
     };
 
     if (key) {
       $("btnDeleteBig").onclick = async () => {
-        if (!confirm("⚠️ Attention : Êtes-vous sûr de vouloir envoyer cette entrée à la corbeille ?")) return;
+        if (!confirm("⚠️ Envoyer cette entrée à la corbeille (récupérable) ?")) return;
         try {
           await api("content", { action: "delete", node: CURRENT_NODE, key });
           $("big").hidden = true;
-          showToast("Document archivé dans la corbeille.");
+          showToast("Entrée archivée dans la corbeille.");
           loadGrid();
         } catch (e) { showToast(e.message, "err"); }
       };
     }
   }
+
+  function closeBig() { $("big").hidden = true; }
+  // Fermer la grande vue : clic sur le fond sombre ou touche Échap.
+  $("big").addEventListener("click", (e) => { if (e.target === $("big")) closeBig(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("big").hidden) closeBig(); });
 
   $("btnAddItem").onclick = () => openEditor(null);
 
@@ -296,9 +377,13 @@
                   <input type="checkbox" class="act-role" data-uid="${u.uid}" data-role="vip" ${u.isVip ? 'checked' : ''}> Accès VIP global
                 </label>
               </div>
+              <div class="muted" style="margin-top:6px">
+                ${u.sub ? (u.subActive ? '💎 Abonné · ' + esc(u.sub) : '⛔ Abonnement expiré') : 'Aucun abonnement'}
+              </div>
             </td>
             <td>
-              ${u.isSuper ? '—' : `
+              <button class="btn text act-access" data-email="${esc(u.email)}">Gérer l'accès</button>
+              ${u.isSuper ? '' : `
                 <button class="btn text ${u.banned ? 'success-text' : 'danger-text'} act-ban" data-uid="${u.uid}" data-ban="${!u.banned}">
                   ${u.banned ? "Réactiver ✔" : "Révoquer / Bannir ⛔"}
                 </button>
@@ -324,6 +409,11 @@
           };
         });
 
+        // Écouteurs : « Gérer l'accès » → pré-remplit le formulaire d'accès.
+        document.querySelectorAll(".act-access").forEach((b) => {
+          b.onclick = () => prefillAccess(b.getAttribute("data-email"));
+        });
+
         // Écouteurs d'action sur le bannissement
         document.querySelectorAll(".act-ban").forEach((b) => {
           b.onclick = async () => {
@@ -347,6 +437,91 @@
       };
 
     } catch (e) { $("usersList").innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
+  }
+
+  // ══ ACCÈS PREMIUM PAR E-MAIL (abonnement manuel + date d'expiration) ══
+  const fmtDate = (v) => v === "lifetime" ? "À vie"
+    : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
+
+  // Boutons de durée rapide → remplissent la date d'expiration.
+  document.querySelectorAll("[data-add-months]").forEach((b) => {
+    b.onclick = () => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + Number(b.getAttribute("data-add-months")));
+      $("accDate").value = d.toISOString().slice(0, 10);
+      $("accLifetime").checked = false;
+      $("accDate").disabled = false;
+    };
+  });
+  $("accLifetime").onchange = () => { $("accDate").disabled = $("accLifetime").checked; };
+
+  $("btnGrantAccess").onclick = async () => {
+    const email = $("accEmail").value.trim();
+    const life = $("accLifetime").checked;
+    const dateVal = $("accDate").value;
+    const msg = $("accMsg");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      msg.className = "msg err"; msg.textContent = "E-mail invalide."; return;
+    }
+    const payload = { action: "grant_access", email };
+    if (life) {
+      payload.lifetime = true;
+    } else {
+      if (!dateVal) { msg.className = "msg err"; msg.textContent = "Choisissez une date d'expiration ou « à vie »."; return; }
+      const ms = new Date(dateVal + "T23:59:59").getTime();
+      if (!(ms > Date.now())) { msg.className = "msg err"; msg.textContent = "La date doit être dans le futur."; return; }
+      payload.expiresAt = ms;
+    }
+    const btn = $("btnGrantAccess"); btn.disabled = true;
+    try {
+      await api("users", payload);
+      msg.className = "msg ok";
+      msg.textContent = "✅ Accès accordé à " + email + (life ? " (à vie)." : " jusqu'au " + fmtDate(payload.expiresAt) + ".");
+      $("accEmail").value = ""; $("accLifetime").checked = false;
+      $("accDate").disabled = false; $("accDate").value = "";
+      loadAccess(); loadUsers();
+    } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+    btn.disabled = false;
+  };
+
+  let ACCESS = [];
+  async function loadAccess() {
+    try {
+      const d = await api("users", { action: "list_access" });
+      ACCESS = d.items || [];
+      $("accCount").textContent = "(" + (d.total || 0) + ")";
+      renderAccess();
+    } catch (e) { $("accessList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+  }
+  $("accSearch").oninput = renderAccess;
+  function renderAccess() {
+    const q = ($("accSearch").value || "").toLowerCase().trim();
+    const rows = ACCESS.filter((r) => !q || r.email.toLowerCase().includes(q));
+    $("accessList").innerHTML = rows.map((r) => `
+      <div class="row">
+        <div>
+          <b>${esc(r.email)}</b>
+          <span class="badge ${r.active ? "gold" : "expired"}">${r.active ? "Actif" : "Expiré"}</span>
+          <div class="muted">Expiration : ${fmtDate(r.expiresAt)}${r.grantedBy ? " · par " + esc(r.grantedBy) : ""}</div>
+        </div>
+        <div class="acts">
+          <button class="btn text" data-acc-edit="${esc(r.email)}">Prolonger</button>
+          <button class="btn text danger-text" data-acc-revoke="${esc(r.email)}">Révoquer</button>
+        </div>
+      </div>`).join("") || "<div class='empty'>Aucun accès accordé pour l'instant.</div>";
+
+    document.querySelectorAll("[data-acc-revoke]").forEach((b) => b.onclick = async () => {
+      const em = b.getAttribute("data-acc-revoke");
+      if (!confirm("Révoquer l'accès premium de " + em + " ?")) return;
+      try { await api("users", { action: "revoke_access", email: em }); showToast("Accès révoqué."); loadAccess(); loadUsers(); }
+      catch (e) { showToast(e.message, "err"); }
+    });
+    document.querySelectorAll("[data-acc-edit]").forEach((b) => b.onclick = () => prefillAccess(b.getAttribute("data-acc-edit")));
+  }
+  function prefillAccess(email) {
+    $("accEmail").value = email;
+    $("accEmail").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("accEmail").focus();
   }
 
   // ══ JOURNAL D'AUDIT (RÉSOLUTION COMPLÈTE DU BUG DE LA FONCTION INTERNE ROW) ══
