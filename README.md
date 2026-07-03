@@ -46,6 +46,21 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
   `list_access`.)
 - **Journal d'audit** : chaque action admin est tracée (`audit_log`).
+- **Marché (boutiques & produits)** : onglet dédié. Liste des boutiques
+  (`sellers/{uid}`) avec statut (active / expirée), date d'expiration et nombre de
+  produits. Actions par boutique : **Prolonger** (nouvelle date), **Renommer**,
+  **Notifier** le vendeur, **Révoquer** (retire tous ses produits de la vente en
+  les déplaçant vers `det_produits_bloques`), **Restaurer**, **Supprimer**
+  (corbeille). Bouton **« Bloquer les boutiques expirées »** : bloque d'un coup
+  toutes les boutiques dont la date de péremption est atteinte. Produits listés
+  **par 50** avec blocage / déblocage / suppression à l'unité.
+- **Sélection multiple (contenus)** : bouton **☑ Sélection** → cases à cocher sur
+  les cartes → **supprimer** en lot ou **déplacer** vers un autre nœud RTDB.
+- **Affichage par 50** : contenus, utilisateurs et produits se chargent par pages
+  de 50 (bouton « Afficher 50 de plus ») pour ne pas tout charger d'un coup.
+- **Interface responsive** : détection mobile / PC. Sur mobile, la liste des
+  bibliothèques et la grille occupent toute la largeur (navigation liste ↔ grille
+  avec bouton « ← Bibliothèques »).
 - **Réglages** : mode **maintenance** + **annonce globale** (`config/`).
 
 ## À faire dans l'application principale (2 petits ajouts)

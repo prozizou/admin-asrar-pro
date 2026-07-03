@@ -391,3 +391,46 @@ input:checked + span:before { transform: translateX(20px); background-color: var
 .xfield-h span { color: var(--gold-2); font-size: 0.85rem; font-weight: 600; }
 .xfield-h .btn.text { padding: 2px 6px; font-size: 0.75rem; }
 .xfield input[type="text"], .xfield textarea { width: 100%; }
+
+/* ═══════════ RESPONSIVE (détection mobile / PC) + pleine largeur ═══════════ */
+.panel { max-width: 1200px; }
+#tab-content { display: flex; align-items: stretch; padding: 0; gap: 0; }
+#tab-content .sidebar { flex: 0 0 280px; }
+#tab-content .main-content { flex: 1 1 auto; min-width: 0; }
+.mobile-only { display: none; }
+.bar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.load-more { display: block; margin: 18px auto 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 16px; }
+select, input[type="date"], input[type="search"] { background: rgba(0,0,0,0.25); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: inherit; }
+select:focus, input[type="date"]:focus, input[type="search"]:focus { outline: none; border-color: var(--gold-2); }
+
+@media (max-width: 820px) {
+  .panel { padding: 12px; }
+  .nav { flex-wrap: wrap; gap: 4px; }
+  #tab-content { flex-direction: column; }
+  #tab-content .sidebar { flex: none; width: 100%; border-right: none; border-bottom: 1px solid var(--line); max-height: 46vh; overflow-y: auto; }
+  #tab-content .main-content { width: 100%; padding: 16px 6px; }
+  .mobile-only { display: inline-flex !important; align-self: flex-start; margin-bottom: 8px; }
+  body.is-mobile #tab-content.show-grid .sidebar { display: none; }
+  body.is-mobile #tab-content:not(.show-grid) .main-content { display: none; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .thumb { height: 120px; }
+  #accessList .row, #shopList .row { flex-direction: column; align-items: flex-start; }
+  .row .acts { flex-wrap: wrap; }
+  .block { padding: 18px; }
+}
+
+/* ═══════════ Sélection multiple (contenus) ═══════════ */
+.bulkbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--panel2); border: 1px solid var(--gold-soft); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+.bulkbar #bulkCount { color: var(--gold-2); font-weight: 600; }
+.bulk-select { min-width: 160px; }
+.card { position: relative; }
+.card.sel { outline: 2px solid var(--gold); outline-offset: -2px; }
+.card-check { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(0,0,0,0.6); border-radius: 6px; padding: 4px 5px; display: inline-flex; }
+.card-check input { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+
+/* ═══════════ Marché (boutiques & produits) ═══════════ */
+.acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.card.blocked { opacity: 0.55; }
+#shopList .row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+#shopList .acts { justify-content: flex-end; }
+#shopList .badge, #shopList .badge { margin-left: 8px; }

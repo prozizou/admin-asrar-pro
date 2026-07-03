@@ -44,6 +44,7 @@
       </div>
       <nav class="nav">
         <button data-tab="content" class="active">Contenus</button>
+        <button data-tab="market">Marché</button>
         <button data-tab="users">Utilisateurs</button>
         <button data-tab="audit">Journal d'Audit</button>
         <button data-tab="settings">Réglages</button>
@@ -59,11 +60,45 @@
           <div id="nodeList" class="menu"></div>
         </div>
         <div class="main-content">
+          <button id="btnBackNodes" class="btn text mobile-only" hidden>← Bibliothèques</button>
           <div class="bar">
             <h2 id="currentNodeTitle">Sélectionnez une bibliothèque</h2>
-            <button id="btnAddItem" class="btn primary" style="display:none">+ Ajouter une entrée</button>
+            <div class="bar-actions" id="contentActions" style="display:none">
+              <button id="btnSelectMode" class="btn text">☑ Sélection</button>
+              <button id="btnAddItem" class="btn primary">+ Ajouter</button>
+            </div>
           </div>
+
+          <div id="bulkBar" class="bulkbar" hidden>
+            <span id="bulkCount">0 sélectionné(s)</span>
+            <button id="bulkSelectAll" class="btn text">Tout</button>
+            <select id="bulkTarget" class="bulk-select" title="Déplacer vers…"></select>
+            <button id="bulkMove" class="btn text">Déplacer</button>
+            <button id="bulkDelete" class="btn text danger-text">Supprimer</button>
+            <button id="bulkCancel" class="btn text">Annuler</button>
+          </div>
+
           <div id="cardsGrid" class="grid"></div>
+          <button id="btnMoreItems" class="btn text load-more" hidden>Afficher 50 de plus</button>
+        </div>
+      </section>
+
+      <section id="tab-market" class="panel" hidden>
+        <div class="block">
+          <div class="bar">
+            <h3 class="star">Boutiques <span id="shopCount" class="muted"></span></h3>
+            <button id="btnBlockExpired" class="btn danger">Bloquer les boutiques expirées</button>
+          </div>
+          <input type="text" id="shopSearch" placeholder="Rechercher une boutique (nom ou e-mail)…">
+          <div id="shopList" class="list"></div>
+        </div>
+        <div class="block">
+          <div class="bar">
+            <h3>Produits <span id="prodCount" class="muted"></span></h3>
+            <input type="text" id="prodSearch" placeholder="Rechercher un produit…">
+          </div>
+          <div id="prodGrid" class="grid"></div>
+          <button id="btnMoreProds" class="btn text load-more" hidden>Afficher 50 de plus</button>
         </div>
       </section>
 
@@ -88,7 +123,7 @@
               <label class="chk-lbl" style="margin-left:auto">
                 <input type="checkbox" id="accLifetime"> Accès à vie</label>
             </div>
-            <button id="btnGrantAccess" class="btn primary">Accorder l'accès</button>
+            <button id="btnGrantAccess" class="btn primary">✔ Valider l'utilisateur</button>
             <p id="accMsg" class="msg"></p>
           </div>
 
@@ -118,6 +153,7 @@
               <tbody id="usersList"></tbody>
             </table>
           </div>
+          <button id="btnMoreUsers" class="btn text load-more" hidden>Afficher 50 de plus</button>
         </div>
       </section>
 

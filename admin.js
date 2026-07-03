@@ -143,28 +143,39 @@
     loadAccess();
   }
 
+  // DÉTECTION DE L'APPAREIL (mobile vs PC) → classe sur <body> pour le CSS/JS.
+  const mqMobile = window.matchMedia("(max-width: 820px)");
+  const applyDevice = () => document.body.classList.toggle("is-mobile", mqMobile.matches);
+  applyDevice();
+  if (mqMobile.addEventListener) mqMobile.addEventListener("change", applyDevice);
+  else window.addEventListener("resize", applyDevice);
+
   // GESTION ET NAVIGATION ENTRE LES ONGLETS
   document.querySelectorAll("[data-tab]").forEach((btn) => {
     btn.onclick = () => {
       document.querySelectorAll("[data-tab]").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       const target = btn.getAttribute("data-tab");
-      
+
       $("tab-content").hidden = target !== "content";
+      $("tab-market").hidden = target !== "market";
       $("tab-users").hidden = target !== "users";
       $("tab-audit").hidden = target !== "audit";
       $("tab-settings").hidden = target !== "settings";
-      
+
+      if (target === "market") loadMarket();
       if (target === "users") { loadUsers(); loadAccess(); }
       if (target === "audit") loadAudit();
     };
   });
 
   // SYSTÈME DE GESTION DES BIBLIOTHÈQUES (CONTENUS)
+  let NODES_CACHE = {};
   async function loadNodesMenu() {
     try {
       const d = await api("content", { action: "nodes" });
-      $("nodeList").innerHTML = Object.entries(d.nodes).map(([k, n]) => 
+      NODES_CACHE = d.nodes || {};
+      $("nodeList").innerHTML = Object.entries(NODES_CACHE).map(([k, n]) =>
         `<button class="menu-item" data-node="${k}">
           <b>${esc(n.label)}</b>
           <span class="muted">${esc(n.page)}</span>
@@ -184,37 +195,119 @@
   function selectNode(node, title) {
     CURRENT_NODE = node;
     $("currentNodeTitle").textContent = title;
-    $("btnAddItem").style.display = "inline-block";
+    $("contentActions").style.display = "flex";
+    exitSelectMode();
+    $("tab-content").classList.add("show-grid");   // mobile : bascule vers la grille
+    $("btnBackNodes").hidden = false;
     loadGrid();
   }
+  $("btnBackNodes").onclick = () => $("tab-content").classList.remove("show-grid");
+
+  // ── Grille paginée (50 par page) + sélection multiple ──
+  const PAGE = 50;
+  let ITEMS = [], shown = 0, selectMode = false;
+  const selected = new Set();
 
   async function loadGrid() {
-    $("cardsGrid").innerHTML = "<div class='empty'>Extraction des parchemins en cours…</div>";
+    $("cardsGrid").innerHTML = "<div class='empty'>Extraction des enregistrements…</div>";
+    $("btnMoreItems").hidden = true;
     try {
       const d = await api("content", { action: "list", node: CURRENT_NODE });
-      const entries = Object.entries(d.value || {});
-      if (!entries.length) {
-        $("cardsGrid").innerHTML = "<div class='empty'>Cette section ne contient aucun enregistrement pour le moment.</div>";
-        return;
-      }
-      
-      $("cardsGrid").innerHTML = entries.reverse().map(([k, v]) => {
-        const img = cardImg(v), desc = cardDesc(v);
-        return `
-        <div class="card clickable" data-key="${esc(k)}">
-          <div class="thumb">${img ? `<img src="${esc(img)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
-          <div class="card-body">
-            <div class="card-title">${esc(cardTitle(v, k))}</div>
-            <p class="muted">${esc(desc).slice(0, 95)}${desc.length > 95 ? "…" : ""}</p>
-          </div>
-        </div>`;
-      }).join("");
-
-      document.querySelectorAll(".card.clickable").forEach((c) => {
-        c.onclick = () => openEditor(c.getAttribute("data-key"));
-      });
+      ITEMS = Object.entries(d.value || {}).reverse();
+      selected.clear(); shown = 0; updateBulk();
+      if (!ITEMS.length) { $("cardsGrid").innerHTML = "<div class='empty'>Cette section ne contient aucun enregistrement.</div>"; return; }
+      $("cardsGrid").innerHTML = "";
+      renderMore();
+      fillBulkTarget();
     } catch (e) { showToast(e.message, "err"); }
   }
+
+  function cardHtml(k, v) {
+    const img = cardImg(v), desc = cardDesc(v);
+    return `<div class="card clickable ${selected.has(k) ? "sel" : ""}" data-key="${esc(k)}">
+      ${selectMode ? `<label class="card-check"><input type="checkbox" data-chk ${selected.has(k) ? "checked" : ""}></label>` : ""}
+      <div class="thumb">${img ? `<img src="${esc(img)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
+      <div class="card-body">
+        <div class="card-title">${esc(cardTitle(v, k))}</div>
+        <p class="muted">${esc(desc).slice(0, 95)}${desc.length > 95 ? "…" : ""}</p>
+      </div>
+    </div>`;
+  }
+
+  function renderMore() {
+    const next = ITEMS.slice(shown, shown + PAGE);
+    $("cardsGrid").insertAdjacentHTML("beforeend", next.map(([k, v]) => cardHtml(k, v)).join(""));
+    shown += next.length;
+    $("btnMoreItems").hidden = shown >= ITEMS.length;
+    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (ITEMS.length - shown) + " restants)";
+    wireCards();
+  }
+  $("btnMoreItems").onclick = renderMore;
+
+  function rerender() {
+    const count = Math.max(shown, PAGE);
+    $("cardsGrid").innerHTML = "";
+    const slice = ITEMS.slice(0, count);
+    $("cardsGrid").innerHTML = slice.map(([k, v]) => cardHtml(k, v)).join("");
+    shown = slice.length;
+    $("btnMoreItems").hidden = shown >= ITEMS.length;
+    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (ITEMS.length - shown) + " restants)";
+    wireCards();
+  }
+
+  function wireCards() {
+    document.querySelectorAll("#cardsGrid .card").forEach((c) => {
+      const k = c.getAttribute("data-key");
+      c.onclick = (e) => {
+        if (selectMode) { if (!e.target.closest("[data-chk]")) toggleSel(k, c); }
+        else openEditor(k);
+      };
+      const chk = c.querySelector("[data-chk]");
+      if (chk) chk.onchange = () => toggleSel(k, c, chk.checked);
+    });
+  }
+  function toggleSel(k, card, force) {
+    const on = force != null ? force : !selected.has(k);
+    if (on) selected.add(k); else selected.delete(k);
+    card.classList.toggle("sel", on);
+    const chk = card.querySelector("[data-chk]"); if (chk) chk.checked = on;
+    updateBulk();
+  }
+  function updateBulk() { const el = $("bulkCount"); if (el) el.textContent = selected.size + " sélectionné(s)"; }
+
+  function enterSelectMode() { selectMode = true; $("bulkBar").hidden = false; $("btnSelectMode").textContent = "✕ Quitter"; rerender(); }
+  function exitSelectMode() { selectMode = false; selected.clear(); $("bulkBar").hidden = true; $("btnSelectMode").textContent = "☑ Sélection"; if (ITEMS.length) rerender(); updateBulk(); }
+  $("btnSelectMode").onclick = () => selectMode ? exitSelectMode() : enterSelectMode();
+
+  function fillBulkTarget() {
+    $("bulkTarget").innerHTML = "<option value=''>Déplacer vers…</option>" +
+      Object.entries(NODES_CACHE).filter(([k]) => k !== CURRENT_NODE)
+        .map(([k, n]) => `<option value="${esc(k)}">${esc(n.label)}</option>`).join("");
+  }
+
+  $("bulkSelectAll").onclick = () => {
+    const vis = ITEMS.slice(0, shown).map(([k]) => k);
+    const allOn = vis.length && vis.every((k) => selected.has(k));
+    vis.forEach((k) => allOn ? selected.delete(k) : selected.add(k));
+    rerender(); updateBulk();
+  };
+  $("bulkCancel").onclick = exitSelectMode;
+  $("bulkDelete").onclick = async () => {
+    if (!selected.size) return showToast("Aucun élément sélectionné.", "err");
+    if (!confirm("Supprimer " + selected.size + " élément(s) ? (copie en corbeille, récupérable)")) return;
+    try { const r = await api("content", { action: "bulk_delete", node: CURRENT_NODE, keys: [...selected] });
+      showToast(r.count + " élément(s) supprimé(s)."); exitSelectMode(); loadGrid(); }
+    catch (e) { showToast(e.message, "err"); }
+  };
+  $("bulkMove").onclick = async () => {
+    const target = $("bulkTarget").value;
+    if (!target) return showToast("Choisissez d'abord un nœud cible.", "err");
+    if (!selected.size) return showToast("Aucun élément sélectionné.", "err");
+    if (!confirm("Déplacer " + selected.size + " élément(s) vers « " + (NODES_CACHE[target] || {}).label + " » ?")) return;
+    try { const r = await api("content", { action: "move", node: CURRENT_NODE, targetNode: target, keys: [...selected] });
+      showToast(r.count + " élément(s) déplacé(s)."); exitSelectMode(); loadGrid(); }
+    catch (e) { showToast(e.message, "err"); }
+  };
 
   // ÉDITEUR GRAND FORMAT (MODALE CONVERSATIONNELLE)
   async function openEditor(key = null) {
@@ -429,11 +522,19 @@
         });
       };
 
-      render(rows);
+      let filtered = rows, ushown = 50;
+      const draw = () => {
+        render(filtered.slice(0, ushown));
+        $("btnMoreUsers").hidden = ushown >= filtered.length;
+        $("btnMoreUsers").textContent = "Afficher 50 de plus (" + Math.max(0, filtered.length - ushown) + " restants)";
+      };
+      const resetUsers = (arr) => { filtered = arr; ushown = 50; draw(); };
+      $("btnMoreUsers").onclick = () => { ushown += 50; draw(); };
+      resetUsers(rows);
 
       $("userSearch").oninput = (e) => {
         const query = e.target.value.toLowerCase().trim();
-        render(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
+        resetUsers(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
       };
 
     } catch (e) { $("usersList").innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
@@ -522,6 +623,141 @@
     $("accEmail").value = email;
     $("accEmail").scrollIntoView({ behavior: "smooth", block: "center" });
     $("accEmail").focus();
+  }
+
+  // ══ MARCHÉ — BOUTIQUES & PRODUITS ════════════════════════════
+  let SHOPS = [], PRODUCTS = [], prodShown = 0;
+  const fmtF = (n) => (Number(n) || 0).toLocaleString("fr-FR") + " F";
+  const shopExp = (v) => v === "lifetime" ? "À vie" : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
+
+  async function loadMarket() {
+    $("shopList").innerHTML = "<div class='empty'>Chargement des boutiques…</div>";
+    $("prodGrid").innerHTML = "";
+    try {
+      const d = await api("market", { action: "list" });
+      SHOPS = d.shops || []; PRODUCTS = d.products || [];
+      $("shopCount").textContent = "(" + (d.totalShops || 0) + ")";
+      $("prodCount").textContent = "(" + (d.totalProducts || 0) + ")";
+      renderShops(); renderProductsReset();
+    } catch (e) { $("shopList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+  }
+
+  $("shopSearch").oninput = renderShops;
+  function renderShops() {
+    const q = ($("shopSearch").value || "").toLowerCase().trim();
+    const rows = SHOPS.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q));
+    $("shopList").innerHTML = rows.map((s) => {
+      const state = s.active ? `<span class="badge gold">Active</span>`
+                  : (s.expired ? `<span class="badge expired">Expirée</span>` : `<span class="badge expired">Inactive</span>`);
+      return `<div class="row">
+        <div>
+          <b>${esc(s.name)}</b> ${state}
+          <div class="muted">${esc(s.email || "e-mail inconnu")} · expire : ${shopExp(s.expiresAt)}
+            · ${s.products} produit(s)${s.blockedProducts ? " · " + s.blockedProducts + " bloqué(s)" : ""}</div>
+        </div>
+        <div class="acts">
+          <button class="btn text" data-shop-extend="${esc(s.uid)}">Prolonger</button>
+          <button class="btn text" data-shop-rename="${esc(s.uid)}">Renommer</button>
+          <button class="btn text" data-shop-notify="${esc(s.uid)}">Notifier</button>
+          ${s.blockedProducts ? `<button class="btn text success-text" data-shop-restore="${esc(s.uid)}">Restaurer</button>` : ``}
+          <button class="btn text danger-text" data-shop-revoke="${esc(s.uid)}">Révoquer</button>
+          <button class="btn text danger-text" data-shop-delete="${esc(s.uid)}">Supprimer</button>
+        </div>
+      </div>`;
+    }).join("") || "<div class='empty'>Aucune boutique.</div>";
+    wireShopActions();
+  }
+
+  function wireShopActions() {
+    const act = async (uid, payload, okMsg, confirmMsg) => {
+      if (confirmMsg && !confirm(confirmMsg)) return;
+      try { await api("market", Object.assign({ uid }, payload)); showToast(okMsg); loadMarket(); }
+      catch (e) { showToast(e.message, "err"); }
+    };
+    const askDate = (label) => {
+      const v = prompt(label + "\nFormat : AAAA-MM-JJ (ou « vie » pour un accès à vie) :", "");
+      if (v == null) return undefined;
+      if (v.trim().toLowerCase() === "vie") return "lifetime";
+      const ms = new Date(v.trim() + "T23:59:59").getTime();
+      if (!(ms > Date.now())) { showToast("Date invalide ou passée.", "err"); return undefined; }
+      return ms;
+    };
+    document.querySelectorAll("[data-shop-extend]").forEach((b) => b.onclick = () => {
+      const exp = askDate("Nouvelle date d'expiration de la boutique :");
+      if (exp === undefined) return;
+      act(b.getAttribute("data-shop-extend"), { action: "shop_restore", expiresAt: exp }, "Boutique prolongée / réactivée.");
+    });
+    document.querySelectorAll("[data-shop-rename]").forEach((b) => b.onclick = () => {
+      const name = prompt("Nouveau nom de la boutique :", "");
+      if (!name || !name.trim()) return;
+      act(b.getAttribute("data-shop-rename"), { action: "shop_update", name: name.trim() }, "Boutique renommée.");
+    });
+    document.querySelectorAll("[data-shop-notify]").forEach((b) => b.onclick = () => {
+      const message = prompt("Message à envoyer au vendeur :", "");
+      if (!message || !message.trim()) return;
+      act(b.getAttribute("data-shop-notify"), { action: "shop_notify", message: message.trim() }, "Notification envoyée.");
+    });
+    document.querySelectorAll("[data-shop-restore]").forEach((b) => b.onclick = () =>
+      act(b.getAttribute("data-shop-restore"), { action: "shop_restore" }, "Produits rétablis en vente."));
+    document.querySelectorAll("[data-shop-revoke]").forEach((b) => b.onclick = () =>
+      act(b.getAttribute("data-shop-revoke"), { action: "shop_revoke" }, "Boutique révoquée : produits bloqués.",
+          "Révoquer cette boutique ? Tous ses produits seront retirés de la vente (réversible)."));
+    document.querySelectorAll("[data-shop-delete]").forEach((b) => b.onclick = () =>
+      act(b.getAttribute("data-shop-delete"), { action: "shop_delete", withProducts: true }, "Boutique supprimée (corbeille).",
+          "Supprimer définitivement cette boutique ET ses produits ? (copie en corbeille)"));
+  }
+
+  $("btnBlockExpired").onclick = async () => {
+    if (!confirm("Bloquer TOUTES les boutiques dont l'abonnement est expiré ?\nLeurs produits seront retirés de la vente.")) return;
+    try {
+      const r = await api("market", { action: "block_expired" });
+      showToast(r.shopsBlocked + " boutique(s) bloquée(s), " + r.productsBlocked + " produit(s) retiré(s).");
+      loadMarket();
+    } catch (e) { showToast(e.message, "err"); }
+  };
+
+  $("prodSearch").oninput = renderProductsReset;
+  function renderProductsReset() { prodShown = 0; $("prodGrid").innerHTML = ""; renderProductsMore(); }
+  function filteredProducts() {
+    const q = ($("prodSearch").value || "").toLowerCase().trim();
+    return PRODUCTS.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.vendeur || "").toLowerCase().includes(q));
+  }
+  function renderProductsMore() {
+    const list = filteredProducts();
+    const next = list.slice(prodShown, prodShown + PAGE);
+    $("prodGrid").insertAdjacentHTML("beforeend", next.map((p) => `
+      <div class="card ${p.blocked ? "blocked" : ""}">
+        <div class="thumb">${p.image ? `<img src="${esc(p.image)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
+        <div class="card-body">
+          <div class="card-title">${esc(p.name)} ${p.blocked ? `<span class="badge expired">bloqué</span>` : ""}</div>
+          <p class="muted">${fmtF(p.price)} · ${esc(p.vendeur || "—")}</p>
+          <div class="acts" style="margin-top:8px">
+            ${p.blocked
+              ? `<button class="btn text success-text" data-prod-unblock="${esc(p.key)}">Débloquer</button>`
+              : `<button class="btn text" data-prod-block="${esc(p.key)}">Bloquer</button>`}
+            <button class="btn text danger-text" data-prod-del="${esc(p.key)}" data-blk="${p.blocked ? 1 : 0}">Supprimer</button>
+          </div>
+        </div>
+      </div>`).join(""));
+    prodShown += next.length;
+    $("btnMoreProds").hidden = prodShown >= list.length;
+    $("btnMoreProds").textContent = "Afficher 50 de plus (" + (list.length - prodShown) + " restants)";
+    wireProductActions();
+  }
+  $("btnMoreProds").onclick = renderProductsMore;
+
+  function wireProductActions() {
+    const run = async (payload, msg, confirmMsg) => {
+      if (confirmMsg && !confirm(confirmMsg)) return;
+      try { await api("market", payload); showToast(msg); loadMarket(); } catch (e) { showToast(e.message, "err"); }
+    };
+    document.querySelectorAll("[data-prod-block]").forEach((b) => b.onclick = () =>
+      run({ action: "product_block", key: b.getAttribute("data-prod-block") }, "Produit bloqué."));
+    document.querySelectorAll("[data-prod-unblock]").forEach((b) => b.onclick = () =>
+      run({ action: "product_unblock", key: b.getAttribute("data-prod-unblock") }, "Produit remis en vente."));
+    document.querySelectorAll("[data-prod-del]").forEach((b) => b.onclick = () =>
+      run({ action: "product_delete", key: b.getAttribute("data-prod-del"), blocked: b.getAttribute("data-blk") === "1" },
+          "Produit supprimé (corbeille).", "Supprimer ce produit ? (copie en corbeille)"));
   }
 
   // ══ JOURNAL D'AUDIT (RÉSOLUTION COMPLÈTE DU BUG DE LA FONCTION INTERNE ROW) ══
