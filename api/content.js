@@ -76,6 +76,45 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
 
+    if (action === "bulk_delete") {
+      const keys = Array.isArray(body.keys) ? body.keys : [];
+      if (!keys.length) return res.status(400).json({ error: "Aucun élément sélectionné" });
+      let n = 0;
+      for (const k of keys) {
+        if (!SAFE_KEY.test(String(k))) continue;
+        const snap = await base.child(k).once("value");
+        if (!snap.exists()) continue;
+        await db.ref("trash").push({ node, key: k, value: snap.val(), by: who.email, at: Date.now() });
+        await base.child(k).remove();
+        n++;
+      }
+      await audit(who, "bulk_delete", node, n + " élément(s)");
+      return res.json({ ok: true, count: n });
+    }
+
+    if (action === "move") {
+      const keys = Array.isArray(body.keys) ? body.keys : [];
+      const target = String(body.targetNode || "");
+      if (!NODES[target]) return res.status(400).json({ error: "Nœud cible non autorisé" });
+      if (target === node) return res.status(400).json({ error: "Le nœud cible doit être différent du nœud source" });
+      if (!keys.length) return res.status(400).json({ error: "Aucun élément sélectionné" });
+      const tref = db.ref(target);
+      let n = 0;
+      for (const k of keys) {
+        if (!SAFE_KEY.test(String(k))) continue;
+        const snap = await base.child(k).once("value");
+        if (!snap.exists()) continue;
+        // Conserve la clé si elle est libre dans la cible, sinon en génère une nouvelle.
+        let dest = k;
+        if ((await tref.child(k).once("value")).exists()) dest = tref.push().key;
+        await tref.child(dest).set(snap.val());
+        await base.child(k).remove();
+        n++;
+      }
+      await audit(who, "move", node + " → " + target, n + " élément(s)");
+      return res.json({ ok: true, count: n });
+    }
+
     return res.status(400).json({ error: "Action inconnue" });
   } catch (e) {
     return res.status(500).json({ error: "Erreur serveur : " + e.message });
