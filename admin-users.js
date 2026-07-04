@@ -69,7 +69,7 @@
   };
   
   const accSearchEl = $("accSearch");
-  if (accSearchEl) accSearchEl.oninput = renderAccess;
+  if (accSearchEl) accSearchEl.oninput = () => renderAccess();
 
   window.renderAccess = function () {
     const q = ($("accSearch").value || "").toLowerCase().trim();
