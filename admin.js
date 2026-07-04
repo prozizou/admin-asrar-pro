@@ -26,24 +26,25 @@
   // ── Aperçu des cartes : tolérant à tous les schémas de nœuds ──
   const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
   const cardTitle = (v, k) => isObj(v)
-    ? (v.title || v.titre || v.nom || v.name || v.label || v.verset || v.sourate || k)
+    ? (v.title || v.titre || v.nom || v.name || v.label || v.profile_name || v.verset || v.sourate || v.faida || k)
     : String(v ?? k);
   const cardDesc = (v) => isObj(v)
-    ? String(v.faida || v.content || v.description || v.sirr || v.texte || v.details || v.benefit || "")
+    ? String(v.sirr || v.content || v.description || v.faida || v.texte || v.details || v.benefit || "")
     : String(v ?? "");
   const cardImg = (v) => isObj(v) ? String(v.image || v.img || v.url || v.imageUrl || "") : "";
 
   // Champs « cœur » gérés par les grands encarts dédiés (les autres = champs libres).
   const CORE_FIELDS = ["title", "faida", "content", "image", "imageId"];
-  // Convertit la valeur d'un champ libre selon son type détecté.
+  const isComplex = (v) => v !== null && typeof v === "object"; // objet OU tableau
+  // Convertit la valeur d'un champ SIMPLE selon son type détecté.
   function coerceField(el) {
     const t = el.getAttribute("data-ftype");
     if (t === "bool") return el.checked;
     if (t === "number") { const n = Number(el.value); return el.value.trim() === "" ? "" : (isNaN(n) ? el.value : n); }
     return el.value;
   }
-  // Génère l'éditeur d'un champ libre (bool → interrupteur, nombre, texte court/long).
-  function extraFieldHtml(key, val) {
+  // Champ SIMPLE (bool → interrupteur, nombre, texte court/long).
+  function simpleFieldHtml(key, val) {
     const type = typeof val === "boolean" ? "bool" : typeof val === "number" ? "number" : "string";
     let ctrl;
     if (type === "bool")
@@ -56,9 +57,22 @@
         ? `<textarea rows="3" data-ftype="string">${esc(s)}</textarea>`
         : `<input type="text" data-ftype="string" value="${esc(s)}">`;
     }
-    return `<div class="xfield" data-fkey="${esc(key)}">
+    return `<div class="xfield" data-simple data-fkey="${esc(key)}">
       <div class="xfield-h"><span>${esc(key)}</span>
       <button type="button" class="btn text danger-text xf-rm">✕ retirer</button></div>${ctrl}</div>`;
+  }
+  // Champ COMPLEXE (objet / tableau) → édité en JSON : la STRUCTURE EST PRÉSERVÉE
+  // (fini le "[object Object]" qui écrasait les sous-champs à l'enregistrement).
+  function complexFieldHtml(key, val) {
+    const json = esc(JSON.stringify(val, null, 2));
+    return `<div class="xfield" data-complex data-fkey="${esc(key)}">
+      <div class="xfield-h"><span>${esc(key)} <em class="muted">(objet — JSON, structure préservée)</em></span>
+      <button type="button" class="btn text danger-text xf-rm">✕ retirer</button></div>
+      <textarea rows="6" data-json spellcheck="false" style="font-family:monospace;font-size:.82rem;line-height:1.4">${json}</textarea></div>`;
+  }
+  // Génère l'éditeur d'un champ libre selon sa nature (simple vs complexe).
+  function extraFieldHtml(key, val) {
+    return isComplex(val) ? complexFieldHtml(key, val) : simpleFieldHtml(key, val);
   }
 
   let USER_TOKEN = null;
@@ -150,6 +164,23 @@
   if (mqMobile.addEventListener) mqMobile.addEventListener("change", applyDevice);
   else window.addEventListener("resize", applyDevice);
 
+  // ── THÈME CLAIR / SOMBRE (persisté) ──
+  (function initTheme() {
+    const btn = $("themeToggle");
+    const apply = (t) => {
+      document.body.classList.toggle("light", t === "light");
+      if (btn) btn.textContent = t === "light" ? "☀️" : "🌙";
+    };
+    let theme = "dark";
+    try { theme = localStorage.getItem("adm_theme") || "dark"; } catch (e) {}
+    apply(theme);
+    if (btn) btn.onclick = () => {
+      theme = document.body.classList.contains("light") ? "dark" : "light";
+      apply(theme);
+      try { localStorage.setItem("adm_theme", theme); } catch (e) {}
+    };
+  })();
+
   // GESTION ET NAVIGATION ENTRE LES ONGLETS
   document.querySelectorAll("[data-tab]").forEach((btn) => {
     btn.onclick = () => {
@@ -160,11 +191,15 @@
       $("tab-content").hidden = target !== "content";
       $("tab-market").hidden = target !== "market";
       $("tab-users").hidden = target !== "users";
+      $("tab-analytics").hidden = target !== "analytics";
+      $("tab-visits").hidden = target !== "visits";
       $("tab-audit").hidden = target !== "audit";
       $("tab-settings").hidden = target !== "settings";
 
       if (target === "market") loadMarket();
       if (target === "users") { loadUsers(); loadAccess(); }
+      if (target === "analytics") loadAnalytics();
+      if (target === "visits") loadVisits();
       if (target === "audit") loadAudit();
     };
   });
@@ -311,17 +346,22 @@
 
   // ÉDITEUR GRAND FORMAT (MODALE CONVERSATIONNELLE)
   async function openEditor(key = null) {
+    let original = null;
     let item = { title: "", faida: "", content: "", image: "", imageId: "" };
     if (key) {
       try {
         const d = await api("content", { action: "get", node: CURRENT_NODE, key });
-        item = isObj(d.value) ? d.value
-             : { title: "", faida: "", content: String(d.value ?? ""), image: "", imageId: "" };
+        original = d.value;
       } catch (e) { return showToast(e.message, "err"); }
+
+      // Fiche à VALEUR SIMPLE (chaîne / nombre) → éditeur brut. On NE la convertit
+      // PAS en objet : le schéma attendu par le hub est préservé.
+      if (!isObj(original)) return openPrimitiveEditor(key, original);
+      item = original;
     }
 
-    // Champs libres = tout ce qui n'est pas un champ « cœur » (préservés + éditables).
-    const extra = Object.entries(item).filter(([k]) => !CORE_FIELDS.includes(k));
+    // Champs libres = tout ce qui n'est pas un champ « cœur » (ni createdAt, géré à part).
+    const extra = Object.entries(item).filter(([k]) => !CORE_FIELDS.includes(k) && k !== "createdAt");
 
     $("bigcard").innerHTML = `
       <div class="bighead">
@@ -404,14 +444,23 @@
         if (content) out.content = content;
         if (item.image) { out.image = item.image; if (item.imageId) out.imageId = item.imageId; }
 
-        document.querySelectorAll("#xfields .xfield").forEach((f) => {
+        // Champs SIMPLES.
+        document.querySelectorAll("#xfields .xfield[data-simple]").forEach((f) => {
           const k = f.getAttribute("data-fkey");
           const el = f.querySelector("[data-ftype]");
           if (k && el && !CORE_FIELDS.includes(k)) out[k] = coerceField(el);
         });
+        // Champs COMPLEXES : on re-parse le JSON → structure imbriquée PRÉSERVÉE.
+        for (const f of document.querySelectorAll("#xfields .xfield[data-complex]")) {
+          const k = f.getAttribute("data-fkey");
+          const ta = f.querySelector("[data-json]");
+          if (!k || CORE_FIELDS.includes(k) || !ta) continue;
+          try { out[k] = JSON.parse(ta.value); }
+          catch (parseErr) { throw new Error("JSON invalide dans le champ « " + k + " » : " + parseErr.message); }
+        }
 
-        if (!key && item.createdAt == null) out.createdAt = Date.now();
-        else if (item.createdAt != null && out.createdAt == null) out.createdAt = item.createdAt;
+        if (!key) out.createdAt = Date.now();
+        else if (isObj(original) && original.createdAt != null) out.createdAt = original.createdAt;
 
         await api("content", { action: key ? "set" : "add", node: CURRENT_NODE, key, value: out });
         $("big").hidden = true;
@@ -434,6 +483,41 @@
         } catch (e) { showToast(e.message, "err"); }
       };
     }
+  }
+
+  // Éditeur pour une fiche à VALEUR SIMPLE (le nœud stocke des chaînes/nombres,
+  // pas des objets). On réécrit la même nature de valeur → schéma hub préservé.
+  function openPrimitiveEditor(key, val) {
+    const wasNumber = typeof val === "number";
+    $("bigcard").innerHTML = `
+      <div class="bighead">
+        <h3>Édition — valeur simple</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button>
+      </div>
+      <p class="muted" style="margin-bottom:10px">Cette fiche est une valeur ${wasNumber ? "numérique" : "texte"} brute (pas un objet). Elle sera réenregistrée telle quelle.</p>
+      <label class="field-lg"><span>Valeur</span><textarea id="editRaw" rows="8">${esc(String(val ?? ""))}</textarea></label>
+      <div style="display:flex; justify-content:space-between; margin-top:25px; gap:15px;">
+        <button id="btnDeleteBig" class="btn danger">Supprimer</button>
+        <button id="btnSaveBig" class="btn primary">Enregistrer</button>
+      </div>`;
+    $("big").hidden = false;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnSaveBig").onclick = async () => {
+      const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Enregistrement…";
+      try {
+        const raw = $("editRaw").value;
+        const value = (wasNumber && raw.trim() !== "" && !isNaN(Number(raw))) ? Number(raw) : raw;
+        await api("content", { action: "set", node: CURRENT_NODE, key, value });
+        $("big").hidden = true; showToast("Valeur enregistrée."); loadGrid();
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Enregistrer"; }
+    };
+    $("btnDeleteBig").onclick = async () => {
+      if (!confirm("⚠️ Envoyer cette entrée à la corbeille (récupérable) ?")) return;
+      try {
+        await api("content", { action: "delete", node: CURRENT_NODE, key });
+        $("big").hidden = true; showToast("Entrée archivée dans la corbeille."); loadGrid();
+      } catch (e) { showToast(e.message, "err"); }
+    };
   }
 
   function closeBig() { $("big").hidden = true; }
@@ -804,6 +888,192 @@
       });
       showToast("Les modifications de configuration système sont en ligne.");
     } catch (e) { showToast(e.message, "err"); }
+  };
+
+  // ══ CRÉATEUR — NOUVEAU SECRET / DOCUMENT (choix du nœud) ═══════════════
+  // Schéma des secrets (réf. db_sirr_*) : { faida, sirr, img, key, createdAt }.
+  const SECRET_NODES = {
+    db_sirr_deblocage: "Sirr — Déblocage",
+    db_sirr_domptage:  "Sirr — Domptage",
+    db_sirr_ilham:     "Sirr — Ilham",
+    db_sirr_protection:"Sirr — Protection",
+    db_sirr_ouverture: "Sirr — Ouverture",
+    almaqtab:          "Almaqtab (document)"
+  };
+  function openCreator() {
+    const opts = Object.entries(SECRET_NODES)
+      .map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>Nouveau secret / document</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <label class="field-lg"><span>Destination</span>
+        <select id="secNode" class="bulk-select" style="width:100%">${opts}</select></label>
+      <div class="bigimg">
+        <div class="frame" id="previewImg"><div class="noimg">Aucun média associé</div></div>
+        <input type="file" id="fileField" accept="image/*" style="display:none">
+        <button id="btnUpload" class="btn text">✨ Choisir une image</button>
+      </div>
+      <label class="field-lg"><span>Faïda (titre / résumé court)</span><input type="text" id="secFaida"></label>
+      <label class="field-lg"><span>Sirr (contenu détaillé)</span><textarea id="secSirr" rows="10"></textarea></label>
+      <div style="display:flex; justify-content:flex-end; margin-top:25px;">
+        <button id="btnSaveBig" class="btn primary">Créer</button>
+      </div>`;
+    $("big").hidden = false;
+    let localFile = null;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnUpload").onclick = () => $("fileField").click();
+    $("fileField").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      localFile = f;
+      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
+    };
+    $("btnSaveBig").onclick = async () => {
+      const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Création…";
+      try {
+        const node = $("secNode").value;
+        const faida = $("secFaida").value.trim();
+        const sirr = $("secSirr").value.trim();
+        if (!faida) throw new Error("La faïda ne peut être vide.");
+        const rec = { faida, sirr, createdAt: Date.now() };
+        if (localFile) {
+          const sign = await api("cloudinary-sign", { folder: node });
+          const fd = new FormData();
+          fd.append("file", localFile);
+          fd.append("api_key", sign.apiKey);
+          fd.append("timestamp", sign.timestamp);
+          fd.append("signature", sign.signature);
+          fd.append("folder", sign.folder);
+          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, { method: "POST", body: fd });
+          const cData = await cRes.json();
+          if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média a échoué.");
+          rec.img = cData.secure_url; rec.imageId = cData.public_id;
+        }
+        // 1) push → obtient la clé, 2) réécrit avec la clé auto-référencée (comme le hub).
+        const added = await api("content", { action: "add", node, value: rec });
+        rec.key = added.key;
+        await api("content", { action: "set", node, key: added.key, value: rec });
+        $("big").hidden = true;
+        showToast("Créé dans « " + SECRET_NODES[node] + " ».");
+        if (CURRENT_NODE === node) loadGrid();
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Créer"; }
+    };
+  }
+  if ($("btnNewSecret")) $("btnNewSecret").onclick = openCreator;
+
+  // ══ ANALYTIQUE & VISITES (source serveur : api/stats action=analytics) ══
+  let ANA = null;
+  const kpi = (val, lbl) => `<div class="kpi"><div class="kpi-val">${esc(val)}</div><div class="kpi-lbl">${esc(lbl)}</div></div>`;
+  const hbars = (items, labelFn) => {
+    if (!items || !items.length) return "<div class='empty'>Aucune donnée.</div>";
+    const m = Math.max(1, ...items.map((i) => i.count));
+    return items.map((i) => `<div class="hbar">
+      <div class="hbar-lbl">${esc(labelFn(i))}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(i.count / m * 100)}%"></div></div>
+      <div class="hbar-n">${i.count}</div></div>`).join("");
+  };
+  const shortBucket = (b) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(b)) return b.slice(5);
+    if (/^\d{4}-S\d{2}$/.test(b)) return b.slice(5);
+    if (/^\d{4}-\d{2}$/.test(b)) return b.slice(5) + "/" + b.slice(2, 4);
+    return b;
+  };
+
+  async function loadAnalytics() {
+    $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";
+    try { ANA = await api("stats", { action: "analytics" }); renderAnalytics(); }
+    catch (e) { $("anaPages").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+  }
+  function renderAnalytics() {
+    if (!ANA) return;
+    const t = ANA.totals || {};
+    $("anaKpis").innerHTML =
+      kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
+      kpi(t.totalVisits ?? 0, "Visites cumulées") +
+      kpi(t.events ?? 0, "Événements enregistrés") +
+      kpi(t.boutiques ?? 0, "Boutiques") +
+      kpi(t.likesTotal ?? 0, "Aimes cumulés");
+    $("anaPages").innerHTML = hbars(ANA.topPages, (i) => i.page);
+    $("anaTypes").innerHTML = hbars(ANA.types, (i) => i.type);
+    $("anaBoutiques").innerHTML = (ANA.boutiques || []).map((b) => `
+      <div class="bq-row">
+        ${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="frame" style="width:42px;height:42px;flex:0 0 42px"><div class="noimg" style="font-size:.55rem">—</div></div>`}
+        <div class="bq-meta">
+          <div class="bq-name">${esc(b.name)}</div>
+          <div class="bq-sub">${esc(b.number || "—")} · ${b.follow} follow</div>
+        </div>
+        <div class="bq-likes">❤ ${b.likes}</div>
+      </div>`).join("") || "<div class='empty'>Aucune boutique.</div>";
+  }
+  if ($("btnReloadAnalytics")) $("btnReloadAnalytics").onclick = loadAnalytics;
+
+  let VIS_GRAN = "daily";
+  async function loadVisits() {
+    $("visBars").innerHTML = "<div class='empty'>Chargement…</div>";
+    try { if (!ANA) ANA = await api("stats", { action: "analytics" }); renderVisits(); }
+    catch (e) { $("visBars").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+  }
+  function renderVisits() {
+    if (!ANA) return;
+    const rows = ANA[VIS_GRAN] || [];
+    const t = ANA.totals || {};
+    const unit = { daily: "jours", weekly: "semaines", monthly: "mois" }[VIS_GRAN];
+    $("visKpis").innerHTML =
+      kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
+      kpi(t.totalVisits ?? 0, "Visites cumulées") +
+      kpi(t.days ?? 0, "Jours actifs") +
+      kpi(rows.length, "Périodes (" + unit + ")");
+    const maxTotal = Math.max(1, ...rows.map((r) => r.total));
+    $("visBars").innerHTML = rows.map((r) => {
+      const hT = Math.max(2, Math.round(r.total / maxTotal * 160));
+      const hU = Math.max(2, Math.round(r.unique / maxTotal * 160));
+      return `<div class="bar-col" title="${esc(r.bucket)} : ${r.total} visites · ${r.unique} uniques">
+        <div class="bar-n">${r.total}</div>
+        <div style="display:flex; align-items:flex-end; gap:3px; height:160px">
+          <div class="bar-fill" style="height:${hT}px; width:14px"></div>
+          <div class="bar-fill uniq" style="height:${hU}px; width:14px"></div>
+        </div>
+        <div class="bar-x">${esc(shortBucket(r.bucket))}</div>
+      </div>`;
+    }).join("") || "<div class='empty'>Aucune visite enregistrée.</div>";
+    $("visTable").innerHTML = rows.slice().reverse().map((r) =>
+      `<tr><td>${esc(r.bucket)}</td><td class="num">${r.unique}</td><td class="num">${r.total}</td></tr>`
+    ).join("") || "<tr><td colspan='3' class='muted'>Aucune donnée.</td></tr>";
+    $("visFeed").innerHTML = (ANA.recent || []).map((e) => `
+      <div class="row">
+        <div><b>${esc(e.email || "—")}</b> <span class="muted">· ${esc(e.page)}</span></div>
+        <div class="muted">${esc(e.type)} · ${when(e.at)}</div>
+      </div>`).join("") || "<div class='empty'>Aucune activité récente.</div>";
+  }
+  document.querySelectorAll("#visSeg [data-gran]").forEach((b) => b.onclick = () => {
+    document.querySelectorAll("#visSeg [data-gran]").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    VIS_GRAN = b.getAttribute("data-gran");
+    renderVisits();
+  });
+  if ($("btnReloadVisits")) $("btnReloadVisits").onclick = () => { ANA = null; loadVisits(); };
+
+  // ══ DIAGNOSTIC BASE (temporaire) — réconcilier les vrais nœuds / clés ══
+  const diagOut = $("diagOut");
+  if ($("btnDiagRoots")) $("btnDiagRoots").onclick = async () => {
+    if (diagOut) diagOut.textContent = "Lecture…";
+    try {
+      const d = await api("content", { action: "raw_roots" });
+      if (diagOut) diagOut.textContent = "Nœuds racine (" + d.roots.length + ") :\n" + d.roots.join("\n");
+    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
+  };
+  if ($("btnDiagKeys")) $("btnDiagKeys").onclick = async () => {
+    const n = ($("diagNode").value || "").trim();
+    if (!n) return showToast("Indiquez un nom de nœud.", "err");
+    if (diagOut) diagOut.textContent = "Lecture…";
+    try {
+      const d = await api("content", { action: "raw_keys", node: n });
+      if (diagOut) diagOut.textContent =
+        "Nœud : " + d.node +
+        "\nNombre de clés : " + d.total +
+        "\nType d'une fiche : " + d.sampleType +
+        (d.sampleFields && d.sampleFields.length ? "\nChamps de la fiche : " + d.sampleFields.join(", ") : "") +
+        "\n\nClés réelles (max 300) :\n" + d.keys.join("\n");
+    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
   };
 
 })();

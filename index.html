@@ -16,6 +16,7 @@
 <body>
 
   <div id="toast-container"></div>
+  <button id="themeToggle" class="theme-btn" title="Basculer clair / sombre" aria-label="Basculer le thème">🌙</button>
 
   <div id="login" class="login-wrap">
     <div class="login-box">
@@ -46,6 +47,8 @@
         <button data-tab="content" class="active">Contenus</button>
         <button data-tab="market">Marché</button>
         <button data-tab="users">Utilisateurs</button>
+        <button data-tab="analytics">Analytique</button>
+        <button data-tab="visits">Visites</button>
         <button data-tab="audit">Journal d'Audit</button>
         <button data-tab="settings">Réglages</button>
         <button id="btnLogout" class="btn-out">Quitter</button>
@@ -57,6 +60,7 @@
       <section id="tab-content" class="panel">
         <div class="sidebar">
           <h3>Bibliothèques</h3>
+          <button id="btnNewSecret" class="btn primary full-width" style="margin-bottom:12px">✦ Nouveau secret / document</button>
           <div id="nodeList" class="menu"></div>
         </div>
         <div class="main-content">
@@ -157,6 +161,53 @@
         </div>
       </section>
 
+      <section id="tab-analytics" class="panel" hidden>
+        <div class="block">
+          <div class="bar"><h3 class="star">Vue analytique</h3>
+            <button id="btnReloadAnalytics" class="btn text">↻ Actualiser</button></div>
+          <div id="anaKpis" class="kpis"></div>
+
+          <h3 style="margin:6px 0 10px">Pages les plus consultées</h3>
+          <div id="anaPages" class="hbars"><div class="empty">Chargement…</div></div>
+
+          <h3 style="margin:22px 0 10px">Répartition par type d'activité</h3>
+          <div id="anaTypes" class="hbars"></div>
+
+          <h3 style="margin:22px 0 10px">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
+          <div id="anaBoutiques" class="list"></div>
+        </div>
+      </section>
+
+      <section id="tab-visits" class="panel" hidden>
+        <div class="block">
+          <div class="bar"><h3 class="star">Visites</h3>
+            <button id="btnReloadVisits" class="btn text">↻ Actualiser</button></div>
+          <div id="visKpis" class="kpis"></div>
+
+          <div class="seg" id="visSeg">
+            <button data-gran="daily" class="active">Journalier</button>
+            <button data-gran="weekly">Hebdomadaire</button>
+            <button data-gran="monthly">Mensuel</button>
+          </div>
+          <div class="legend">
+            <span><i style="background:linear-gradient(180deg,var(--gold-2),var(--gold))"></i>Visites totales</span>
+            <span><i style="background:var(--info);opacity:.6"></i>Visiteurs uniques</span>
+          </div>
+          <div id="visBars" class="bars"></div>
+
+          <h3 style="margin:22px 0 8px">Détail par période</h3>
+          <div class="tbl-wrap">
+            <table class="a-table">
+              <thead><tr><th>Période</th><th class="num">Visiteurs uniques</th><th class="num">Visites totales</th></tr></thead>
+              <tbody id="visTable"></tbody>
+            </table>
+          </div>
+
+          <h3 style="margin:22px 0 8px">Flux d'activité récent</h3>
+          <div id="visFeed" class="list"></div>
+        </div>
+      </section>
+
       <section id="tab-audit" class="panel" hidden>
         <div class="block">
           <h3>Historique des actions administratives</h3>
@@ -184,6 +235,22 @@
 
           <button id="btnSaveCfg" class="btn primary">Sauvegarder les configurations</button>
           <p id="cfgMsg" class="msg"></p>
+        </div>
+
+        <div class="block max-width-sm" id="diagBlock" style="margin-top:20px">
+          <h3>🔧 Diagnostic base <span class="muted">(temporaire)</span></h3>
+          <p class="muted" style="margin-bottom:10px">
+            Affiche les <b>vrais</b> nœuds et clés de la base (lecture « shallow », aucune valeur
+            téléchargée). Sert à réconcilier la liste blanche avec ce que le hub lit réellement.
+            À retirer une fois la vérification faite.
+          </p>
+          <button id="btnDiagRoots" class="btn text">Lister les nœuds racine</button>
+          <div class="access-form" style="margin-top:12px">
+            <label class="field-lg"><span>Nom d'un nœud</span>
+              <input type="text" id="diagNode" placeholder="ex. sourate, det_produits, asmaUlHusna"></label>
+            <button id="btnDiagKeys" class="btn text">Voir ses clés + la forme d'une fiche</button>
+          </div>
+          <pre id="diagOut" class="muted" style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:#0d0b07;padding:12px;border-radius:8px;margin-top:12px;font-size:.82rem"></pre>
         </div>
       </section>
 
