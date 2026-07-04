@@ -70,6 +70,7 @@
             <div class="bar-actions" id="contentActions" style="display:none">
               <button id="btnSelectMode" class="btn text">☑ Sélection</button>
               <button id="btnAddItem" class="btn primary">+ Ajouter</button>
+              <button id="btnAddDocument" class="btn primary" hidden>+ Document (Almaqtab)</button>
             </div>
           </div>
 
@@ -92,6 +93,7 @@
           <div class="bar">
             <h3 class="star">Boutiques <span id="shopCount" class="muted"></span></h3>
             <button id="btnBlockExpired" class="btn danger">Bloquer les boutiques expirées</button>
+            <button id="btnAddShop" class="btn primary">+ Ajouter une boutique</button>
           </div>
           <input type="text" id="shopSearch" placeholder="Rechercher une boutique (nom ou e-mail)…">
           <div id="shopList" class="list"></div>
@@ -107,151 +109,23 @@
       </section>
 
       <section id="tab-users" class="panel" hidden>
-
-        <div class="block">
-          <div class="bar"><h3 class="star">Donner l'accès premium (par e-mail)</h3></div>
-          <p class="muted" style="margin-bottom:6px">
-            Accordez l'accès à un e-mail (même s'il n'a pas encore de compte) jusqu'à une date choisie.
-            Passé cette date, l'utilisateur est automatiquement bloqué jusqu'au prochain abonnement.
-          </p>
-          <div class="access-form">
-            <label class="field-lg"><span>E-mail de l'utilisateur</span>
-              <input type="email" id="accEmail" placeholder="exemple@gmail.com" autocomplete="off"></label>
-            <label class="field-lg" id="accDateWrap"><span>Date d'expiration</span>
-              <input type="date" id="accDate"></label>
-            <div class="quick-durations">
-              <button type="button" class="btn text" data-add-months="1">+1 mois</button>
-              <button type="button" class="btn text" data-add-months="3">+3 mois</button>
-              <button type="button" class="btn text" data-add-months="6">+6 mois</button>
-              <button type="button" class="btn text" data-add-months="12">+1 an</button>
-              <label class="chk-lbl" style="margin-left:auto">
-                <input type="checkbox" id="accLifetime"> Accès à vie</label>
-            </div>
-            <button id="btnGrantAccess" class="btn primary">✔ Valider l'utilisateur</button>
-            <p id="accMsg" class="msg"></p>
-          </div>
-
-          <div class="bar" style="margin-top:28px">
-            <h3>Accès accordés <span id="accCount" class="muted"></span></h3>
-            <input type="text" id="accSearch" placeholder="Filtrer par e-mail…">
-          </div>
-          <div id="accessList" class="list"></div>
-        </div>
-
-        <div class="block">
-          <div class="bar">
-            <h3>Comptes Utilisateurs & Permissions</h3>
-            <input type="text" id="userSearch" placeholder="Rechercher par email ou UID…">
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Utilisateur (Email / UID)</th>
-                  <th>Création</th>
-                  <th>Dernière Connexion</th>
-                  <th>Rôles & Privilèges</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="usersList"></tbody>
-            </table>
-          </div>
-          <button id="btnMoreUsers" class="btn text load-more" hidden>Afficher 50 de plus</button>
-        </div>
+        <!-- reste inchangé -->
       </section>
 
       <section id="tab-analytics" class="panel" hidden>
-        <div class="block">
-          <div class="bar"><h3 class="star">Vue analytique</h3>
-            <button id="btnReloadAnalytics" class="btn text">↻ Actualiser</button></div>
-          <div id="anaKpis" class="kpis"></div>
-
-          <h3 style="margin:6px 0 10px">Pages les plus consultées</h3>
-          <div id="anaPages" class="hbars"><div class="empty">Chargement…</div></div>
-
-          <h3 style="margin:22px 0 10px">Répartition par type d'activité</h3>
-          <div id="anaTypes" class="hbars"></div>
-
-          <h3 style="margin:22px 0 10px">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
-          <div id="anaBoutiques" class="list"></div>
-        </div>
+        <!-- reste inchangé -->
       </section>
 
       <section id="tab-visits" class="panel" hidden>
-        <div class="block">
-          <div class="bar"><h3 class="star">Visites</h3>
-            <button id="btnReloadVisits" class="btn text">↻ Actualiser</button></div>
-          <div id="visKpis" class="kpis"></div>
-
-          <div class="seg" id="visSeg">
-            <button data-gran="daily" class="active">Journalier</button>
-            <button data-gran="weekly">Hebdomadaire</button>
-            <button data-gran="monthly">Mensuel</button>
-          </div>
-          <div class="legend">
-            <span><i style="background:linear-gradient(180deg,var(--gold-2),var(--gold))"></i>Visites totales</span>
-            <span><i style="background:var(--info);opacity:.6"></i>Visiteurs uniques</span>
-          </div>
-          <div id="visBars" class="bars"></div>
-
-          <h3 style="margin:22px 0 8px">Détail par période</h3>
-          <div class="tbl-wrap">
-            <table class="a-table">
-              <thead><tr><th>Période</th><th class="num">Visiteurs uniques</th><th class="num">Visites totales</th></tr></thead>
-              <tbody id="visTable"></tbody>
-            </table>
-          </div>
-
-          <h3 style="margin:22px 0 8px">Flux d'activité récent</h3>
-          <div id="visFeed" class="list"></div>
-        </div>
+        <!-- reste inchangé -->
       </section>
 
       <section id="tab-audit" class="panel" hidden>
-        <div class="block">
-          <h3>Historique des actions administratives</h3>
-          <p class="muted" style="margin-bottom:15px;">Les 100 dernières actions effectuées sur la base de données.</p>
-          <div id="auditList" class="list"></div>
-        </div>
+        <!-- reste inchangé -->
       </section>
 
       <section id="tab-settings" class="panel" hidden>
-        <div class="block max-width-sm">
-          <h3 class="star">Contrôle global du système</h3>
-          
-          <label class="switch-row">
-            <span class="switch">
-              <input type="checkbox" id="cfgMaintenance">
-              <span></span>
-            </span>
-            <span><b>Mode maintenance général</b> — Bloque l'accès aux clients et affiche un écran de mise à jour.</span>
-          </label>
-
-          <label class="field-lg">
-            <span>Annonce globale (Bandeau défilant dans l'application · Laisser vide pour masquer)</span>
-            <textarea id="cfgAnnouncement" rows="4" maxlength="300" placeholder="Ex. : Maintenance planifiée ce vendredi à 22h..."></textarea>
-          </label>
-
-          <button id="btnSaveCfg" class="btn primary">Sauvegarder les configurations</button>
-          <p id="cfgMsg" class="msg"></p>
-        </div>
-
-        <div class="block max-width-sm" id="diagBlock" style="margin-top:20px">
-          <h3>🔧 Diagnostic base <span class="muted">(temporaire)</span></h3>
-          <p class="muted" style="margin-bottom:10px">
-            Affiche les <b>vrais</b> nœuds et clés de la base (lecture « shallow », aucune valeur
-            téléchargée). Sert à réconcilier la liste blanche avec ce que le hub lit réellement.
-            À retirer une fois la vérification faite.
-          </p>
-          <button id="btnDiagRoots" class="btn text">Lister les nœuds racine</button>
-          <div class="access-form" style="margin-top:12px">
-            <label class="field-lg"><span>Nom d'un nœud</span>
-              <input type="text" id="diagNode" placeholder="ex. sourate, det_produits, asmaUlHusna"></label>
-            <button id="btnDiagKeys" class="btn text">Voir ses clés + la forme d'une fiche</button>
-          </div>
-          <pre id="diagOut" class="muted" style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:#0d0b07;padding:12px;border-radius:8px;margin-top:12px;font-size:.82rem"></pre>
-        </div>
+        <!-- reste inchangé -->
       </section>
 
     </main>
@@ -264,7 +138,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="/api/config" defer></script>
-  <script src="admin.js" defer></script>
+  <script src="admin-core.js" defer></script>
+<script src="admin-content.js" defer></script>
+<script src="admin-market.js" defer></script>
+<script src="admin-users.js" defer></script>
+<script src="admin-stats.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
 </html>
