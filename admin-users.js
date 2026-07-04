@@ -6,7 +6,6 @@
   const fmtDate = (v) => v === "lifetime" ? "À vie"
     : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
 
-  // ➜ CORRECTION : Vérifier l'existence des éléments avant d'attacher les événements
   const accDateEl = $("accDate");
   const accLifetimeEl = $("accLifetime");
 
@@ -60,9 +59,13 @@
     try {
       const d = await api("users", { action: "list_access" });
       ACCESS = d.items || [];
-      $("accCount").textContent = "(" + (d.total || 0) + ")";
+      const accCount = $("accCount");
+      if (accCount) accCount.textContent = "(" + (d.total || 0) + ")";
       renderAccess();
-    } catch (e) { $("accessList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+    } catch (e) {
+      const accessList = $("accessList");
+      if (accessList) accessList.innerHTML = "<div class='empty'>" + esc(e.message) + "</div>";
+    }
   };
   
   const accSearchEl = $("accSearch");
@@ -71,7 +74,9 @@
   window.renderAccess = function () {
     const q = ($("accSearch").value || "").toLowerCase().trim();
     const rows = ACCESS.filter((r) => !q || r.email.toLowerCase().includes(q));
-    $("accessList").innerHTML = rows.map((r) => `
+    const accessList = $("accessList");
+    if (!accessList) return;
+    accessList.innerHTML = rows.map((r) => `
       <div class="row">
         <div>
           <b>${esc(r.email)}</b>
@@ -94,9 +99,11 @@
   };
 
   window.prefillAccess = function (email) {
-    $("accEmail").value = email;
-    $("accEmail").scrollIntoView({ behavior: "smooth", block: "center" });
-    $("accEmail").focus();
+    const accEmail = $("accEmail");
+    if (!accEmail) return;
+    accEmail.value = email;
+    accEmail.scrollIntoView({ behavior: "smooth", block: "center" });
+    accEmail.focus();
   };
 
   // ── Utilisateurs ──
@@ -180,17 +187,24 @@
       let filtered = rows, ushown = 50;
       const draw = () => {
         render(filtered.slice(0, ushown));
-        $("btnMoreUsers").hidden = ushown >= filtered.length;
-        $("btnMoreUsers").textContent = "Afficher 50 de plus (" + Math.max(0, filtered.length - ushown) + " restants)";
+        const moreBtn = $("btnMoreUsers");
+        if (moreBtn) {
+          moreBtn.hidden = ushown >= filtered.length;
+          moreBtn.textContent = "Afficher 50 de plus (" + Math.max(0, filtered.length - ushown) + " restants)";
+        }
       };
       const resetUsers = (arr) => { filtered = arr; ushown = 50; draw(); };
-      $("btnMoreUsers").onclick = () => { ushown += 50; draw(); };
+      const moreUsersBtn = $("btnMoreUsers");
+      if (moreUsersBtn) moreUsersBtn.onclick = () => { ushown += 50; draw(); };
       resetUsers(rows);
 
-      $("userSearch").oninput = (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        resetUsers(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
-      };
+      const userSearch = $("userSearch");
+      if (userSearch) {
+        userSearch.oninput = (e) => {
+          const query = e.target.value.toLowerCase().trim();
+          resetUsers(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
+        };
+      }
 
     } catch (e) { usersList.innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
   };
