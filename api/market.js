@@ -1,9 +1,5 @@
 // api/market.js — Gestion du MARCHÉ (boutiques & produits) — admins seulement.
-// Boutiques : sellers/{uid} = { shopActive, expiresAt, shop:{name}, email }.
-// Produits  : det_produits/{key} = { produit, Prix, devise, Image, uid, vendeur }.
-// « Révoquer » met la boutique inactive ET déplace ses produits vers
-// det_produits_bloques/{key} (donc invisibles/invendables sur le hub, qui lit
-// det_produits). « Restaurer » les remet en ligne. Rien n'est perdu.
+const crypto = require('crypto');
 const { app, verifyAdmin, audit } = require("./_lib/fb");
 
 const LIVE = "det_produits";
@@ -14,7 +10,6 @@ const isActive = (s) => !!(s && s.shopActive &&
   (s.expiresAt === "lifetime" || (typeof s.expiresAt === "number" && s.expiresAt > Date.now())));
 const isExpired = (s) => !!(s && typeof s.expiresAt === "number" && s.expiresAt <= Date.now());
 
-// Déplace tous les produits d'un vendeur d'un nœud vers un autre. Renvoie le nombre.
 async function moveProducts(db, uid, fromNode, toNode) {
   const snap = await db.ref(fromNode).once("value");
   const updates = {};
@@ -22,8 +17,8 @@ async function moveProducts(db, uid, fromNode, toNode) {
   snap.forEach((c) => {
     const p = c.val();
     if (p && p.uid === uid) {
-      updates[fromNode + "/" + c.key] = null;         // retire de la source
-      updates[toNode + "/" + c.key] = p;              // ajoute à la cible (même clé)
+      updates[fromNode + "/" + c.key] = null;
+      updates[toNode + "/" + c.key] = p;
       n++;
     }
   });
@@ -102,8 +97,30 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
 
-    if (!uid) return res.status(400).json({ error: "uid de la boutique requis" });
-    const sref = db.ref("sellers/" + uid);
+    if (!uid && action !== "shop_create") return res.status(400).json({ error: "uid de la boutique requis" });
+    const sref = uid ? db.ref("sellers/" + uid) : null;
+
+    // ── Nouvelle action : création de boutique ──
+    if (action === "shop_create") {
+      const { name, email, expiresAt, logoUrl, meta } = body;
+      if (!name || !email) return res.status(400).json({ error: "Nom et email requis" });
+      const newUid = `shop_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      const shopData = {
+        shop: {
+          name: name.trim().slice(0, 120),
+          logo: logoUrl || '',
+          meta: meta || {}
+        },
+        email: email.trim().toLowerCase(),
+        shopActive: true,
+        expiresAt: expiresAt === 'lifetime' ? 'lifetime' : (typeof expiresAt === 'number' ? expiresAt : Date.now() + 30 * 864e5),
+        createdBy: who.email,
+        createdAt: Date.now()
+      };
+      await db.ref(`sellers/${newUid}`).set(shopData);
+      await audit(who, 'shop_create', newUid, `Boutique ${name} créée`);
+      return res.json({ ok: true, uid: newUid });
+    }
 
     if (action === "shop_update") {
       const upd = {};
@@ -142,7 +159,6 @@ module.exports = async (req, res) => {
     }
 
     if (action === "shop_delete") {
-      // Archive la boutique + ses produits (live et bloqués) dans la corbeille.
       const [s, liveN, blockedN] = await Promise.all([
         sref.once("value"),
         db.ref(LIVE).once("value"),
