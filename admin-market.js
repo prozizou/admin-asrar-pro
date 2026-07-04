@@ -8,22 +8,30 @@
   const shopExp = (v) => v === "lifetime" ? "À vie" : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
 
   window.loadMarket = async function () {
-    $("shopList").innerHTML = "<div class='empty'>Chargement des boutiques…</div>";
-    $("prodGrid").innerHTML = "";
+    const shopList = $("shopList");
+    if (shopList) shopList.innerHTML = "<div class='empty'>Chargement des boutiques…</div>";
+    const prodGrid = $("prodGrid");
+    if (prodGrid) prodGrid.innerHTML = "";
     try {
       const d = await api("market", { action: "list" });
       SHOPS = d.shops || []; PRODUCTS = d.products || [];
-      $("shopCount").textContent = "(" + (d.totalShops || 0) + ")";
-      $("prodCount").textContent = "(" + (d.totalProducts || 0) + ")";
+      const shopCount = $("shopCount");
+      if (shopCount) shopCount.textContent = "(" + (d.totalShops || 0) + ")";
+      const prodCount = $("prodCount");
+      if (prodCount) prodCount.textContent = "(" + (d.totalProducts || 0) + ")";
       renderShops(); renderProductsReset();
-    } catch (e) { $("shopList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+    } catch (e) {
+      if (shopList) shopList.innerHTML = "<div class='empty'>" + esc(e.message) + "</div>";
+    }
   };
 
-  // ➜ CORRECTION : Définir la fonction AVANT de l'attacher à l'événement
+  // ── DÉCLARATION DES FONCTIONS (AVANT les attachements d'événements) ──
   window.renderShops = function () {
     const q = ($("shopSearch").value || "").toLowerCase().trim();
     const rows = SHOPS.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q));
-    $("shopList").innerHTML = rows.map((s) => {
+    const shopList = $("shopList");
+    if (!shopList) return;
+    shopList.innerHTML = rows.map((s) => {
       const state = s.active ? `<span class="badge gold">Active</span>`
                   : (s.expired ? `<span class="badge expired">Expirée</span>` : `<span class="badge expired">Inactive</span>`);
       return `<div class="row">
@@ -44,9 +52,6 @@
     }).join("") || "<div class='empty'>Aucune boutique.</div>";
     wireShopActions();
   };
-
-  // ➜ L'attachement se fait APRÈS la déclaration
-  $("shopSearch").oninput = renderShops;
 
   window.wireShopActions = function () {
     const act = async (uid, payload, okMsg, confirmMsg) => {
@@ -87,25 +92,17 @@
           "Supprimer définitivement cette boutique ET ses produits ? (copie en corbeille)"));
   };
 
-  $("btnBlockExpired").onclick = async () => {
-    if (!confirm("Bloquer TOUTES les boutiques dont l'abonnement est expiré ?\nLeurs produits seront retirés de la vente.")) return;
-    try {
-      const r = await api("market", { action: "block_expired" });
-      showToast(r.shopsBlocked + " boutique(s) bloquée(s), " + r.productsBlocked + " produit(s) retiré(s).");
-      loadMarket();
-    } catch (e) { showToast(e.message, "err"); }
-  };
-
-  $("prodSearch").oninput = renderProductsReset;
-  window.renderProductsReset = function () { prodShown = 0; $("prodGrid").innerHTML = ""; renderProductsMore(); };
+  window.renderProductsReset = function () { prodShown = 0; const pg = $("prodGrid"); if (pg) pg.innerHTML = ""; renderProductsMore(); };
   window.filteredProducts = function () {
     const q = ($("prodSearch").value || "").toLowerCase().trim();
     return PRODUCTS.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.vendeur || "").toLowerCase().includes(q));
   };
   window.renderProductsMore = function () {
     const list = filteredProducts();
-    const next = list.slice(prodShown, prodShown + PAGE);
-    $("prodGrid").insertAdjacentHTML("beforeend", next.map((p) => `
+    const next = list.slice(prodShown, prodShown + 50);
+    const pg = $("prodGrid");
+    if (!pg) return;
+    pg.insertAdjacentHTML("beforeend", next.map((p) => `
       <div class="card ${p.blocked ? "blocked" : ""}">
         <div class="thumb">${p.image ? `<img src="${esc(p.image)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
         <div class="card-body">
@@ -120,11 +117,13 @@
         </div>
       </div>`).join(""));
     prodShown += next.length;
-    $("btnMoreProds").hidden = prodShown >= list.length;
-    $("btnMoreProds").textContent = "Afficher 50 de plus (" + (list.length - prodShown) + " restants)";
+    const moreBtn = $("btnMoreProds");
+    if (moreBtn) {
+      moreBtn.hidden = prodShown >= list.length;
+      moreBtn.textContent = "Afficher 50 de plus (" + (list.length - prodShown) + " restants)";
+    }
     wireProductActions();
   };
-  $("btnMoreProds").onclick = renderProductsMore;
 
   window.wireProductActions = function () {
     const run = async (payload, msg, confirmMsg) => {
@@ -139,6 +138,28 @@
       run({ action: "product_delete", key: b.getAttribute("data-prod-del"), blocked: b.getAttribute("data-blk") === "1" },
           "Produit supprimé (corbeille).", "Supprimer ce produit ? (copie en corbeille)"));
   };
+
+  // ── ATTACHEMENT DES ÉVÉNEMENTS (après déclaration des fonctions) ──
+  const shopSearch = $("shopSearch");
+  if (shopSearch) shopSearch.oninput = renderShops;
+
+  const prodSearch = $("prodSearch");
+  if (prodSearch) prodSearch.oninput = renderProductsReset;
+
+  const moreProds = $("btnMoreProds");
+  if (moreProds) moreProds.onclick = renderProductsMore;
+
+  const blockExpired = $("btnBlockExpired");
+  if (blockExpired) {
+    blockExpired.onclick = async () => {
+      if (!confirm("Bloquer TOUTES les boutiques dont l'abonnement est expiré ?\nLeurs produits seront retirés de la vente.")) return;
+      try {
+        const r = await api("market", { action: "block_expired" });
+        showToast(r.shopsBlocked + " boutique(s) bloquée(s), " + r.productsBlocked + " produit(s) retiré(s).");
+        loadMarket();
+      } catch (e) { showToast(e.message, "err"); }
+    };
+  }
 
   // ── Créateur de boutique ──
   window.openShopCreator = async function () {
