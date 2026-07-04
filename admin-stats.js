@@ -148,4 +148,70 @@
   });
   if ($("btnReloadVisits")) $("btnReloadVisits").onclick = () => { ANA = null; loadVisits(); };
 
+  // ── Créateur de BOUTIQUE → profile_clients (img sur Cloudinary) ──
+  window.openBoutiqueCreator = function () {
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>Nouvelle boutique (profil)</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <div class="bigimg">
+        <div class="frame" id="previewImg"><div class="noimg">Logo de la boutique</div></div>
+        <input type="file" id="fileField" accept="image/*" style="display:none">
+        <button id="btnUpload" class="btn text">✨ Choisir un logo</button>
+      </div>
+      <label class="field-lg"><span>Nom de la boutique</span><input type="text" id="bqName"></label>
+      <label class="field-lg"><span>Numéro (WhatsApp / téléphone)</span><input type="text" id="bqNumber" placeholder="+221…"></label>
+      <div style="display:flex; justify-content:flex-end; margin-top:20px;"><button id="btnSaveBig" class="btn primary">Créer la boutique</button></div>`;
+    $("big").hidden = false;
+    let localFile = null;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnUpload").onclick = () => $("fileField").click();
+    $("fileField").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      localFile = f;
+      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Logo">`;
+    };
+    $("btnSaveBig").onclick = async () => {
+      const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Création…";
+      try {
+        const name = $("bqName").value.trim();
+        const number = $("bqNumber").value.trim();
+        if (!name) throw new Error("Le nom de la boutique est requis.");
+        const id = randHex16();
+        const value = { ID: id, key: id, profile_name: name, number, follow: "0", createdAt: Date.now() };
+        if (localFile) { const up = await uploadToCloudinary(localFile, "profile_clients"); value.img = up.url; value.imageId = up.id; }
+        await api("content", { action: "set", node: "profile_clients", key: id, value });
+        $("big").hidden = true;
+        showToast("Boutique « " + name + " » créée.");
+        ANA = null;                       // invalide le cache stats
+        if (!$("tab-analytics").hidden) loadAnalytics();
+        if (typeof CURRENT_NODE !== "undefined" && CURRENT_NODE === "profile_clients" && typeof loadGrid === "function") loadGrid();
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Créer la boutique"; }
+    };
+  };
+  if ($("btnAddBoutique")) $("btnAddBoutique").onclick = openBoutiqueCreator;
+
+  // ── Diagnostic base (temporaire) — recâblé ──
+  const diagOut = $("diagOut");
+  if ($("btnDiagRoots")) $("btnDiagRoots").onclick = async () => {
+    if (diagOut) diagOut.textContent = "Lecture…";
+    try {
+      const d = await api("content", { action: "raw_roots" });
+      if (diagOut) diagOut.textContent = "Nœuds racine (" + d.roots.length + ") :\n" + d.roots.join("\n");
+    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
+  };
+  if ($("btnDiagKeys")) $("btnDiagKeys").onclick = async () => {
+    const n = ($("diagNode").value || "").trim();
+    if (!n) return showToast("Indiquez un nom de nœud.", "err");
+    if (diagOut) diagOut.textContent = "Lecture…";
+    try {
+      const d = await api("content", { action: "raw_keys", node: n });
+      if (diagOut) diagOut.textContent =
+        "Nœud : " + d.node +
+        "\nNombre de clés : " + d.total +
+        "\nType d'une fiche : " + d.sampleType +
+        (d.sampleFields && d.sampleFields.length ? "\nChamps : " + d.sampleFields.join(", ") : "") +
+        "\n\nClés réelles (max 300) :\n" + d.keys.join("\n");
+    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
+  };
+
 })();

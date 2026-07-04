@@ -187,6 +187,56 @@
     };
   });
 
+  // ── Helpers partagés (upload Cloudinary, couverture PDF locale, id hex) ──
+  window.uploadToCloudinary = async function (fileOrBlob, folder, filename) {
+    const sign = await api("cloudinary-sign", { folder });
+    const fd = new FormData();
+    if (filename) fd.append("file", fileOrBlob, filename); else fd.append("file", fileOrBlob);
+    fd.append("api_key", sign.apiKey);
+    fd.append("timestamp", sign.timestamp);
+    fd.append("signature", sign.signature);
+    fd.append("folder", sign.folder);
+    const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, { method: "POST", body: fd });
+    const cData = await cRes.json();
+    if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média a échoué.");
+    return { url: cData.secure_url, id: cData.public_id };
+  };
+
+  // Charge pdf.js (cdnjs) à la demande — utilisé pour extraire la couverture EN LOCAL.
+  let PDFLIB = null;
+  window.loadPdfJs = function () {
+    if (PDFLIB) return Promise.resolve(PDFLIB);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      s.onload = () => {
+        PDFLIB = window.pdfjsLib;
+        PDFLIB.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        resolve(PDFLIB);
+      };
+      s.onerror = () => reject(new Error("Lecteur PDF indisponible (connexion internet requise)."));
+      document.head.appendChild(s);
+    });
+  };
+  // Rend la 1re page d'un PDF LOCAL en JPEG → Blob (la couverture cover.png/jpg).
+  window.pdfCoverBlob = async function (file, scale = 1.6) {
+    const lib = await loadPdfJs();
+    const buf = await file.arrayBuffer();
+    const pdf = await lib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    return await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+  };
+
+  window.randHex16 = function () {
+    const a = new Uint8Array(8); crypto.getRandomValues(a);
+    return Array.from(a).map((b) => b.toString(16).padStart(2, "0")).join("");
+  };
+
   // ── Initialisation du tableau de bord ──
   window.initDashboard = function () {
     loadNodesMenu();

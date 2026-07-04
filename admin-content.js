@@ -173,7 +173,7 @@
       </div>
       ${item.pdfUrl ? `<p class="muted">📄 PDF : <a href="${esc(item.pdfUrl)}" target="_blank">Télécharger</a></p>` : ''}
       <div class="bigimg">
-        <div class="frame" id="previewImg">${item.image ? `<img src="${esc(item.image)}" alt="Aperçu">` : `<div class="noimg">Aucun média associé</div>`}</div>
+        <div class="frame" id="previewImg">${(item.image || item.img) ? `<img src="${esc(item.image || item.img)}" alt="Aperçu">` : `<div class="noimg">Aucun média associé</div>`}</div>
         <input type="file" id="fileField" accept="image/*" style="display:none">
         <button id="btnUpload" class="btn text">✨ Choisir une image</button>
       </div>
@@ -325,78 +325,115 @@
 
   $("btnAddItem").onclick = () => openEditor(null);
 
-  // ── Créateur de document Almaqtab ──
+  // ── Créateur de SECRET (choix parmi les 5 db_sirr) — schéma faida/sirr/img/key ──
+  const SECRET_NODES = {
+    db_sirr_deblocage: "Sirr — Déblocage",
+    db_sirr_domptage:  "Sirr — Domptage",
+    db_sirr_ilham:     "Sirr — Ilham",
+    db_sirr_protection:"Sirr — Protection",
+    db_sirr_ouverture: "Sirr — Ouverture"
+  };
+  window.openSecretCreator = function () {
+    const opts = Object.entries(SECRET_NODES).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>Nouveau secret</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <label class="field-lg"><span>Destination</span>
+        <select id="secNode" class="bulk-select" style="width:100%">${opts}</select></label>
+      <div class="bigimg">
+        <div class="frame" id="previewImg"><div class="noimg">Aucun média associé</div></div>
+        <input type="file" id="fileField" accept="image/*" style="display:none">
+        <button id="btnUpload" class="btn text">✨ Choisir une image</button>
+      </div>
+      <label class="field-lg"><span>Faïda (titre / résumé court)</span><input type="text" id="secFaida"></label>
+      <label class="field-lg"><span>Sirr (contenu détaillé)</span><textarea id="secSirr" rows="9"></textarea></label>
+      <div style="display:flex; justify-content:flex-end; margin-top:20px;"><button id="btnSaveBig" class="btn primary">Créer</button></div>`;
+    $("big").hidden = false;
+    let localFile = null;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnUpload").onclick = () => $("fileField").click();
+    $("fileField").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      localFile = f;
+      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
+    };
+    $("btnSaveBig").onclick = async () => {
+      const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Création…";
+      try {
+        const node = $("secNode").value;
+        const faida = $("secFaida").value.trim();
+        const sirr = $("secSirr").value.trim();
+        if (!faida) throw new Error("La faïda ne peut être vide.");
+        const rec = { faida, sirr, createdAt: Date.now() };
+        if (localFile) { const up = await uploadToCloudinary(localFile, node); rec.img = up.url; rec.imageId = up.id; }
+        const added = await api("content", { action: "add", node, value: rec });
+        rec.key = added.key; // clé auto-référencée comme le reste de l'app
+        await api("content", { action: "set", node, key: added.key, value: rec });
+        $("big").hidden = true;
+        showToast("Secret créé dans « " + SECRET_NODES[node] + " ».");
+        if (CURRENT_NODE === node) loadGrid();
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Créer"; }
+    };
+  };
+  if ($("btnNewSecret")) $("btnNewSecret").onclick = openSecretCreator;
+
+  // ── Créateur de document Almaqtab : couverture extraite EN LOCAL du PDF ──
+  // Flux : on choisit le PDF → l'app en extrait la couverture (page 1) et l'envoie
+  // sur Cloudinary. Le lien Google Drive est collé à la main (stocké dans pdfUrl).
   window.openDocumentCreator = async function () {
     $("bigcard").innerHTML = `
       <div class="bighead">
-        <h3>Ajouter un document (Almaqtab) depuis Google Drive</h3>
+        <h3>Ajouter un document (Almaqtab)</h3>
         <button id="btnCancelBig" class="btn text">Fermer</button>
       </div>
-      <label class="field-lg">
-        <span>Lien Google Drive (PDF)</span>
-        <input type="url" id="docDriveUrl" placeholder="https://drive.google.com/file/d/...">
-        <button id="btnProcessDrive" class="btn text" style="margin-top:6px">🔄 Importer et générer la couverture</button>
-      </label>
-      <div id="docPreview" class="bigimg" hidden>
-        <div class="frame" id="docCoverPreview"><img src="" alt="Couverture"></div>
-        <p class="muted" id="docPdfLink">PDF : <a href="" target="_blank">Télécharger</a></p>
+      <div class="bigimg">
+        <div class="frame" id="previewImg"><div class="noimg">📔 Couverture (extraite du PDF)</div></div>
+        <input type="file" id="pdfField" accept="application/pdf" style="display:none">
+        <button id="btnPickPdf" class="btn text">📔 Choisir le PDF (couverture locale)</button>
+        <p id="pdfStatus" class="muted" style="margin-top:6px"></p>
       </div>
+      <label class="field-lg"><span>Lien Google Drive du PDF</span>
+        <input type="url" id="docDriveUrl" placeholder="https://drive.google.com/file/d/…"></label>
       <label class="field-lg"><span>Titre</span><input type="text" id="docTitle"></label>
       <label class="field-lg"><span>Faïda (résumé)</span><textarea id="docFaida" rows="3"></textarea></label>
-      <label class="field-lg"><span>Contenu</span><textarea id="docContent" rows="8"></textarea></label>
-      <div style="display:flex; justify-content:flex-end; margin-top:25px;">
+      <label class="field-lg"><span>Contenu</span><textarea id="docContent" rows="7"></textarea></label>
+      <div style="display:flex; justify-content:flex-end; margin-top:20px;">
         <button id="btnSaveDocument" class="btn primary">Enregistrer</button>
-      </div>
-    `;
+      </div>`;
     $("big").hidden = false;
-
-    let coverUrl = '', pdfUrl = '';
+    let coverBlob = null;
 
     $("btnCancelBig").onclick = closeBig;
-    $("btnProcessDrive").onclick = async () => {
-      const url = $("docDriveUrl").value.trim();
-      if (!url) return showToast("Veuillez coller un lien Google Drive.", "err");
-      const btn = $("btnProcessDrive");
-      btn.disabled = true; btn.textContent = "Traitement...";
+    $("btnPickPdf").onclick = () => $("pdfField").click();
+    $("pdfField").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      $("pdfStatus").textContent = "Extraction de la couverture (page 1)…";
       try {
-        const result = await api("process-pdf", { driveUrl: url, folder: "almaqtab" });
-        coverUrl = result.coverUrl;
-        pdfUrl = result.pdfUrl;
-        $("docPreview").hidden = false;
-        $("docCoverPreview").querySelector("img").src = coverUrl;
-        $("docPdfLink").querySelector("a").href = pdfUrl;
-        $("docPdfLink").querySelector("a").textContent = "Télécharger le PDF";
-        showToast("PDF importé avec succès.");
-      } catch (e) {
-        showToast(e.message, "err");
-      } finally {
-        btn.disabled = false; btn.textContent = "🔄 Importer et générer la couverture";
-      }
+        coverBlob = await pdfCoverBlob(f);
+        $("previewImg").innerHTML = `<img src="${URL.createObjectURL(coverBlob)}" alt="Couverture">`;
+        $("pdfStatus").textContent = "Couverture prête. Elle sera envoyée sur Cloudinary à l'enregistrement.";
+      } catch (err) { coverBlob = null; $("pdfStatus").textContent = "Échec : " + err.message; }
     };
 
     $("btnSaveDocument").onclick = async () => {
-      const title = $("docTitle").value.trim();
-      const faida = $("docFaida").value.trim();
-      const content = $("docContent").value.trim();
-      if (!title) return showToast("Le titre est requis.", "err");
-      if (!coverUrl) return showToast("Veuillez d'abord importer le PDF.", "err");
-
-      const doc = {
-        title,
-        faida,
-        content,
-        image: coverUrl,
-        pdfUrl,
-        createdAt: Date.now()
-      };
+      const btn = $("btnSaveDocument"); btn.disabled = true; btn.textContent = "Enregistrement…";
       try {
-        const result = await api("content", { action: "add", node: "almaqtab", value: doc });
+        const title = $("docTitle").value.trim();
+        const faida = $("docFaida").value.trim();
+        const content = $("docContent").value.trim();
+        const lien = $("docDriveUrl").value.trim();
+        if (!title) throw new Error("Le titre est requis.");
+        if (!coverBlob) throw new Error("Choisissez d'abord le PDF pour générer la couverture.");
+        if (!/^https?:\/\//i.test(lien)) throw new Error("Lien Google Drive invalide (doit commencer par http).");
+        const up = await uploadToCloudinary(coverBlob, "almaqtab", "cover.jpg");
+        const doc = { title, faida, content, image: up.url, imageId: up.id, pdfUrl: lien, createdAt: Date.now() };
+        const added = await api("content", { action: "add", node: "almaqtab", value: doc });
+        doc.key = added.key;
+        await api("content", { action: "set", node: "almaqtab", key: added.key, value: doc });
         $("big").hidden = true;
-        showToast("Document ajouté avec succès.");
+        showToast("Document ajouté à Almaqtab.");
         if (CURRENT_NODE === "almaqtab") loadGrid();
-      } catch (e) {
-        showToast(e.message, "err");
-      }
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Enregistrer"; }
     };
   };
 

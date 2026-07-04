@@ -93,7 +93,7 @@
           <div class="bar">
             <h3 class="star">Boutiques <span id="shopCount" class="muted"></span></h3>
             <button id="btnBlockExpired" class="btn danger">Bloquer les boutiques expirées</button>
-            <button id="btnAddShop" class="btn primary">+ Ajouter une boutique</button>
+            <button id="btnAddShop" class="btn primary">+ Ajouter un vendeur</button>
           </div>
           <input type="text" id="shopSearch" placeholder="Rechercher une boutique (nom ou e-mail)…">
           <div id="shopList" class="list"></div>
@@ -174,7 +174,10 @@
           <h3 style="margin:22px 0 10px">Répartition par type d'activité</h3>
           <div id="anaTypes" class="hbars"></div>
 
-          <h3 style="margin:22px 0 10px">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
+          <div class="bar" style="margin:22px 0 10px">
+            <h3 style="margin:0">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
+            <button id="btnAddBoutique" class="btn primary">+ Ajouter une boutique</button>
+          </div>
           <div id="anaBoutiques" class="list"></div>
         </div>
       </section>
