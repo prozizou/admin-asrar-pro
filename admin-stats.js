@@ -159,6 +159,8 @@
         <button id="btnUpload" class="btn text">✨ Choisir un logo</button>
       </div>
       <label class="field-lg"><span>Nom de la boutique</span><input type="text" id="bqName"></label>
+      <label class="field-lg"><span>E-mail du propriétaire (pour gérer ses produits plus tard)</span>
+        <input type="email" id="bqEmail" placeholder="proprietaire@gmail.com" autocomplete="off"></label>
       <label class="field-lg"><span>Numéro (WhatsApp / téléphone)</span><input type="text" id="bqNumber" placeholder="+221…"></label>
       <div style="display:flex; justify-content:flex-end; margin-top:20px;"><button id="btnSaveBig" class="btn primary">Créer la boutique</button></div>`;
     $("big").hidden = false;
@@ -174,10 +176,13 @@
       const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Création…";
       try {
         const name = $("bqName").value.trim();
+        const email = ($("bqEmail").value || "").trim().toLowerCase();
         const number = $("bqNumber").value.trim();
         if (!name) throw new Error("Le nom de la boutique est requis.");
+        if (!email) throw new Error("L'e-mail du propriétaire est requis.");
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("E-mail du propriétaire invalide.");
         const id = randHex16();
-        const value = { ID: id, key: id, profile_name: name, number, follow: "0", createdAt: Date.now() };
+        const value = { ID: id, key: id, profile_name: name, email, number, follow: "0", createdAt: Date.now() };
         if (localFile) { const up = await uploadToCloudinary(localFile, "profile_clients"); value.img = up.url; value.imageId = up.id; }
         await api("content", { action: "set", node: "profile_clients", key: id, value });
         $("big").hidden = true;

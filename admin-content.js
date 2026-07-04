@@ -401,16 +401,23 @@
         <button id="btnSaveDocument" class="btn primary">Enregistrer</button>
       </div>`;
     $("big").hidden = false;
-    let coverBlob = null;
+    let coverBlob = null, lastObjURL = null;
 
     $("btnCancelBig").onclick = closeBig;
     $("btnPickPdf").onclick = () => $("pdfField").click();
     $("pdfField").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return;
+      // Titre = nom du PDF sans « .pdf » → pré-remplissage + copie presse-papiers.
+      const titleNoExt = f.name.replace(/\.pdf$/i, "").trim();
+      if (!$("docTitle").value.trim()) $("docTitle").value = titleNoExt;
+      try { await navigator.clipboard.writeText(titleNoExt); showToast("Titre copié : " + titleNoExt); }
+      catch (_) { /* presse-papiers indisponible : on ignore silencieusement */ }
       $("pdfStatus").textContent = "Extraction de la couverture (page 1)…";
       try {
         coverBlob = await pdfCoverBlob(f);
-        $("previewImg").innerHTML = `<img src="${URL.createObjectURL(coverBlob)}" alt="Couverture">`;
+        if (lastObjURL) URL.revokeObjectURL(lastObjURL);
+        lastObjURL = URL.createObjectURL(coverBlob);
+        $("previewImg").innerHTML = `<img src="${lastObjURL}" alt="Couverture">`;
         $("pdfStatus").textContent = "Couverture prête. Elle sera envoyée sur Cloudinary à l'enregistrement.";
       } catch (err) { coverBlob = null; $("pdfStatus").textContent = "Échec : " + err.message; }
     };
@@ -430,6 +437,10 @@
         const added = await api("content", { action: "add", node: "almaqtab", value: doc });
         doc.key = added.key;
         await api("content", { action: "set", node: "almaqtab", key: added.key, value: doc });
+        // Nettoyage local : on libère le fichier choisi pour ne pas le ré-uploader.
+        coverBlob = null;
+        if (lastObjURL) { URL.revokeObjectURL(lastObjURL); lastObjURL = null; }
+        const pf = $("pdfField"); if (pf) pf.value = "";
         $("big").hidden = true;
         showToast("Document ajouté à Almaqtab.");
         if (CURRENT_NODE === "almaqtab") loadGrid();

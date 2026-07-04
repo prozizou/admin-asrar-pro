@@ -105,15 +105,17 @@
   // Observateur d'authentification
   auth.onAuthStateChanged(async (user) => {
     if (user) {
+      // Session déjà ouverte → on laisse passer sans redemander les identifiants.
+      // On ne déconnecte PAS sur un simple échec de rafraîchissement de jeton
+      // (hors-ligne, etc.) : le serveur revalide l'admin à chaque appel.
+      $("login").hidden = true;
+      $("app").hidden = false;
       try {
-        USER_TOKEN = await user.getIdToken(true);
-        $("login").hidden = true;
-        $("app").hidden = false;
-        initDashboard();
+        USER_TOKEN = await user.getIdToken();
       } catch (err) {
-        auth.signOut();
-        showToast("Session corrompue ou droits insuffisants.", "err");
+        USER_TOKEN = null;
       }
+      initDashboard();
     } else {
       USER_TOKEN = null;
       $("app").hidden = true;
