@@ -43,4 +43,11 @@ async function audit(by, action, target, details) {
   } catch (e) { /* l'audit ne doit jamais bloquer l'action */ }
 }
 
-module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN };
+// Jeton d'accès OAuth du compte de service (pour les appels REST shallow du diagnostic).
+async function accessToken() {
+  const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
+  const t = await admin.credential.cert(sa).getAccessToken();
+  return t.access_token;
+}
+
+module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken };
