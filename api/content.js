@@ -11,7 +11,8 @@ const NODES = {
   "theme_fondamental":        { label: "Thème Fondamental",      page: "Calcul Numérique", group: "Calculs" },
   "sourate":                  { label: "Sourates & Propriétés",  page: "Coran",            group: "Coran" },
   "versetRef":                { label: "Versets Références",     page: "Coran",            group: "Coran" },
-  "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran" }
+  "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran" },
+  "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" }
 };
 
 // Clé Firebase valide : on accepte TOUT (espaces, accents, arabe, apostrophes…)
