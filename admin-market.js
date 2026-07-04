@@ -19,7 +19,7 @@
     } catch (e) { $("shopList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
 
-  $("shopSearch").oninput = renderShops;
+  // ➜ CORRECTION : Définir la fonction AVANT de l'attacher à l'événement
   window.renderShops = function () {
     const q = ($("shopSearch").value || "").toLowerCase().trim();
     const rows = SHOPS.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.email || "").toLowerCase().includes(q));
@@ -44,6 +44,9 @@
     }).join("") || "<div class='empty'>Aucune boutique.</div>";
     wireShopActions();
   };
+
+  // ➜ L'attachement se fait APRÈS la déclaration
+  $("shopSearch").oninput = renderShops;
 
   window.wireShopActions = function () {
     const act = async (uid, payload, okMsg, confirmMsg) => {
