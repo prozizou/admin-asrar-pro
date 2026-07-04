@@ -6,45 +6,54 @@
   const fmtDate = (v) => v === "lifetime" ? "À vie"
     : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
 
-  document.querySelectorAll("[data-add-months]").forEach((b) => {
-    b.onclick = () => {
-      const d = new Date();
-      d.setMonth(d.getMonth() + Number(b.getAttribute("data-add-months")));
-      $("accDate").value = d.toISOString().slice(0, 10);
-      $("accLifetime").checked = false;
-      $("accDate").disabled = false;
-    };
-  });
-  $("accLifetime").onchange = () => { $("accDate").disabled = $("accLifetime").checked; };
+  // ➜ CORRECTION : Vérifier l'existence des éléments avant d'attacher les événements
+  const accDateEl = $("accDate");
+  const accLifetimeEl = $("accLifetime");
 
-  $("btnGrantAccess").onclick = async () => {
-    const email = $("accEmail").value.trim();
-    const life = $("accLifetime").checked;
-    const dateVal = $("accDate").value;
-    const msg = $("accMsg");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      msg.className = "msg err"; msg.textContent = "E-mail invalide."; return;
-    }
-    const payload = { action: "grant_access", email };
-    if (life) {
-      payload.lifetime = true;
-    } else {
-      if (!dateVal) { msg.className = "msg err"; msg.textContent = "Choisissez une date d'expiration ou « à vie »."; return; }
-      const ms = new Date(dateVal + "T23:59:59").getTime();
-      if (!(ms > Date.now())) { msg.className = "msg err"; msg.textContent = "La date doit être dans le futur."; return; }
-      payload.expiresAt = ms;
-    }
-    const btn = $("btnGrantAccess"); btn.disabled = true;
-    try {
-      await api("users", payload);
-      msg.className = "msg ok";
-      msg.textContent = "✅ Accès accordé à " + email + (life ? " (à vie)." : " jusqu'au " + fmtDate(payload.expiresAt) + ".");
-      $("accEmail").value = ""; $("accLifetime").checked = false;
-      $("accDate").disabled = false; $("accDate").value = "";
-      loadAccess(); loadUsers();
-    } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
-    btn.disabled = false;
-  };
+  if (accLifetimeEl && accDateEl) {
+    accLifetimeEl.onchange = () => { accDateEl.disabled = accLifetimeEl.checked; };
+    document.querySelectorAll("[data-add-months]").forEach((b) => {
+      b.onclick = () => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + Number(b.getAttribute("data-add-months")));
+        accDateEl.value = d.toISOString().slice(0, 10);
+        accLifetimeEl.checked = false;
+        accDateEl.disabled = false;
+      };
+    });
+  }
+
+  const btnGrant = $("btnGrantAccess");
+  if (btnGrant) {
+    btnGrant.onclick = async () => {
+      const email = $("accEmail").value.trim();
+      const life = $("accLifetime").checked;
+      const dateVal = $("accDate").value;
+      const msg = $("accMsg");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.className = "msg err"; msg.textContent = "E-mail invalide."; return;
+      }
+      const payload = { action: "grant_access", email };
+      if (life) {
+        payload.lifetime = true;
+      } else {
+        if (!dateVal) { msg.className = "msg err"; msg.textContent = "Choisissez une date d'expiration ou « à vie »."; return; }
+        const ms = new Date(dateVal + "T23:59:59").getTime();
+        if (!(ms > Date.now())) { msg.className = "msg err"; msg.textContent = "La date doit être dans le futur."; return; }
+        payload.expiresAt = ms;
+      }
+      btnGrant.disabled = true;
+      try {
+        await api("users", payload);
+        msg.className = "msg ok";
+        msg.textContent = "✅ Accès accordé à " + email + (life ? " (à vie)." : " jusqu'au " + fmtDate(payload.expiresAt) + ".");
+        $("accEmail").value = ""; $("accLifetime").checked = false;
+        $("accDate").disabled = false; $("accDate").value = "";
+        loadAccess(); loadUsers();
+      } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+      btnGrant.disabled = false;
+    };
+  }
 
   let ACCESS = [];
   window.loadAccess = async function () {
@@ -55,7 +64,10 @@
       renderAccess();
     } catch (e) { $("accessList").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
-  $("accSearch").oninput = renderAccess;
+  
+  const accSearchEl = $("accSearch");
+  if (accSearchEl) accSearchEl.oninput = renderAccess;
+
   window.renderAccess = function () {
     const q = ($("accSearch").value || "").toLowerCase().trim();
     const rows = ACCESS.filter((r) => !q || r.email.toLowerCase().includes(q));
@@ -89,13 +101,15 @@
 
   // ── Utilisateurs ──
   window.loadUsers = async function () {
-    $("usersList").innerHTML = "<tr><td colspan='5' class='muted' style='text-align:center;'>Interrogation des comptes de l'écosystème…</td></tr>";
+    const usersList = $("usersList");
+    if (!usersList) return;
+    usersList.innerHTML = "<tr><td colspan='5' class='muted' style='text-align:center;'>Interrogation des comptes de l'écosystème…</td></tr>";
     try {
       const d = await api("users", { action: "list" });
       const rows = d.users || [];
       
       const render = (arr) => {
-        $("usersList").innerHTML = arr.map((u) => `
+        usersList.innerHTML = arr.map((u) => `
           <tr class="${u.banned ? 'disabled-row' : ''}">
             <td>
               <span class="user-email">${esc(u.email)}</span><br>
@@ -178,7 +192,7 @@
         resetUsers(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
       };
 
-    } catch (e) { $("usersList").innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
+    } catch (e) { usersList.innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
   };
 
 })();
