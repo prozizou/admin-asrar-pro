@@ -108,7 +108,7 @@ module.exports = async (req, res) => {
 
       // Boutiques (profile_clients) + total des « aimes » (true).
       const prof = profSnap.val() || {};
-      const RESERVED = new Set(["ID", "key", "img", "number", "follow", "profile_name"]);
+      const RESERVED = new Set(["ID", "key", "img", "imageId", "number", "follow", "profile_name", "email", "createdAt"]);
       const boutiques = Object.entries(prof).map(([id, pc]) => {
         let likes = 0;
         if (pc && typeof pc === "object") {
