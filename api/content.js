@@ -1,5 +1,5 @@
 // api/content.js — Gestion des contenus PAGE PAR PAGE (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit } = require("./_lib/fb");
+const { app, verifyAdmin, audit, accessToken } = require("./_lib/fb");
 
 const NODES = {
   "db_sirr_deblocage":        { label: "Sirr — Déblocage",       page: "Secret Mystique", group: "Secrets" },
@@ -14,7 +14,11 @@ const NODES = {
   "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran" }
 };
 
-const SAFE_KEY = /^[a-zA-Z0-9_\-]+$/;
+// Clé Firebase valide : on accepte TOUT (espaces, accents, arabe, apostrophes…)
+// SAUF les caractères réellement interdits par RTDB ( . # $ [ ] / ) et les
+// caractères de contrôle. C'est ce qui débloque l'édition des clés héritées.
+const BAD_KEY = /[.#$\[\]\/\u0000-\u001F\u007F]/;
+const validKey = (k) => { const s = String(k ?? ""); return s.length > 0 && s.length <= 768 && !BAD_KEY.test(s); };
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -28,6 +32,36 @@ module.exports = async (req, res) => {
 
   if (action === "nodes") return res.json({ nodes: NODES });
 
+  // ── DIAGNOSTIC (temporaire) : voir les VRAIS nœuds / clés de la base ──
+  // Lecture "shallow" via REST : renvoie uniquement les noms de clés, jamais les
+  // valeurs → aucune surcharge même sur un gros nœud. À retirer après usage.
+  const dbUrl = () => String(process.env.FIREBASE_DB_URL || "").replace(/\/$/, "");
+  if (action === "raw_roots") {
+    try {
+      const tok = await accessToken();
+      const r = await fetch(dbUrl() + "/.json?shallow=true&access_token=" + tok);
+      const data = await r.json();
+      const roots = data && typeof data === "object" ? Object.keys(data) : [];
+      return res.json({ roots });
+    } catch (e) { return res.status(500).json({ error: "Diag racine : " + e.message }); }
+  }
+  if (action === "raw_keys") {
+    if (!validKey(node)) return res.status(400).json({ error: "Nom de nœud invalide" });
+    try {
+      const tok = await accessToken();
+      const r = await fetch(dbUrl() + "/" + encodeURIComponent(node) + ".json?shallow=true&access_token=" + tok);
+      const data = await r.json();
+      const keys = data && typeof data === "object" ? Object.keys(data) : [];
+      let sampleKey = keys.length ? keys[0] : null, sampleType = null, sampleFields = [];
+      if (sampleKey != null) {
+        const v = (await app().database().ref(node).child(sampleKey).once("value")).val();
+        sampleType = Array.isArray(v) ? "array" : (v && typeof v === "object" ? "object" : typeof v);
+        if (v && typeof v === "object") sampleFields = Object.keys(v).slice(0, 40);
+      }
+      return res.json({ node, total: keys.length, keys: keys.slice(0, 300), sampleKey, sampleType, sampleFields });
+    } catch (e) { return res.status(500).json({ error: "Diag nœud : " + e.message }); }
+  }
+
   if (!NODES[node]) return res.status(400).json({ error: "Nœud interdit ou inconnu" });
 
   const db = app().database();
@@ -40,7 +74,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === "get") {
-      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      if (!validKey(key)) return res.status(400).json({ error: "Clé invalide" });
       const snap = await base.child(key).once("value");
       return res.json({ key, value: snap.val() });
     }
@@ -52,7 +86,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === "set") {
-      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      if (!validKey(key)) return res.status(400).json({ error: "Clé invalide" });
       if (value === undefined) return res.status(400).json({ error: "Valeur manquante" });
       await base.child(key).set(value);
       await audit(who, "set", node + "/" + key);
@@ -66,7 +100,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === "delete") {
-      if (!SAFE_KEY.test(String(key || ""))) return res.status(400).json({ error: "Clé invalide" });
+      if (!validKey(key)) return res.status(400).json({ error: "Clé invalide" });
       const snap = await base.child(key).once("value");
       if (snap.exists()) {
         await db.ref("trash").push({ node, key, value: snap.val(), by: who.email, at: Date.now() });
@@ -81,7 +115,7 @@ module.exports = async (req, res) => {
       if (!keys.length) return res.status(400).json({ error: "Aucun élément sélectionné" });
       let n = 0;
       for (const k of keys) {
-        if (!SAFE_KEY.test(String(k))) continue;
+        if (!validKey(k)) continue;
         const snap = await base.child(k).once("value");
         if (!snap.exists()) continue;
         await db.ref("trash").push({ node, key: k, value: snap.val(), by: who.email, at: Date.now() });
@@ -101,7 +135,7 @@ module.exports = async (req, res) => {
       const tref = db.ref(target);
       let n = 0;
       for (const k of keys) {
-        if (!SAFE_KEY.test(String(k))) continue;
+        if (!validKey(k)) continue;
         const snap = await base.child(k).once("value");
         if (!snap.exists()) continue;
         // Conserve la clé si elle est libre dans la cible, sinon en génère une nouvelle.

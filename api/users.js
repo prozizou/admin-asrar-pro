@@ -28,30 +28,36 @@ module.exports = async (req, res) => {
 
   try {
     if (action === "list") {
-      const page = await a.auth().listUsers(1000);
       const [admins, vips, purchased] = await Promise.all([
         db.ref("admins").once("value").then((s) => s.val() || {}),
         db.ref("vip_users").once("value").then((s) => s.val() || {}),
         db.ref("purchased_user").once("value").then((s) => s.val() || {})
       ]);
-      const users = page.users.map((u) => {
-        const k = emailToKey((u.email || "").toLowerCase());
-        const p = purchased[k];
-        const active = subActive(p);
-        return {
-          uid: u.uid, email: u.email || "(sans email)",
-          created: u.metadata.creationTime, lastSeen: u.metadata.lastSignInTime,
-          banned: !!u.disabled,
-          isAdmin: u.email === SUPER_ADMIN || admins[k] === true,
-          isSuper: u.email === SUPER_ADMIN,
-          isVip: !!vips[u.uid],
-          subActive: active,
-          subExpiresAt: p ? p.expiresAt : null,
-          sub: active ? (p.expiresAt === "lifetime" ? "À vie"
-                        : new Date(p.expiresAt).toLocaleDateString("fr-FR"))
-                      : (p ? "expiré" : null)
-        };
-      });
+      // Pagination Auth : couvre TOUS les comptes, pas seulement les 1000 premiers.
+      const users = [];
+      let pageToken;
+      do {
+        const page = await a.auth().listUsers(1000, pageToken);
+        for (const u of page.users) {
+          const k = emailToKey((u.email || "").toLowerCase());
+          const p = purchased[k];
+          const active = subActive(p);
+          users.push({
+            uid: u.uid, email: u.email || "(sans email)",
+            created: u.metadata.creationTime, lastSeen: u.metadata.lastSignInTime,
+            banned: !!u.disabled,
+            isAdmin: u.email === SUPER_ADMIN || admins[k] === true,
+            isSuper: u.email === SUPER_ADMIN,
+            isVip: !!vips[u.uid],
+            subActive: active,
+            subExpiresAt: p ? p.expiresAt : null,
+            sub: active ? (p.expiresAt === "lifetime" ? "À vie"
+                          : new Date(p.expiresAt).toLocaleDateString("fr-FR"))
+                        : (p ? "expiré" : null)
+          });
+        }
+        pageToken = page.pageToken;
+      } while (pageToken);
       return res.json({ users, total: users.length });
     }
 
@@ -76,10 +82,16 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: "Date d'expiration (future) ou durée requise." });
       }
 
-      await db.ref("purchased_user/" + emailToKey(em)).set({
-        token: crypto.randomBytes(16).toString("hex"),
-        productId: "admin_grant", label, amount: 0,
-        grantedBy: who.email, at: Date.now(), expiresAt
+      // MERGE (update) au lieu d'écraser : si un vrai achat existe déjà pour cet
+      // e-mail, on préserve ses champs (token/productId/amount) et on ne modifie
+      // que l'expiration + la traçabilité de l'octroi.
+      const pref = db.ref("purchased_user/" + emailToKey(em));
+      const cur = (await pref.once("value")).val() || {};
+      await pref.update({
+        token: cur.token || crypto.randomBytes(16).toString("hex"),
+        productId: cur.productId || "admin_grant",
+        amount: cur.amount ?? 0,
+        label, grantedBy: who.email, at: Date.now(), expiresAt
       });
       await audit(who, "grant_access", em, label);
       return res.json({ ok: true, email: em, expiresAt });
