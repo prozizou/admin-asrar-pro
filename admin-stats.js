@@ -5,10 +5,12 @@
 
   // ── Audit ──
   window.loadAudit = async function () {
-    $("auditList").innerHTML = "<div class='empty'>Lecture analytique du journal d'audit…</div>";
+    const auditList = $("auditList");
+    if (!auditList) return; // ➜ CORRECTION : éviter l'erreur "null"
+    auditList.innerHTML = "<div class='empty'>Lecture analytique du journal d'audit…</div>";
     try {
       const d = await api("stats", { action: "audit" });
-      $("auditList").innerHTML = (d.rows || []).map((r) => `
+      auditList.innerHTML = (d.rows || []).map((r) => `
         <div class="row">
           <div class="audit-meta">
             <span class="audit-action">${esc(r.action)}</span>
@@ -20,7 +22,7 @@
         </div>
       `).join("") || "<div class='empty'>Le journal d'audit est totalement vierge.</div>";
     } catch (e) {
-      $("auditList").innerHTML = `<div class='empty' style='color:var(--danger);'>Erreur d'accès au journal : ${esc(e.message)}</div>`;
+      auditList.innerHTML = `<div class='empty' style='color:var(--danger);'>Erreur d'accès au journal : ${esc(e.message)}</div>`;
     }
   };
 
@@ -28,24 +30,30 @@
   window.loadConfig = async function () {
     try {
       const d = await api("stats", { action: "config_get" });
-      $("cfgMaintenance").checked = !!d.config.maintenance;
-      $("cfgAnnouncement").value = d.config.announcement || "";
+      if ($("cfgMaintenance")) $("cfgMaintenance").checked = !!d.config.maintenance;
+      if ($("cfgAnnouncement")) $("cfgAnnouncement").value = d.config.announcement || "";
     } catch (e) {}
   };
 
-  $("btnSaveCfg").onclick = async () => {
-    if ($("cfgMaintenance").checked && !confirm("⚠️ ALERTE CRITIQUE : Activer le mode maintenance ?\nTous les utilisateurs réguliers se heurteront à une barrière d'accès.")) return;
-    try {
-      await api("stats", { 
-        action: "config_set", 
-        config: { 
-          maintenance: $("cfgMaintenance").checked, 
-          announcement: $("cfgAnnouncement").value.trim() 
-        } 
-      });
-      showToast("Les modifications de configuration système sont en ligne.");
-    } catch (e) { showToast(e.message, "err"); }
-  };
+  // ➜ CORRECTION : Vérifier l'existence de l'élément avant d'attacher l'événement
+  const btnSaveCfg = $("btnSaveCfg");
+  if (btnSaveCfg) {
+    btnSaveCfg.onclick = async () => {
+      const cfgMain = $("cfgMaintenance");
+      const cfgAnn = $("cfgAnnouncement");
+      if (cfgMain && cfgMain.checked && !confirm("⚠️ ALERTE CRITIQUE : Activer le mode maintenance ?\nTous les utilisateurs réguliers se heurteront à une barrière d'accès.")) return;
+      try {
+        await api("stats", { 
+          action: "config_set", 
+          config: { 
+            maintenance: cfgMain ? cfgMain.checked : false, 
+            announcement: cfgAnn ? cfgAnn.value.trim() : "" 
+          } 
+        });
+        showToast("Les modifications de configuration système sont en ligne.");
+      } catch (e) { showToast(e.message, "err"); }
+    };
+  }
 
   // ── Analytics ──
   let ANA = null;
@@ -66,22 +74,22 @@
   };
 
   window.loadAnalytics = async function () {
-    $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";
+    if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";
     try { ANA = await api("stats", { action: "analytics" }); renderAnalytics(); }
-    catch (e) { $("anaPages").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+    catch (e) { if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
   window.renderAnalytics = function () {
     if (!ANA) return;
     const t = ANA.totals || {};
-    $("anaKpis").innerHTML =
+    if ($("anaKpis")) $("anaKpis").innerHTML =
       kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
       kpi(t.totalVisits ?? 0, "Visites cumulées") +
       kpi(t.events ?? 0, "Événements enregistrés") +
       kpi(t.boutiques ?? 0, "Boutiques") +
       kpi(t.likesTotal ?? 0, "Aimes cumulés");
-    $("anaPages").innerHTML = hbars(ANA.topPages, (i) => i.page);
-    $("anaTypes").innerHTML = hbars(ANA.types, (i) => i.type);
-    $("anaBoutiques").innerHTML = (ANA.boutiques || []).map((b) => `
+    if ($("anaPages")) $("anaPages").innerHTML = hbars(ANA.topPages, (i) => i.page);
+    if ($("anaTypes")) $("anaTypes").innerHTML = hbars(ANA.types, (i) => i.type);
+    if ($("anaBoutiques")) $("anaBoutiques").innerHTML = (ANA.boutiques || []).map((b) => `
       <div class="bq-row">
         ${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="frame" style="width:42px;height:42px;flex:0 0 42px"><div class="noimg" style="font-size:.55rem">—</div></div>`}
         <div class="bq-meta">
@@ -96,22 +104,22 @@
   // ── Visites ──
   let VIS_GRAN = "daily";
   window.loadVisits = async function () {
-    $("visBars").innerHTML = "<div class='empty'>Chargement…</div>";
+    if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>Chargement…</div>";
     try { if (!ANA) ANA = await api("stats", { action: "analytics" }); renderVisits(); }
-    catch (e) { $("visBars").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
+    catch (e) { if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
   window.renderVisits = function () {
     if (!ANA) return;
     const rows = ANA[VIS_GRAN] || [];
     const t = ANA.totals || {};
     const unit = { daily: "jours", weekly: "semaines", monthly: "mois" }[VIS_GRAN];
-    $("visKpis").innerHTML =
+    if ($("visKpis")) $("visKpis").innerHTML =
       kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
       kpi(t.totalVisits ?? 0, "Visites cumulées") +
       kpi(t.days ?? 0, "Jours actifs") +
       kpi(rows.length, "Périodes (" + unit + ")");
     const maxTotal = Math.max(1, ...rows.map((r) => r.total));
-    $("visBars").innerHTML = rows.map((r) => {
+    if ($("visBars")) $("visBars").innerHTML = rows.map((r) => {
       const hT = Math.max(2, Math.round(r.total / maxTotal * 160));
       const hU = Math.max(2, Math.round(r.unique / maxTotal * 160));
       return `<div class="bar-col" title="${esc(r.bucket)} : ${r.total} visites · ${r.unique} uniques">
@@ -123,10 +131,10 @@
         <div class="bar-x">${esc(shortBucket(r.bucket))}</div>
       </div>`;
     }).join("") || "<div class='empty'>Aucune visite enregistrée.</div>";
-    $("visTable").innerHTML = rows.slice().reverse().map((r) =>
+    if ($("visTable")) $("visTable").innerHTML = rows.slice().reverse().map((r) =>
       `<tr><td>${esc(r.bucket)}</td><td class="num">${r.unique}</td><td class="num">${r.total}</td></tr>`
     ).join("") || "<tr><td colspan='3' class='muted'>Aucune donnée.</td></tr>";
-    $("visFeed").innerHTML = (ANA.recent || []).map((e) => `
+    if ($("visFeed")) $("visFeed").innerHTML = (ANA.recent || []).map((e) => `
       <div class="row">
         <div><b>${esc(e.email || "—")}</b> <span class="muted">· ${esc(e.page)}</span></div>
         <div class="muted">${esc(e.type)} · ${when(e.at)}</div>
