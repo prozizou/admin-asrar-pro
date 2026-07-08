@@ -176,6 +176,7 @@
       $("tab-content").hidden = target !== "content";
       $("tab-market").hidden = target !== "market";
       $("tab-users").hidden = target !== "users";
+      $("tab-fonts").hidden = target !== "fonts";
       $("tab-analytics").hidden = target !== "analytics";
       $("tab-visits").hidden = target !== "visits";
       $("tab-audit").hidden = target !== "audit";
@@ -183,6 +184,7 @@
 
       if (target === "market") loadMarket();
       if (target === "users") { loadUsers(); loadAccess(); }
+      if (target === "fonts") loadFonts();
       if (target === "analytics") loadAnalytics();
       if (target === "visits") loadVisits();
       if (target === "audit") loadAudit();
@@ -190,7 +192,8 @@
   });
 
   // ── Helpers partagés (upload Cloudinary, couverture PDF locale, id hex) ──
-  window.uploadToCloudinary = async function (fileOrBlob, folder, filename) {
+  // resourceType : "image" (défaut) ou "raw" (polices, PDF…).
+  window.uploadToCloudinary = async function (fileOrBlob, folder, filename, resourceType) {
     const sign = await api("cloudinary-sign", { folder });
     const fd = new FormData();
     if (filename) fd.append("file", fileOrBlob, filename); else fd.append("file", fileOrBlob);
@@ -198,7 +201,8 @@
     fd.append("timestamp", sign.timestamp);
     fd.append("signature", sign.signature);
     fd.append("folder", sign.folder);
-    const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, { method: "POST", body: fd });
+    const rt = resourceType === "raw" ? "raw" : "image";
+    const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/${rt}/upload`, { method: "POST", body: fd });
     const cData = await cRes.json();
     if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média a échoué.");
     return { url: cData.secure_url, id: cData.public_id };

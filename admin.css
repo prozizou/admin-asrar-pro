@@ -419,6 +419,21 @@ textarea { resize: vertical; min-height: 60px; }
 .audit-target { color: var(--info); font-family: monospace; }
 .audit-details { font-size: 0.85rem; }
 
+/* Actions en ligne dans une .row (boutons Activer/Supprimer, etc.) */
+.acts { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+/* Onglet Polices : espacement du formulaire d'ajout */
+#tab-fonts .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+#tab-fonts .field-lg { display: flex; flex-direction: column; gap: 6px; }
+#tab-fonts .field-lg > span { font-size: 0.9rem; color: var(--muted, #9a9a9a); }
+#tab-fonts .chk-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+
+/* Aperçu de police (avant upload) */
+#tab-fonts .font-preview { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--panel); }
+#tab-fonts .font-preview .bar { display: flex; align-items: center; gap: 12px; }
+#tab-fonts .font-preview .bar input { flex: 1; min-width: 0; }
+#tab-fonts .font-preview-sample { margin-top: 6px; font-size: 2rem; line-height: 1.8; min-height: 60px; word-break: break-word; color: var(--text, #f0e9d8); }
+
 /* ── Tableaux ── */
 .tbl-wrap { width: 100%; overflow-x: auto; margin-top: 16px; border-radius: 12px; border: 1px solid var(--line); }
 table { width: 100%; border-collapse: collapse; text-align: left; }

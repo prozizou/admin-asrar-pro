@@ -47,6 +47,7 @@
         <button data-tab="content" class="active">Contenus</button>
         <button data-tab="market">Marché</button>
         <button data-tab="users">Utilisateurs</button>
+        <button data-tab="fonts">Polices</button>
         <button data-tab="analytics">Analytique</button>
         <button data-tab="visits">Visites</button>
         <button data-tab="audit">Journal d'Audit</button>
@@ -162,6 +163,40 @@
         </div>
       </section>
 
+      <section id="tab-fonts" class="panel" hidden>
+        <div class="block max-width-sm">
+          <div class="bar"><h3 class="star">Ajouter une police (Al-Qalam)</h3></div>
+          <p class="muted" style="margin-bottom:6px">
+            Téléversez un fichier de police (.ttf, .otf, .woff, .woff2). Elle sera hébergée sur
+            Cloudinary et proposée dans le module Al-Qalam aux abonnés au palier choisi.
+          </p>
+          <div class="access-form">
+            <label class="field-lg"><span>Nom affiché</span>
+              <input type="text" id="fontName" placeholder="ex. Amiri, Aref Ruqaa…" autocomplete="off"></label>
+            <label class="field-lg"><span>Fichier de police</span>
+              <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2"></label>
+
+            <div id="fontPreviewWrap" class="font-preview" hidden>
+              <div class="bar" style="margin-bottom:8px">
+                <span class="muted">Aperçu</span>
+                <input type="text" id="fontPreviewText" value="بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ" dir="rtl" placeholder="Texte d'essai…">
+              </div>
+              <div id="fontPreviewSample" class="font-preview-sample" dir="rtl">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+            </div>
+            <label class="field-lg"><span>Palier d'abonnement requis (FCFA)</span>
+              <input type="number" id="fontLevel" value="45000" min="0" step="5000"></label>
+            <label class="chk-lbl"><input type="checkbox" id="fontEnabled" checked> Police active (visible dans Al-Qalam)</label>
+            <button id="btnAddFont" class="btn primary">✔ Téléverser et enregistrer</button>
+            <p id="fontMsg" class="msg"></p>
+          </div>
+
+          <div class="bar" style="margin-top:28px">
+            <h3>Polices disponibles <span id="fontCount" class="muted"></span></h3>
+          </div>
+          <div id="fontsList" class="list"></div>
+        </div>
+      </section>
+
       <section id="tab-analytics" class="panel" hidden>
         <div class="block">
           <div class="bar"><h3 class="star">Vue analytique</h3>
@@ -272,6 +307,7 @@
   <script src="admin-content.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>
+  <script src="admin-fonts.js" defer></script>
   <script src="admin-stats.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
