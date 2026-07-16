@@ -784,3 +784,33 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .bar h2 { font-size: 1.3rem; }
   .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 }
+/* ── Onglet Parrainage ─────────────────────────────────────── */
+#tab-referral .row { flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+#tab-referral .ref-main { min-width: 220px; flex: 1; }
+#tab-referral .row-off { opacity: 0.55; border-style: dashed; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tag {
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 20px;
+  font-size: 0.72rem; font-family: monospace; letter-spacing: 1px;
+  background: rgba(201, 162, 39, 0.16); color: var(--gold-2); border: 1px solid var(--line);
+}
+.tag.ok { background: rgba(90, 180, 120, 0.16); color: var(--ok); border-color: rgba(90, 180, 120, 0.3); }
+.tag.danger { background: rgba(209, 104, 92, 0.15); color: var(--danger); border-color: rgba(209, 104, 92, 0.3); }
+#tab-referral .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+#tab-referral .field-lg { display: flex; flex-direction: column; gap: 6px; }
+#tab-referral .field-lg > span { font-size: 0.9rem; color: var(--muted); }
+#tab-referral .chk-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+
+/* Bouton « lien partageable » sur une carte de contenu */
+.card { position: relative; }
+.card-share {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  background: rgba(13, 11, 7, 0.78); border: 1px solid var(--line);
+  color: var(--gold-2); font-size: 0.95rem; line-height: 1; padding: 0;
+}
+.card-share:hover { background: rgba(201, 162, 39, 0.25); }
+
+@media (max-width: 820px) {
+  #tab-referral .row { flex-direction: column; align-items: flex-start; }
+}

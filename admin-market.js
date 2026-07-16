@@ -112,6 +112,7 @@
             ${p.blocked
               ? `<button class="btn text success-text" data-prod-unblock="${esc(p.key)}">Débloquer</button>`
               : `<button class="btn text" data-prod-block="${esc(p.key)}">Bloquer</button>`}
+            <button class="btn text" data-prod-share="${esc(p.key)}" data-pname="${esc(p.name)}">🔗 Lien</button>
             <button class="btn text danger-text" data-prod-del="${esc(p.key)}" data-blk="${p.blocked ? 1 : 0}">Supprimer</button>
           </div>
         </div>
@@ -126,6 +127,10 @@
   };
 
   window.wireProductActions = function () {
+    // Lien partageable du produit (vers le Marché du hub, avec aperçu social).
+    document.querySelectorAll("[data-prod-share]").forEach((b) => {
+      b.onclick = (e) => { e.stopPropagation(); copyShareLink("det_produits", b.dataset.prodShare, b.dataset.pname); };
+    });
     const run = async (payload, msg, confirmMsg) => {
       if (confirmMsg && !confirm(confirmMsg)) return;
       try { await api("market", payload); showToast(msg); loadMarket(); } catch (e) { showToast(e.message, "err"); }

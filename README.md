@@ -14,6 +14,8 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
      (Console Firebase → Paramètres → Comptes de service → Générer une clé).
      ⚠️ À coller UNIQUEMENT dans Vercel. Jamais dans le code, ni dans un chat.
    - `FIREBASE_DB_URL` : `https://asrar-bc059.firebaseio.com`
+   - `HUB_URL` : URL publique du hub (ex. `https://asrar-hub.vercel.app`) —
+     sert à construire les liens partageables 🔗. Défaut : `https://asrar-hub.vercel.app`.
 3. Console Firebase → Authentication → Settings → **Domaines autorisés** :
    ajouter le domaine du panneau (ex. `asrar-admin.vercel.app`).
 
@@ -46,6 +48,21 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
   `list_access`.)
 - **Journal d'audit** : chaque action admin est tracée (`audit_log`).
+- **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` du hub) :
+  KPIs (parrains, filleuls crédités, clics, taux clic→inscription, points en
+  circulation, abonnements gagnés), **classement des parrains**, **alertes
+  anti-fraude** (rafale de filleuls en 24 h, conversion anormale), **liste des
+  filleuls** d'un parrain, **± points** (motif obligatoire, audité),
+  **suspension** d'un parrain, **régénération de code**, et **réglages du
+  programme** (`config/referral` : actif, points/filleul, seuil, jours offerts,
+  âge maximal du compte filleul) — le hub les applique immédiatement.
+- **Liens partageables** : bouton **🔗** sur chaque carte de contenu (Sirr,
+  Almaqtab) et sur chaque produit du Marché → copie/partage du lien
+  `HUB_URL/s?k=…&c=…&i=…` (aperçu Open Graph sur WhatsApp / Facebook / TikTok).
+- **Palier d'abonnement** à l'octroi d'accès : le champ `level` est désormais écrit
+  dans `purchased_user` (automatique selon la durée, ou choisi). Sans lui, le hub
+  laissait l'utilisateur au niveau 0 → **PDF et polices Al-Qalam bloqués** malgré
+  un accès valide. Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
 - **Marché (boutiques & produits)** : onglet dédié. Liste des boutiques
   (`sellers/{uid}`) avec statut (active / expirée), date d'expiration et nombre de
   produits. Actions par boutique : **Prolonger** (nouvelle date), **Renommer**,
@@ -63,7 +80,21 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   avec bouton « ← Bibliothèques »).
 - **Réglages** : mode **maintenance** + **annonce globale** (`config/`).
 
-## À faire dans l'application principale (2 petits ajouts)
+## À faire dans l'application principale
+
+### 0. Parrainage — règles RTDB
+
+Le hub écrit `referrals`, `referral_codes` et `referred` (Admin SDK). À fusionner :
+
+```json
+"referrals":      { "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": false } },
+"referral_codes": { ".read": false, ".write": false },
+"referred":       { ".read": false, ".write": false, ".indexOn": ["by"] }
+```
+
+`.indexOn: ["by"]` est requis par l'action **children** (filleuls d'un parrain).
+Les réglages du programme vivent dans `config/referral` — la règle `config`
+ci-dessous suffit (écriture serveur uniquement).
 
 ### 1. Règles Firebase — rendre `config` lisible par les utilisateurs
 Pour que l'app affiche l'annonce / l'écran de maintenance, ajoutez :

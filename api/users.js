@@ -8,6 +8,17 @@ const normEmail = (v) => {
   const e = String(v || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : "";
 };
+// Palier (FCFA) écrit dans purchased_user.level : le hub s'en sert pour les
+// fonctionnalités gatées (téléchargement PDF ≥ 45 000, polices Al-Qalam).
+// Sans ce champ, un accès accordé ici resterait au niveau 0 → PDF/polices bloqués.
+const LEVELS = [15000, 25000, 45000, 999999];
+const levelFor = (expiresAt) => {
+  if (expiresAt === "lifetime") return 999999;
+  const days = Math.round((expiresAt - Date.now()) / 864e5);
+  if (days >= 365) return 45000;
+  if (days >= 180) return 25000;
+  return 15000;
+};
 // Un abonnement est ACTIF si "lifetime" ou si sa date d'expiration est dans le futur.
 const subActive = (p) =>
   !!p && (p.expiresAt === "lifetime" ||
@@ -51,6 +62,8 @@ module.exports = async (req, res) => {
             isVip: !!vips[u.uid],
             subActive: active,
             subExpiresAt: p ? p.expiresAt : null,
+            subLevel: p ? (p.level ?? null) : null,
+            subSource: p ? (p.source || p.productId || "") : "",
             sub: active ? (p.expiresAt === "lifetime" ? "À vie"
                           : new Date(p.expiresAt).toLocaleDateString("fr-FR"))
                         : (p ? "expiré" : null)
@@ -85,16 +98,21 @@ module.exports = async (req, res) => {
       // MERGE (update) au lieu d'écraser : si un vrai achat existe déjà pour cet
       // e-mail, on préserve ses champs (token/productId/amount) et on ne modifie
       // que l'expiration + la traçabilité de l'octroi.
+      // Palier : explicite (body.level) ou déduit de la durée accordée.
+      const asked = Number(body.level);
+      const level = LEVELS.includes(asked) ? asked : levelFor(expiresAt);
+
       const pref = db.ref("purchased_user/" + emailToKey(em));
       const cur = (await pref.once("value")).val() || {};
       await pref.update({
         token: cur.token || crypto.randomBytes(16).toString("hex"),
         productId: cur.productId || "admin_grant",
         amount: cur.amount ?? 0,
+        level,
         label, grantedBy: who.email, at: Date.now(), expiresAt
       });
-      await audit(who, "grant_access", em, label);
-      return res.json({ ok: true, email: em, expiresAt });
+      await audit(who, "grant_access", em, label + " · palier " + level);
+      return res.json({ ok: true, email: em, expiresAt, level });
     }
 
     if (action === "revoke_access") {
@@ -114,6 +132,8 @@ module.exports = async (req, res) => {
           email: String(c.key).replace(/,/g, "."),
           expiresAt: p.expiresAt ?? null,
           active: subActive(p),
+          level: p.level ?? null,
+          source: p.source || p.productId || "",
           label: p.label || "",
           grantedBy: p.grantedBy || "",
           at: p.at || null

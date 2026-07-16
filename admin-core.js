@@ -69,6 +69,9 @@
   };
   window.extraFieldHtml = (key, val) => isComplex(val) ? complexFieldHtml(key, val) : simpleFieldHtml(key, val);
 
+  // URL du hub (pour construire les liens partageables /s) — injectée par /api/config.
+  window.HUB_URL = String(window.HUB_URL || "https://asrar-hub.vercel.app").replace(/\/+$/, "");
+
   // Variables globales
   window.USER_TOKEN = null;
   window.CURRENT_NODE = null;
@@ -177,6 +180,7 @@
       $("tab-market").hidden = target !== "market";
       $("tab-users").hidden = target !== "users";
       $("tab-fonts").hidden = target !== "fonts";
+      $("tab-referral").hidden = target !== "referral";
       $("tab-analytics").hidden = target !== "analytics";
       $("tab-visits").hidden = target !== "visits";
       $("tab-audit").hidden = target !== "audit";
@@ -185,11 +189,43 @@
       if (target === "market") loadMarket();
       if (target === "users") { loadUsers(); loadAccess(); }
       if (target === "fonts") loadFonts();
+      if (target === "referral") loadReferral();
       if (target === "analytics") loadAnalytics();
       if (target === "visits") loadVisits();
       if (target === "audit") loadAudit();
     };
   });
+
+  // ── LIENS PARTAGEABLES DU HUB (/s) ───────────────────────────────────
+  // Conjugué avec api/share.js du hub : /s?k=<type>&c=<cat>&i=<clé>
+  // Permet à l'administration de poster elle-même un secret / livre / produit
+  // sur WhatsApp, Facebook ou TikTok (avec vignette Open Graph).
+  window.shareKindOf = function (node) {
+    if (/^db_sirr_/.test(node)) return { kind: "secret", cat: node.replace("db_sirr_", "") };
+    if (node === "almaqtab") return { kind: "book" };
+    if (node === "det_produits") return { kind: "product" };
+    return null;
+  };
+  window.hubShareLink = function (node, key) {
+    const m = shareKindOf(node);
+    if (!m || !key) return null;
+    let u = HUB_URL + "/s?k=" + encodeURIComponent(m.kind);
+    if (m.cat) u += "&c=" + encodeURIComponent(m.cat);
+    return u + "&i=" + encodeURIComponent(key);
+  };
+  // Copie + partage natif si disponible (mobile).
+  window.copyShareLink = async function (node, key, title) {
+    const url = hubShareLink(node, key);
+    if (!url) { showToast("Cet élément n'a pas de lien partageable.", "err"); return; }
+    try {
+      if (navigator.share) { await navigator.share({ title: title || "ASRAR PRO", text: title || "", url }); return; }
+      await navigator.clipboard.writeText(url);
+      showToast("Lien copié : " + url);
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      prompt("Copiez le lien :", url);
+    }
+  };
 
   // ── Helpers partagés (upload Cloudinary, couverture PDF locale, id hex) ──
   // resourceType : "image" (défaut) ou "raw" (polices, PDF…).

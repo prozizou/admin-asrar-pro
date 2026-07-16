@@ -41,11 +41,16 @@
         if (!(ms > Date.now())) { msg.className = "msg err"; msg.textContent = "La date doit être dans le futur."; return; }
         payload.expiresAt = ms;
       }
+      // Palier : vide = automatique côté serveur (selon la durée).
+      const lvl = $("accLevel") ? Number($("accLevel").value) : 0;
+      if (lvl) payload.level = lvl;
+
       btnGrant.disabled = true;
       try {
-        await api("users", payload);
+        const r = await api("users", payload);
         msg.className = "msg ok";
-        msg.textContent = "✅ Accès accordé à " + email + (life ? " (à vie)." : " jusqu'au " + fmtDate(payload.expiresAt) + ".");
+        msg.textContent = "✅ Accès accordé à " + email + (life ? " (à vie)." : " jusqu'au " + fmtDate(payload.expiresAt) + ".")
+          + (r && r.level ? " Palier " + r.level + "." : "");
         $("accEmail").value = ""; $("accLifetime").checked = false;
         $("accDate").disabled = false; $("accDate").value = "";
         loadAccess(); loadUsers();
@@ -81,7 +86,8 @@
         <div>
           <b>${esc(r.email)}</b>
           <span class="badge ${r.active ? "gold" : "expired"}">${r.active ? "Actif" : "Expiré"}</span>
-          <div class="muted">Expiration : ${fmtDate(r.expiresAt)}${r.grantedBy ? " · par " + esc(r.grantedBy) : ""}</div>
+          ${r.source === "referral" ? '<span class="badge gold">🎁 parrainage</span>' : ""}
+          <div class="muted">Expiration : ${fmtDate(r.expiresAt)}${r.level ? " · palier " + esc(r.level) : ""}${r.grantedBy ? " · par " + esc(r.grantedBy) : ""}</div>
         </div>
         <div class="acts">
           <button class="btn text" data-acc-edit="${esc(r.email)}">Prolonger</button>

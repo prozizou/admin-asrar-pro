@@ -13,6 +13,13 @@ module.exports = (req, res) => {
     appId:       process.env.FIREBASE_APP_ID || "1:199810893447:web:165ed3d51093d83c68da22"
   };
 
-  res.status(200).send("window.FIREBASE_CONFIG=" + JSON.stringify(cfg) + ";");
+  // URL publique du hub : sert à construire les liens partageables /s?k=…&i=…
+  // depuis le panneau (onglet Contenus → bouton 🔗). Définir HUB_URL sur Vercel.
+  const hub = String(process.env.HUB_URL || "https://asrar-hub.vercel.app").replace(/\/+$/, "");
+
+  res.status(200).send(
+    "window.FIREBASE_CONFIG=" + JSON.stringify(cfg) + ";" +
+    "window.HUB_URL=" + JSON.stringify(hub) + ";"
+  );
 };
 

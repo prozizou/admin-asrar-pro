@@ -64,8 +64,11 @@
 
   window.cardHtml = (k, v) => {
     const img = cardImg(v), desc = cardDesc(v);
+    // Lien partageable (/s du hub) si le nœud correspond à un type partageable.
+    const shareable = !!shareKindOf(CURRENT_NODE);
     return `<div class="card clickable ${selected.has(k) ? "sel" : ""}" data-key="${esc(k)}">
       ${selectMode ? `<label class="card-check"><input type="checkbox" data-chk ${selected.has(k) ? "checked" : ""}></label>` : ""}
+      ${shareable ? `<button class="card-share" data-share="${esc(k)}" title="Copier le lien partageable">🔗</button>` : ""}
       <div class="thumb">${img ? `<img src="${esc(img)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
       <div class="card-body">
         <div class="card-title">${esc(cardTitle(v, k))}</div>
@@ -104,6 +107,12 @@
       };
       const chk = c.querySelector("[data-chk]");
       if (chk) chk.onchange = () => toggleSel(k, c, chk.checked);
+      const sh = c.querySelector("[data-share]");
+      if (sh) sh.onclick = (e) => {
+        e.stopPropagation(); // ne pas ouvrir l'éditeur
+        const item = (ITEMS.find(([ik]) => ik === k) || [])[1];
+        copyShareLink(CURRENT_NODE, k, cardTitle(item, k));
+      };
     });
   };
 
