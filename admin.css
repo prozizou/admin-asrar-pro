@@ -123,6 +123,8 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .nav button {
   background: transparent;
@@ -149,6 +151,40 @@ body {
 .nav button.btn-out:hover {
   background: rgba(209, 104, 92, 0.12);
   border-color: rgba(209, 104, 92, 0.25);
+}
+
+/* ── Bouton hamburger (mobile / tablette) ── */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.nav-toggle span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--gold-2);
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+.nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.open span:nth-child(2) { opacity: 0; }
+.nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.nav-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(5, 4, 3, 0.55);
+  backdrop-filter: blur(2px);
 }
 
 /* ── Formulaires ── */
@@ -588,6 +624,8 @@ input:checked + span:before { transform: translateX(22px); background-color: var
 .msg.err { color: var(--danger); }
 .msg.ok { color: var(--ok); }
 .max-width-sm { max-width: 620px; }
+.user-email { font-weight: 600; }
+.user-email, .user-uid { overflow-wrap: anywhere; word-break: break-word; }
 
 /* ── Analytics ── */
 .kpis {
@@ -750,12 +788,57 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
 }
 .theme-btn:hover { transform: scale(1.08); }
 
-/* ── Mobile ── */
+/* ── Responsive ─────────────────────────────────────────────── */
 .mobile-only { display: none; }
+
+/* Tablette : resserrer la mise en page, réduire la sidebar */
+@media (max-width: 1080px) {
+  .topbar { padding: 14px 22px; }
+  .panel { padding: 18px 22px; }
+  .block { padding: 24px 24px; }
+  #tab-content .sidebar { flex-basis: 240px; }
+}
+
+/* Menu déroulant (hamburger) — tablette + mobile */
+@media (max-width: 1100px) {
+  .topbar { flex-wrap: wrap; gap: 12px; }
+  .nav-toggle { display: flex; margin-left: auto; }
+
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.3s ease, opacity 0.2s ease, margin 0.3s ease;
+  }
+  .nav.open {
+    max-height: 70vh;
+    overflow-y: auto;
+    opacity: 1;
+    pointer-events: auto;
+    margin-top: 6px;
+  }
+  .nav button {
+    width: 100%;
+    text-align: left;
+    padding: 13px 16px;
+    font-size: 0.95rem;
+    border-color: var(--line);
+    background: var(--raised);
+    z-index: 120;
+    position: relative;
+  }
+  .nav button.btn-out { margin-top: 4px; }
+}
+
+/* Mobile ── */
 @media (max-width: 820px) {
-  .panel { padding: 12px 16px; }
-  .nav { flex-wrap: wrap; gap: 4px; }
-  .nav button { padding: 8px 14px; font-size: 0.8rem; }
+  .topbar { padding: 12px 16px; position: static; }
+  .panel { padding: 12px 14px; }
   #tab-content { flex-direction: column; }
   #tab-content .sidebar {
     flex: none;
@@ -774,15 +857,71 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .mobile-only { display: inline-flex !important; align-self: flex-start; margin-bottom: 8px; }
   body.is-mobile #tab-content.show-grid .sidebar { display: none; }
   body.is-mobile #tab-content:not(.show-grid) .main-content { display: none; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .thumb { height: 130px; }
   #accessList .row, #shopList .row { flex-direction: column; align-items: flex-start; }
   .row .acts { flex-wrap: wrap; }
-  .block { padding: 18px; }
-  .bigcard { padding: 24px; }
-  .login-box { padding: 32px 24px; }
+  .block { padding: 18px 16px; }
+  .bigwrap { padding: 20px 12px; }
+  .bigcard { padding: 22px 18px; }
+  .login-box { padding: 32px 22px; }
+  .bar { gap: 10px; }
   .bar h2 { font-size: 1.3rem; }
-  .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .bar h3 { font-size: 1.15rem; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+  .kpi .kpi-val { font-size: 1.6rem; }
+  .bar-actions { width: 100%; }
+  .bar-actions .btn { flex: 1 1 auto; }
+  .bulkbar { gap: 8px; }
+  .toast { padding: 14px 20px; font-size: 0.9rem; }
+  #toast-container { top: 12px; right: 12px; left: 12px; }
+  .theme-btn { width: 44px; height: 44px; right: 14px; bottom: 14px; }
+
+  /* Tableaux → cartes empilées */
+  .tbl-wrap.responsive-cards { border: none; overflow: visible; }
+  .tbl-wrap.responsive-cards table,
+  .tbl-wrap.responsive-cards tbody,
+  .tbl-wrap.responsive-cards tr,
+  .tbl-wrap.responsive-cards td { display: block; width: 100%; }
+  .tbl-wrap.responsive-cards thead { display: none; }
+  .tbl-wrap.responsive-cards tr {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    padding: 6px 4px;
+    box-shadow: var(--shadow-soft);
+  }
+  .tbl-wrap.responsive-cards td {
+    border-bottom: 1px solid var(--line);
+    padding: 10px 16px;
+  }
+  .tbl-wrap.responsive-cards tr td:last-child { border-bottom: none; }
+  .tbl-wrap.responsive-cards td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--gold);
+    font-family: var(--display);
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+}
+
+/* Petit mobile */
+@media (max-width: 480px) {
+  .brand img { height: 30px; }
+  .panel { padding: 10px; }
+  .block { padding: 14px 12px; border-radius: 16px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .login-box { padding: 28px 18px; }
+  .login-box h1 { font-size: 1.6rem; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; padding: 8px 6px; }
+  .hbar { grid-template-columns: 96px 1fr 40px; gap: 8px; }
+  th, td { padding: 12px 14px; }
 }
 /* ── Onglet Parrainage ─────────────────────────────────────── */
 #tab-referral .row { flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }

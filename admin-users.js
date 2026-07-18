@@ -124,13 +124,13 @@
       const render = (arr) => {
         usersList.innerHTML = arr.map((u) => `
           <tr class="${u.banned ? 'disabled-row' : ''}">
-            <td>
+            <td data-label="Utilisateur">
               <span class="user-email">${esc(u.email)}</span><br>
               <small class="user-uid muted">${u.uid}</small>
             </td>
-            <td><small>${when(u.created)}</small></td>
-            <td><small>${when(u.lastSeen)}</small></td>
-            <td>
+            <td data-label="Création"><small>${when(u.created)}</small></td>
+            <td data-label="Dernière connexion"><small>${when(u.lastSeen)}</small></td>
+            <td data-label="Rôles">
               ${u.isSuper ? `<span class="badge gold">SUPER-ADMIN</span>` : `
                 <label class="chk-lbl">
                   <input type="checkbox" class="act-role" data-uid="${u.uid}" data-role="admin" ${u.isAdmin ? 'checked' : ''}> Administrateur
@@ -145,7 +145,7 @@
                 ${u.sub ? (u.subActive ? '💎 Abonné · ' + esc(u.sub) : '⛔ Abonnement expiré') : 'Aucun abonnement'}
               </div>
             </td>
-            <td>
+            <td data-label="Actions">
               <button class="btn text act-access" data-email="${esc(u.email)}">Gérer l'accès</button>
               ${u.isSuper ? '' : `
                 <button class="btn text ${u.banned ? 'success-text' : 'danger-text'} act-ban" data-uid="${u.uid}" data-ban="${!u.banned}">

@@ -169,6 +169,26 @@
     };
   })();
 
+  // Menu mobile (hamburger)
+  (function initNavToggle() {
+    const toggle = $("navToggle");
+    const nav = $("mainNav");
+    const scrim = $("navScrim");
+    if (!toggle || !nav) return;
+    const setOpen = (open) => {
+      nav.classList.toggle("open", open);
+      toggle.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      if (scrim) scrim.hidden = !open;
+    };
+    toggle.onclick = () => setOpen(!nav.classList.contains("open"));
+    if (scrim) scrim.onclick = () => setOpen(false);
+    // Fermer après un choix ou en repassant en grand écran.
+    nav.addEventListener("click", (e) => { if (e.target.closest("button")) setOpen(false); });
+    window.matchMedia("(max-width: 1100px)").addEventListener("change", (e) => { if (!e.matches) setOpen(false); });
+    window.__closeNav = () => setOpen(false);
+  })();
+
   // Navigation par onglets
   document.querySelectorAll("[data-tab]").forEach((btn) => {
     btn.onclick = () => {
