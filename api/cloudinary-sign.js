@@ -3,14 +3,14 @@
 // à usage unique et envoie le fichier directement à Cloudinary.
 // Env requis : CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME.
 const crypto = require("crypto");
-const { verifyAdmin } = require("./_lib/fb");
+const { verifyAdmin, bearer } = require("./_lib/fb");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
   const body = typeof req.body === "object" && req.body ? req.body
              : (() => { try { return JSON.parse(req.body || "{}"); } catch { return {}; } })();
 
-  try { await verifyAdmin(body.idToken); }
+  try { await verifyAdmin(bearer(req) || body.idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dqixuyqqh";

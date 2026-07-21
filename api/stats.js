@@ -1,5 +1,5 @@
 // api/stats.js — Réglages et Logs d'audits (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   const { idToken, action } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const db = app().database();
@@ -36,6 +36,100 @@ module.exports = async (req, res) => {
       });
       await audit(who, "config_set", null, JSON.stringify(c).slice(0, 200));
       return res.json({ ok: true });
+    }
+
+    // ── VUE D'ENSEMBLE (dashboard d'accueil) ─────────────────────────────
+    // KPIs synthétiques, tendances 30 j et sparkline — le tout à partir des
+    // données réelles (aucune valeur inventée).
+    if (action === "overview") {
+      const now = Date.now();
+      const DAY = 864e5;
+      const dstr = (ms) => new Date(ms).toISOString().slice(0, 10); // AAAA-MM-JJ (UTC)
+      const today = dstr(now);
+      const subActive = (p) => !!p && (p.expiresAt === "lifetime" ||
+        (typeof p.expiresAt === "number" && p.expiresAt > now));
+
+      const [purchSnap, visitsSnap, feedSnap, adminsSnap, vipsSnap, profSnap] = await Promise.all([
+        db.ref("purchased_user").once("value"),
+        db.ref("analytics/visits").once("value"),
+        db.ref("activity_feed").limitToLast(40).once("value"),
+        db.ref("admins").once("value"),
+        db.ref("vip_users").once("value"),
+        db.ref("profile_clients").once("value")
+      ]);
+
+      // Abonnements & revenus (purchased_user).
+      const purch = purchSnap.val() || {};
+      let activeSubs = 0, revenueTotal = 0, revenue30 = 0, sales30 = 0, salesTotal = 0;
+      for (const p of Object.values(purch)) {
+        if (!p || typeof p !== "object") continue;
+        if (subActive(p)) activeSubs++;
+        const amt = Number(p.amount) || 0;
+        if (amt > 0) {
+          revenueTotal += amt; salesTotal++;
+          if (typeof p.at === "number" && p.at >= now - 30 * DAY) { revenue30 += amt; sales30++; }
+        }
+      }
+
+      // Visites : aujourd'hui, 30 j, uniques, + sparkline 14 jours.
+      const visits = visitsSnap.val() || {};
+      const dayTotal = {}, dayUniq = {};
+      const uniq30 = new Set(), uniqAll = new Set();
+      let visits30 = 0, visitsTotal = 0;
+      for (const [date, users] of Object.entries(visits)) {
+        let dt = 0; const set = new Set();
+        for (const [uid, u] of Object.entries(users || {})) {
+          const n = (u && typeof u.n === "number") ? u.n : 0;
+          dt += n; set.add(uid); uniqAll.add(uid);
+          if (date >= dstr(now - 30 * DAY)) uniq30.add(uid);
+        }
+        dayTotal[date] = dt; dayUniq[date] = set.size;
+        visitsTotal += dt;
+        if (date >= dstr(now - 30 * DAY)) visits30 += dt;
+      }
+      const spark = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = dstr(now - i * DAY);
+        spark.push({ d: d.slice(5), total: dayTotal[d] || 0, uniq: dayUniq[d] || 0 });
+      }
+
+      // Comptes Auth : total + nouveaux (7 j / 30 j).
+      let usersTotal = 0, new7 = 0, new30 = 0, pageToken;
+      do {
+        const page = await app().auth().listUsers(1000, pageToken);
+        for (const u of page.users) {
+          usersTotal++;
+          const c = Date.parse(u.metadata.creationTime || "") || 0;
+          if (c >= now - 7 * DAY) new7++;
+          if (c >= now - 30 * DAY) new30++;
+        }
+        pageToken = page.pageToken;
+      } while (pageToken);
+
+      // Activité récente (journal d'événements).
+      const feed = feedSnap.val() || {};
+      const recent = Object.values(feed)
+        .filter((e) => e && typeof e === "object")
+        .map((e) => ({ at: e.at || 0, email: e.email || "", page: e.page || "?", type: e.type || "?" }))
+        .sort((a, b) => b.at - a.at).slice(0, 12);
+
+      const admins = adminsSnap.val() || {};
+      const adminsCount = Object.values(admins).filter((v) => v === true).length + 1; // +super-admin
+
+      return res.json({
+        kpis: {
+          revenue30, revenueTotal, sales30, salesTotal,
+          activeSubs,
+          usersTotal, new7, new30,
+          uniqueToday: dayUniq[today] || 0, visitsToday: dayTotal[today] || 0,
+          unique30: uniq30.size, uniqueAll: uniqAll.size, visits30, visitsTotal,
+          boutiques: Object.keys(profSnap.val() || {}).length,
+          admins: adminsCount,
+          vips: Object.keys(vipsSnap.val() || {}).length
+        },
+        spark,
+        recent
+      });
     }
 
     // ── ANALYTIQUE & VISITES ─────────────────────────────────────────────

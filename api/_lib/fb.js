@@ -50,4 +50,11 @@ async function accessToken() {
   return t.access_token;
 }
 
-module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken };
+// Extrait le jeton de l'en-tête « Authorization: Bearer <token> » (standard).
+// Les endpoints le privilégient et retombent sur body.idToken (compat ascendante).
+function bearer(req) {
+  const h = (req && req.headers && (req.headers.authorization || req.headers.Authorization)) || "";
+  return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
+}
+
+module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer };

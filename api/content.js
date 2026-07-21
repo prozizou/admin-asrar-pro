@@ -1,5 +1,5 @@
 // api/content.js — Gestion des contenus PAGE PAR PAGE (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, accessToken } = require("./_lib/fb");
+const { app, verifyAdmin, audit, accessToken, bearer } = require("./_lib/fb");
 
 const NODES = {
   "db_sirr_deblocage":        { label: "Sirr — Déblocage",       page: "Secret Mystique", group: "Secrets" },
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
   const { idToken, action, node, key, value } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   if (action === "nodes") return res.json({ nodes: NODES });

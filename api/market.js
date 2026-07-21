@@ -1,6 +1,6 @@
 // api/market.js — Gestion du MARCHÉ (boutiques & produits) — admins seulement.
 const crypto = require('crypto');
-const { app, verifyAdmin, audit } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 const LIVE = "det_produits";
 const BLOCKED = "det_produits_bloques";
@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
   const { idToken, action, uid } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const db = app().database();

@@ -3,7 +3,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const crypto = require('crypto');
-const { verifyAdmin } = require('./_lib/fb');
+const { verifyAdmin, bearer } = require('./_lib/fb');
 
 function extractDriveId(url) {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
   const body = typeof req.body === 'object' && req.body ? req.body : JSON.parse(req.body || '{}');
   const { idToken, driveUrl, folder } = body;
 
-  try { await verifyAdmin(idToken); }
+  try { await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const fileId = extractDriveId(driveUrl);

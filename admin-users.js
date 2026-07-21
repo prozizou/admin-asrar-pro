@@ -97,7 +97,8 @@
 
     document.querySelectorAll("[data-acc-revoke]").forEach((b) => b.onclick = async () => {
       const em = b.getAttribute("data-acc-revoke");
-      if (!confirm("Révoquer l'accès premium de " + em + " ?")) return;
+      if (!(await uiConfirm({ title: "Révoquer l'accès", danger: true, icon: "block", confirmText: "Révoquer",
+        message: "Révoquer l'accès premium de " + em + " ?" }))) return;
       try { await api("users", { action: "revoke_access", email: em }); showToast("Accès révoqué."); loadAccess(); loadUsers(); }
       catch (e) { showToast(e.message, "err"); }
     });
@@ -180,7 +181,8 @@
           b.onclick = async () => {
             const uid = b.getAttribute("data-uid");
             const operationalBan = b.getAttribute("data-ban") === "true";
-            if (operationalBan && !confirm("Voulez-vous révoquer définitivement les jetons et interdire l'accès à ce compte ?")) return;
+            if (operationalBan && !(await uiConfirm({ title: "Bannir ce compte", danger: true, icon: "block", confirmText: "Bannir",
+              message: "Révoquer définitivement les jetons et interdire l'accès à ce compte ?\nL'utilisateur sera déconnecté partout en ≤ 1 h." }))) return;
             try {
               await api("users", { action: operationalBan ? "ban" : "unban", uid });
               showToast(operationalBan ? "Utilisateur exclu du système." : "Compte de l'utilisateur restauré.");

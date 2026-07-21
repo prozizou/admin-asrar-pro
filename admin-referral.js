@@ -130,11 +130,12 @@
 
   async function adjust(uid) {
     const s = (REF.sponsors || []).find((x) => x.uid === uid) || {};
-    const raw = prompt("Points à ajouter (négatif pour retirer) pour " + (s.email || uid) + " :\nActuel : " + (s.points || 0) + " pts", "10");
+    const raw = await uiPrompt({ title: "Ajuster les points", icon: "referral", inputType: "number", default: "10",
+      message: "Parrain : " + (s.email || uid) + " · actuel : " + (s.points || 0) + " pts.\nNégatif pour retirer." });
     if (raw === null) return;
     const delta = Number(raw);
     if (!Number.isFinite(delta) || delta === 0) { showToast("Valeur invalide.", "err"); return; }
-    const reason = prompt("Motif (obligatoire, inscrit au journal d'audit) :", "");
+    const reason = await uiPrompt({ title: "Motif de l'ajustement", icon: "audit", placeholder: "Obligatoire — inscrit au journal d'audit" });
     if (!reason) { showToast("Motif obligatoire.", "err"); return; }
     try {
       const d = await api("referral", { action: "adjust", uid, delta, reason });
@@ -145,9 +146,10 @@
 
   async function setBlock(uid, on) {
     const s = (REF.sponsors || []).find((x) => x.uid === uid) || {};
-    if (on && !confirm("Suspendre le parrainage de " + (s.email || uid) + " ?\nSes futurs filleuls ne rapporteront plus de points.")) return;
+    if (on && !(await uiConfirm({ title: "Suspendre le parrain", danger: true, icon: "block", confirmText: "Suspendre",
+      message: "Suspendre le parrainage de " + (s.email || uid) + " ?\nSes futurs filleuls ne rapporteront plus de points." }))) return;
     let reason = "";
-    if (on) { reason = prompt("Motif de la suspension :", "Fraude suspectée") || ""; }
+    if (on) { reason = (await uiPrompt({ title: "Motif de la suspension", icon: "warning", default: "Fraude suspectée" })) || ""; }
     try {
       await api("referral", { action: on ? "block" : "unblock", uid, reason });
       showToast(on ? "Parrain suspendu." : "Parrain réactivé.");
@@ -157,7 +159,8 @@
 
   async function resetCode(uid) {
     const s = (REF.sponsors || []).find((x) => x.uid === uid) || {};
-    if (!confirm("Régénérer le code de " + (s.email || uid) + " ?\n⚠️ Tous les liens déjà partagés avec l'ancien code cesseront de le créditer.")) return;
+    if (!(await uiConfirm({ title: "Régénérer le code", danger: true, icon: "refresh", confirmText: "Régénérer",
+      message: "Régénérer le code de " + (s.email || uid) + " ?\nTous les liens déjà partagés avec l'ancien code cesseront de le créditer." }))) return;
     try {
       const d = await api("referral", { action: "reset_code", uid });
       showToast("Nouveau code : " + d.code);

@@ -54,31 +54,31 @@
   };
 
   window.wireShopActions = function () {
-    const act = async (uid, payload, okMsg, confirmMsg) => {
-      if (confirmMsg && !confirm(confirmMsg)) return;
+    const act = async (uid, payload, okMsg, confirm) => {
+      if (confirm && !(await uiConfirm(confirm))) return;
       try { await api("market", Object.assign({ uid }, payload)); showToast(okMsg); loadMarket(); }
       catch (e) { showToast(e.message, "err"); }
     };
-    const askDate = (label) => {
-      const v = prompt(label + "\nFormat : AAAA-MM-JJ (ou « vie » pour un accès à vie) :", "");
+    const askDate = async (label) => {
+      const v = await uiPrompt({ title: label, icon: "calendar", placeholder: "AAAA-MM-JJ (ou « vie »)" });
       if (v == null) return undefined;
       if (v.trim().toLowerCase() === "vie") return "lifetime";
       const ms = new Date(v.trim() + "T23:59:59").getTime();
       if (!(ms > Date.now())) { showToast("Date invalide ou passée.", "err"); return undefined; }
       return ms;
     };
-    document.querySelectorAll("[data-shop-extend]").forEach((b) => b.onclick = () => {
-      const exp = askDate("Nouvelle date d'expiration de la boutique :");
+    document.querySelectorAll("[data-shop-extend]").forEach((b) => b.onclick = async () => {
+      const exp = await askDate("Nouvelle date d'expiration");
       if (exp === undefined) return;
       act(b.getAttribute("data-shop-extend"), { action: "shop_restore", expiresAt: exp }, "Boutique prolongée / réactivée.");
     });
-    document.querySelectorAll("[data-shop-rename]").forEach((b) => b.onclick = () => {
-      const name = prompt("Nouveau nom de la boutique :", "");
+    document.querySelectorAll("[data-shop-rename]").forEach((b) => b.onclick = async () => {
+      const name = await uiPrompt({ title: "Renommer la boutique", icon: "edit", placeholder: "Nouveau nom" });
       if (!name || !name.trim()) return;
       act(b.getAttribute("data-shop-rename"), { action: "shop_update", name: name.trim() }, "Boutique renommée.");
     });
-    document.querySelectorAll("[data-shop-notify]").forEach((b) => b.onclick = () => {
-      const message = prompt("Message à envoyer au vendeur :", "");
+    document.querySelectorAll("[data-shop-notify]").forEach((b) => b.onclick = async () => {
+      const message = await uiPrompt({ title: "Notifier le vendeur", icon: "bell", placeholder: "Message à envoyer…" });
       if (!message || !message.trim()) return;
       act(b.getAttribute("data-shop-notify"), { action: "shop_notify", message: message.trim() }, "Notification envoyée.");
     });
@@ -86,10 +86,12 @@
       act(b.getAttribute("data-shop-restore"), { action: "shop_restore" }, "Produits rétablis en vente."));
     document.querySelectorAll("[data-shop-revoke]").forEach((b) => b.onclick = () =>
       act(b.getAttribute("data-shop-revoke"), { action: "shop_revoke" }, "Boutique révoquée : produits bloqués.",
-          "Révoquer cette boutique ? Tous ses produits seront retirés de la vente (réversible)."));
+          { title: "Révoquer la boutique", danger: true, icon: "block", confirmText: "Révoquer",
+            message: "Tous ses produits seront retirés de la vente (réversible). Continuer ?" }));
     document.querySelectorAll("[data-shop-delete]").forEach((b) => b.onclick = () =>
       act(b.getAttribute("data-shop-delete"), { action: "shop_delete", withProducts: true }, "Boutique supprimée (corbeille).",
-          "Supprimer définitivement cette boutique ET ses produits ? (copie en corbeille)"));
+          { title: "Supprimer la boutique", danger: true, icon: "trash", confirmText: "Supprimer",
+            message: "Supprimer définitivement cette boutique ET ses produits ?\nUne copie part dans la corbeille." }));
   };
 
   window.renderProductsReset = function () { prodShown = 0; const pg = $("prodGrid"); if (pg) pg.innerHTML = ""; renderProductsMore(); };
@@ -112,7 +114,7 @@
             ${p.blocked
               ? `<button class="btn text success-text" data-prod-unblock="${esc(p.key)}">Débloquer</button>`
               : `<button class="btn text" data-prod-block="${esc(p.key)}">Bloquer</button>`}
-            <button class="btn text" data-prod-share="${esc(p.key)}" data-pname="${esc(p.name)}">🔗 Lien</button>
+            <button class="btn text" data-prod-share="${esc(p.key)}" data-pname="${esc(p.name)}">${ic("share")}Lien</button>
             <button class="btn text danger-text" data-prod-del="${esc(p.key)}" data-blk="${p.blocked ? 1 : 0}">Supprimer</button>
           </div>
         </div>
@@ -131,8 +133,8 @@
     document.querySelectorAll("[data-prod-share]").forEach((b) => {
       b.onclick = (e) => { e.stopPropagation(); copyShareLink("det_produits", b.dataset.prodShare, b.dataset.pname); };
     });
-    const run = async (payload, msg, confirmMsg) => {
-      if (confirmMsg && !confirm(confirmMsg)) return;
+    const run = async (payload, msg, confirm) => {
+      if (confirm && !(await uiConfirm(confirm))) return;
       try { await api("market", payload); showToast(msg); loadMarket(); } catch (e) { showToast(e.message, "err"); }
     };
     document.querySelectorAll("[data-prod-block]").forEach((b) => b.onclick = () =>
@@ -141,7 +143,9 @@
       run({ action: "product_unblock", key: b.getAttribute("data-prod-unblock") }, "Produit remis en vente."));
     document.querySelectorAll("[data-prod-del]").forEach((b) => b.onclick = () =>
       run({ action: "product_delete", key: b.getAttribute("data-prod-del"), blocked: b.getAttribute("data-blk") === "1" },
-          "Produit supprimé (corbeille).", "Supprimer ce produit ? (copie en corbeille)"));
+          "Produit supprimé (corbeille).",
+          { title: "Supprimer le produit", danger: true, icon: "trash", confirmText: "Supprimer",
+            message: "Supprimer ce produit ?\nUne copie part dans la corbeille." }));
   };
 
   // ── ATTACHEMENT DES ÉVÉNEMENTS (après déclaration des fonctions) ──
@@ -157,7 +161,8 @@
   const blockExpired = $("btnBlockExpired");
   if (blockExpired) {
     blockExpired.onclick = async () => {
-      if (!confirm("Bloquer TOUTES les boutiques dont l'abonnement est expiré ?\nLeurs produits seront retirés de la vente.")) return;
+      if (!(await uiConfirm({ title: "Bloquer les boutiques expirées", danger: true, icon: "block", confirmText: "Bloquer",
+        message: "Bloquer TOUTES les boutiques dont l'abonnement est expiré ?\nLeurs produits seront retirés de la vente." }))) return;
       try {
         const r = await api("market", { action: "block_expired" });
         showToast(r.shopsBlocked + " boutique(s) bloquée(s), " + r.productsBlocked + " produit(s) retiré(s).");
