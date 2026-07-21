@@ -49,6 +49,17 @@ module.exports = async (req, res) => {
       const subActive = (p) => !!p && (p.expiresAt === "lifetime" ||
         (typeof p.expiresAt === "number" && p.expiresAt > now));
 
+      // Prix de l'abonnement (FCFA) d'après le palier : 3 mois = 15 000,
+      // 6 mois = 25 000, 1 an = 45 000. Le palier (level) est fixé au moment de
+      // l'octroi/achat et reste stable (contrairement à expiresAt qui décroît),
+      // c'est donc lui qui détermine le revenu. À défaut de palier reconnu (ex.
+      // « à vie »), on retombe sur le montant réellement enregistré.
+      const PLAN_PRICES = { 15000: 15000, 25000: 25000, 45000: 45000 };
+      const subPrice = (p) => {
+        if (!p || typeof p !== "object") return 0;
+        return PLAN_PRICES[Number(p.level)] || Number(p.amount) || 0;
+      };
+
       const [purchSnap, visitsSnap, feedSnap, adminsSnap, vipsSnap, profSnap] = await Promise.all([
         db.ref("purchased_user").once("value"),
         db.ref("analytics/visits").once("value"),
@@ -64,7 +75,7 @@ module.exports = async (req, res) => {
       for (const p of Object.values(purch)) {
         if (!p || typeof p !== "object") continue;
         if (subActive(p)) activeSubs++;
-        const amt = Number(p.amount) || 0;
+        const amt = subPrice(p);
         if (amt > 0) {
           revenueTotal += amt; salesTotal++;
           if (typeof p.at === "number" && p.at >= now - 30 * DAY) { revenue30 += amt; sales30++; }
