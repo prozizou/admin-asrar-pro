@@ -14,7 +14,7 @@
 //   reset_code    → régénérer son code (l'ancien lien cesse de fonctionner)
 //   settings_get / settings_set → paramètres du programme (lus par le hub)
 
-const { app, verifyAdmin, audit } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 // Valeurs par défaut — DOIVENT rester alignées avec api/referral.js du hub.
 const DEFAULTS = {
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
   const { idToken, action, uid } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const a = app();

@@ -2,7 +2,7 @@
 // Les polices sont stockées sous le nœud `alqalam_fonts/{id}` et consommées par
 // le module Al-Qalam du hub. Le fichier de police lui-même est hébergé sur
 // Cloudinary (upload signé, resource_type=raw) ; ici on ne stocke que la fiche.
-const { app, verifyAdmin, audit } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 // family CSS unique, sûre (sans espaces/accents) dérivée du nom + suffixe court.
 function toFamily(name, id) {
@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
   const { idToken, action } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const db = app().database();

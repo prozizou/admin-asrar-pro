@@ -47,26 +47,55 @@
         <span></span><span></span><span></span>
       </button>
       <nav class="nav" id="mainNav">
-        <button data-tab="content" class="active">Contenus</button>
-        <button data-tab="market">Marché</button>
-        <button data-tab="users">Utilisateurs</button>
-        <button data-tab="fonts">Polices</button>
-        <button data-tab="referral">Parrainage</button>
-        <button data-tab="analytics">Analytique</button>
-        <button data-tab="visits">Visites</button>
-        <button data-tab="audit">Journal d'Audit</button>
-        <button data-tab="settings">Réglages</button>
-        <button id="btnLogout" class="btn-out">Quitter</button>
+        <button data-tab="dashboard" class="active" data-icon="overview">Vue d'ensemble</button>
+        <button data-tab="content" data-icon="content">Contenus</button>
+        <button data-tab="market" data-icon="market">Marché</button>
+        <button data-tab="users" data-icon="users">Utilisateurs</button>
+        <button data-tab="fonts" data-icon="fonts">Polices</button>
+        <button data-tab="referral" data-icon="referral">Parrainage</button>
+        <button data-tab="analytics" data-icon="analytics">Analytique</button>
+        <button data-tab="visits" data-icon="visits">Visites</button>
+        <button data-tab="audit" data-icon="audit">Journal d'Audit</button>
+        <button data-tab="settings" data-icon="settings">Réglages</button>
+        <button id="btnLogout" class="btn-out" data-icon="logout">Quitter</button>
       </nav>
     </header>
     <div id="navScrim" class="nav-scrim" hidden></div>
 
     <main class="main-container">
-      
-      <section id="tab-content" class="panel">
+
+      <section id="tab-dashboard" class="panel">
+        <div class="block">
+          <div class="bar">
+            <h3 class="star">Vue d'ensemble</h3>
+            <button id="btnReloadDash" class="btn text" data-icon="refresh">Actualiser</button>
+          </div>
+          <div id="dashGrid" class="stats"></div>
+          <div id="dashSpark" class="spark-wrap"></div>
+        </div>
+        <div class="block dash-cols">
+          <div class="dash-col">
+            <div class="bar"><h3>Accès rapides</h3></div>
+            <div class="shortcuts">
+              <button class="shortcut" data-goto="content" data-icon="content"><span>Contenus</span></button>
+              <button class="shortcut" data-goto="market" data-icon="market"><span>Marché</span></button>
+              <button class="shortcut" data-goto="users" data-icon="users"><span>Utilisateurs</span></button>
+              <button class="shortcut" data-goto="referral" data-icon="referral"><span>Parrainage</span></button>
+              <button class="shortcut" data-goto="analytics" data-icon="analytics"><span>Analytique</span></button>
+              <button class="shortcut" data-goto="settings" data-icon="settings"><span>Réglages</span></button>
+            </div>
+          </div>
+          <div class="dash-col">
+            <div class="bar"><h3>Activité récente</h3></div>
+            <div id="dashRecent" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-content" class="panel" hidden>
         <div class="sidebar">
           <h3>Bibliothèques</h3>
-          <button id="btnNewSecret" class="btn primary full-width" style="margin-bottom:12px">✦ Nouveau secret / document</button>
+          <button id="btnNewSecret" class="btn primary full-width" style="margin-bottom:12px" data-icon="new">Nouveau secret / document</button>
           <div id="nodeList" class="menu"></div>
         </div>
         <div class="main-content">
@@ -74,9 +103,9 @@
           <div class="bar">
             <h2 id="currentNodeTitle">Sélectionnez une bibliothèque</h2>
             <div class="bar-actions" id="contentActions" style="display:none">
-              <button id="btnSelectMode" class="btn text">☑ Sélection</button>
-              <button id="btnAddItem" class="btn primary">+ Ajouter</button>
-              <button id="btnAddDocument" class="btn primary" hidden>+ Document (Almaqtab)</button>
+              <button id="btnSelectMode" class="btn text" data-icon="select">Sélection</button>
+              <button id="btnAddItem" class="btn primary" data-icon="add">Ajouter</button>
+              <button id="btnAddDocument" class="btn primary" hidden data-icon="add">Document (Almaqtab)</button>
             </div>
           </div>
 
@@ -98,8 +127,8 @@
         <div class="block">
           <div class="bar">
             <h3 class="star">Boutiques <span id="shopCount" class="muted"></span></h3>
-            <button id="btnBlockExpired" class="btn danger">Bloquer les boutiques expirées</button>
-            <button id="btnAddShop" class="btn primary">+ Ajouter un vendeur</button>
+            <button id="btnBlockExpired" class="btn danger" data-icon="block">Bloquer les boutiques expirées</button>
+            <button id="btnAddShop" class="btn primary" data-icon="add">Ajouter un vendeur</button>
           </div>
           <input type="text" id="shopSearch" placeholder="Rechercher une boutique (nom ou e-mail)…">
           <div id="shopList" class="list"></div>
@@ -142,7 +171,7 @@
                 <option value="45000">45 000 — équivalent 1 an (PDF + polices)</option>
                 <option value="999999">Illimité</option>
               </select></label>
-            <button id="btnGrantAccess" class="btn primary">✔ Valider l'utilisateur</button>
+            <button id="btnGrantAccess" class="btn primary" data-icon="check">Valider l'utilisateur</button>
             <p id="accMsg" class="msg"></p>
           </div>
 
@@ -199,7 +228,7 @@
             <label class="field-lg"><span>Palier d'abonnement requis (FCFA)</span>
               <input type="number" id="fontLevel" value="45000" min="0" step="5000"></label>
             <label class="chk-lbl"><input type="checkbox" id="fontEnabled" checked> Police active (visible dans Al-Qalam)</label>
-            <button id="btnAddFont" class="btn primary">✔ Téléverser et enregistrer</button>
+            <button id="btnAddFont" class="btn primary" data-icon="check">Téléverser et enregistrer</button>
             <p id="fontMsg" class="msg"></p>
           </div>
 
@@ -213,7 +242,7 @@
       <section id="tab-referral" class="panel" hidden>
         <div class="block">
           <div class="bar"><h3 class="star">Programme de parrainage</h3>
-            <button id="btnReloadReferral" class="btn text">↻ Actualiser</button></div>
+            <button id="btnReloadReferral" class="btn text" data-icon="refresh">Actualiser</button></div>
           <p class="muted" style="margin-bottom:6px">
             Les utilisateurs partagent le lien <b>/s?r=CODE</b> du hub. Les points sont crédités à
             l'<b>inscription d'un nouveau compte</b> venu du lien (jamais au simple clic : il serait
@@ -235,7 +264,7 @@
               <input type="number" id="refDays" min="1" max="3650" step="1"></label>
             <label class="field-lg"><span>Âge maximal du compte filleul (jours)</span>
               <input type="number" id="refAge" min="1" max="365" step="1"></label>
-            <button id="btnSaveReferral" class="btn primary">✔ Enregistrer les réglages</button>
+            <button id="btnSaveReferral" class="btn primary" data-icon="check">Enregistrer les réglages</button>
             <p id="refMsg" class="msg"></p>
           </div>
         </div>
@@ -258,7 +287,7 @@
       <section id="tab-analytics" class="panel" hidden>
         <div class="block">
           <div class="bar"><h3 class="star">Vue analytique</h3>
-            <button id="btnReloadAnalytics" class="btn text">↻ Actualiser</button></div>
+            <button id="btnReloadAnalytics" class="btn text" data-icon="refresh">Actualiser</button></div>
           <div id="anaKpis" class="kpis"></div>
 
           <h3 style="margin:6px 0 10px">Pages les plus consultées</h3>
@@ -269,7 +298,7 @@
 
           <div class="bar" style="margin:22px 0 10px">
             <h3 style="margin:0">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
-            <button id="btnAddBoutique" class="btn primary">+ Ajouter une boutique</button>
+            <button id="btnAddBoutique" class="btn primary" data-icon="add">Ajouter une boutique</button>
           </div>
           <div id="anaBoutiques" class="list"></div>
         </div>
@@ -278,7 +307,7 @@
       <section id="tab-visits" class="panel" hidden>
         <div class="block">
           <div class="bar"><h3 class="star">Visites</h3>
-            <button id="btnReloadVisits" class="btn text">↻ Actualiser</button></div>
+            <button id="btnReloadVisits" class="btn text" data-icon="refresh">Actualiser</button></div>
           <div id="visKpis" class="kpis"></div>
 
           <div class="seg" id="visSeg">
@@ -330,25 +359,10 @@
             <textarea id="cfgAnnouncement" rows="4" maxlength="300" placeholder="Ex. : Maintenance planifiée ce vendredi à 22h..."></textarea>
           </label>
 
-          <button id="btnSaveCfg" class="btn primary">Sauvegarder les configurations</button>
+          <button id="btnSaveCfg" class="btn primary" data-icon="check">Sauvegarder les configurations</button>
           <p id="cfgMsg" class="msg"></p>
         </div>
 
-        <div class="block max-width-sm" id="diagBlock" style="margin-top:20px">
-          <h3>🔧 Diagnostic base <span class="muted">(temporaire)</span></h3>
-          <p class="muted" style="margin-bottom:10px">
-            Affiche les <b>vrais</b> nœuds et clés de la base (lecture « shallow », aucune valeur
-            téléchargée). Sert à réconcilier la liste blanche avec ce que le hub lit réellement.
-            À retirer une fois la vérification faite.
-          </p>
-          <button id="btnDiagRoots" class="btn text">Lister les nœuds racine</button>
-          <div class="access-form" style="margin-top:12px">
-            <label class="field-lg"><span>Nom d'un nœud</span>
-              <input type="text" id="diagNode" placeholder="ex. sourate, det_produits, asmaUlHusna"></label>
-            <button id="btnDiagKeys" class="btn text">Voir ses clés + la forme d'une fiche</button>
-          </div>
-          <pre id="diagOut" class="muted" style="white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;background:#0d0b07;padding:12px;border-radius:8px;margin-top:12px;font-size:.82rem"></pre>
-        </div>
       </section>
 
     </main>
@@ -362,6 +376,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="/api/config" defer></script>
   <script src="admin-core.js" defer></script>
+  <script src="admin-dashboard.js" defer></script>
   <script src="admin-content.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>

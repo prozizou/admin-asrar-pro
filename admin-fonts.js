@@ -55,7 +55,8 @@
   }
 
   async function deleteFont(id, name) {
-    if (!confirm(`Supprimer la police « ${name} » ?\nUne copie part dans la corbeille (trash/).`)) return;
+    if (!(await uiConfirm({ title: "Supprimer la police", danger: true, icon: "trash", confirmText: "Supprimer",
+      message: `Supprimer la police « ${name} » ?\nUne copie part dans la corbeille.` }))) return;
     try {
       await api("fonts", { action: "delete", id });
       showToast("Police supprimée.");

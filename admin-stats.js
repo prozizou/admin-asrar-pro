@@ -41,7 +41,8 @@
     btnSaveCfg.onclick = async () => {
       const cfgMain = $("cfgMaintenance");
       const cfgAnn = $("cfgAnnouncement");
-      if (cfgMain && cfgMain.checked && !confirm("⚠️ ALERTE CRITIQUE : Activer le mode maintenance ?\nTous les utilisateurs réguliers se heurteront à une barrière d'accès.")) return;
+      if (cfgMain && cfgMain.checked && !(await uiConfirm({ title: "Activer la maintenance", danger: true, icon: "warning", confirmText: "Activer",
+        message: "Tous les utilisateurs réguliers se heurteront à une barrière d'accès. Continuer ?" }))) return;
       try {
         await api("stats", { 
           action: "config_set", 
@@ -194,29 +195,5 @@
     };
   };
   if ($("btnAddBoutique")) $("btnAddBoutique").onclick = openBoutiqueCreator;
-
-  // ── Diagnostic base (temporaire) — recâblé ──
-  const diagOut = $("diagOut");
-  if ($("btnDiagRoots")) $("btnDiagRoots").onclick = async () => {
-    if (diagOut) diagOut.textContent = "Lecture…";
-    try {
-      const d = await api("content", { action: "raw_roots" });
-      if (diagOut) diagOut.textContent = "Nœuds racine (" + d.roots.length + ") :\n" + d.roots.join("\n");
-    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
-  };
-  if ($("btnDiagKeys")) $("btnDiagKeys").onclick = async () => {
-    const n = ($("diagNode").value || "").trim();
-    if (!n) return showToast("Indiquez un nom de nœud.", "err");
-    if (diagOut) diagOut.textContent = "Lecture…";
-    try {
-      const d = await api("content", { action: "raw_keys", node: n });
-      if (diagOut) diagOut.textContent =
-        "Nœud : " + d.node +
-        "\nNombre de clés : " + d.total +
-        "\nType d'une fiche : " + d.sampleType +
-        (d.sampleFields && d.sampleFields.length ? "\nChamps : " + d.sampleFields.join(", ") : "") +
-        "\n\nClés réelles (max 300) :\n" + d.keys.join("\n");
-    } catch (e) { if (diagOut) diagOut.textContent = e.message; }
-  };
 
 })();

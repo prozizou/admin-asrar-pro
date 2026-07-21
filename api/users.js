@@ -1,5 +1,5 @@
 // api/users.js — Gestion des utilisateurs (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN } = require("./_lib/fb");
+const { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, bearer } = require("./_lib/fb");
 const crypto = require("crypto");
 
 // Email valide + normalisé (minuscules) — la clé RTDB doit correspondre à celle
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
   const { idToken, action, uid, email } = body;
 
   let who;
-  try { who = await verifyAdmin(idToken); }
+  try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const a = app(); 

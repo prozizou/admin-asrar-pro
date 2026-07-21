@@ -68,7 +68,7 @@
     const shareable = !!shareKindOf(CURRENT_NODE);
     return `<div class="card clickable ${selected.has(k) ? "sel" : ""}" data-key="${esc(k)}">
       ${selectMode ? `<label class="card-check"><input type="checkbox" data-chk ${selected.has(k) ? "checked" : ""}></label>` : ""}
-      ${shareable ? `<button class="card-share" data-share="${esc(k)}" title="Copier le lien partageable">🔗</button>` : ""}
+      ${shareable ? `<button class="card-share" data-share="${esc(k)}" title="Copier le lien partageable">${ic("share")}</button>` : ""}
       <div class="thumb">${img ? `<img src="${esc(img)}" alt="">` : `<div class="noimg">Aucun Média</div>`}</div>
       <div class="card-body">
         <div class="card-title">${esc(cardTitle(v, k))}</div>
@@ -126,8 +126,8 @@
 
   window.updateBulk = function () { const el = $("bulkCount"); if (el) el.textContent = selected.size + " sélectionné(s)"; };
 
-  window.enterSelectMode = function () { selectMode = true; $("bulkBar").hidden = false; $("btnSelectMode").textContent = "✕ Quitter"; rerender(); };
-  window.exitSelectMode = function () { selectMode = false; selected.clear(); $("bulkBar").hidden = true; $("btnSelectMode").textContent = "☑ Sélection"; if (ITEMS.length) rerender(); updateBulk(); };
+  window.enterSelectMode = function () { selectMode = true; $("bulkBar").hidden = false; $("btnSelectMode").innerHTML = ic("close") + "Quitter"; rerender(); };
+  window.exitSelectMode = function () { selectMode = false; selected.clear(); $("bulkBar").hidden = true; $("btnSelectMode").innerHTML = ic("select") + "Sélection"; if (ITEMS.length) rerender(); updateBulk(); };
   $("btnSelectMode").onclick = () => selectMode ? exitSelectMode() : enterSelectMode();
 
   window.fillBulkTarget = function () {
@@ -145,7 +145,8 @@
   $("bulkCancel").onclick = exitSelectMode;
   $("bulkDelete").onclick = async () => {
     if (!selected.size) return showToast("Aucun élément sélectionné.", "err");
-    if (!confirm("Supprimer " + selected.size + " élément(s) ? (copie en corbeille, récupérable)")) return;
+    if (!(await uiConfirm({ title: "Supprimer la sélection", danger: true, icon: "trash", confirmText: "Supprimer",
+      message: "Supprimer " + selected.size + " élément(s) ?\nUne copie part dans la corbeille (récupérable)." }))) return;
     try { const r = await api("content", { action: "bulk_delete", node: CURRENT_NODE, keys: [...selected] });
       showToast(r.count + " élément(s) supprimé(s)."); exitSelectMode(); loadGrid(); }
     catch (e) { showToast(e.message, "err"); }
@@ -154,7 +155,8 @@
     const target = $("bulkTarget").value;
     if (!target) return showToast("Choisissez d'abord un nœud cible.", "err");
     if (!selected.size) return showToast("Aucun élément sélectionné.", "err");
-    if (!confirm("Déplacer " + selected.size + " élément(s) vers « " + (NODES_CACHE[target] || {}).label + " » ?")) return;
+    if (!(await uiConfirm({ title: "Déplacer la sélection", icon: "content", confirmText: "Déplacer",
+      message: "Déplacer " + selected.size + " élément(s) vers « " + (NODES_CACHE[target] || {}).label + " » ?" }))) return;
     try { const r = await api("content", { action: "move", node: CURRENT_NODE, targetNode: target, keys: [...selected] });
       showToast(r.count + " élément(s) déplacé(s)."); exitSelectMode(); loadGrid(); }
     catch (e) { showToast(e.message, "err"); }
@@ -217,8 +219,8 @@
       $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
     };
 
-    $("btnAddField").onclick = () => {
-      const name = (prompt("Nom du nouveau champ (ex. auteur, prix, lien) :") || "").trim();
+    $("btnAddField").onclick = async () => {
+      const name = ((await uiPrompt({ title: "Nouveau champ", placeholder: "ex. auteur, prix, lien" })) || "").trim();
       if (!name) return;
       if (!/^[a-zA-Z0-9_\-]+$/.test(name)) return showToast("Nom de champ invalide (lettres, chiffres, _ ou -).", "err");
       if (CORE_FIELDS.includes(name) || document.querySelector(`#xfields [data-fkey="${name}"]`))
@@ -284,7 +286,8 @@
 
     if (key) {
       $("btnDeleteBig").onclick = async () => {
-        if (!confirm("⚠️ Envoyer cette entrée à la corbeille (récupérable) ?")) return;
+        if (!(await uiConfirm({ title: "Envoyer à la corbeille", danger: true, icon: "trash", confirmText: "Supprimer",
+          message: "Cette entrée sera archivée dans la corbeille (récupérable). Continuer ?" }))) return;
         try {
           await api("content", { action: "delete", node: CURRENT_NODE, key });
           $("big").hidden = true;
@@ -320,7 +323,8 @@
       } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Enregistrer"; }
     };
     $("btnDeleteBig").onclick = async () => {
-      if (!confirm("⚠️ Envoyer cette entrée à la corbeille (récupérable) ?")) return;
+      if (!(await uiConfirm({ title: "Envoyer à la corbeille", danger: true, icon: "trash", confirmText: "Supprimer",
+        message: "Cette entrée sera archivée dans la corbeille (récupérable). Continuer ?" }))) return;
       try {
         await api("content", { action: "delete", node: CURRENT_NODE, key });
         $("big").hidden = true; showToast("Entrée archivée dans la corbeille."); loadGrid();
