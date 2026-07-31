@@ -1214,5 +1214,7 @@ textarea:focus-visible,
   overflow-y: auto;
 }
 .pln-empty { color: var(--muted); font-size: 0.9rem; font-style: italic; }
+.pln-gl { display: inline-flex; vertical-align: middle; color: var(--gold-2); margin: 0 4px; }
+.pln-gl:hover { color: var(--gold); }
 .pln-variant-row { display: flex; align-items: flex-start; gap: 8px; }
 .pln-variant-row textarea { flex: 1; }
