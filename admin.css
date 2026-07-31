@@ -1192,3 +1192,27 @@ textarea:focus-visible,
   .modal-card { padding: 26px 20px 20px; }
   .modal-actions { flex-direction: column-reverse; }
 }
+
+/* ── Planificateur (contenu Facebook) ── */
+#tab-planner .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+#tab-planner .field-lg { display: flex; flex-direction: column; gap: 6px; }
+#tab-planner .field-lg > span { font-size: 0.9rem; color: var(--muted); }
+.bar-actions input[type="date"],
+.bar-actions input[type="time"] { width: auto; flex: 0 0 auto; min-width: 0; }
+.badge.ok { background: rgba(102, 185, 138, 0.15); color: var(--ok); border: 1px solid rgba(102, 185, 138, 0.3); }
+.pln-item { display: flex; flex-direction: column; gap: 10px; }
+.pln-item .row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pln-text {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.pln-empty { color: var(--muted); font-size: 0.9rem; font-style: italic; }
+.pln-variant-row { display: flex; align-items: flex-start; gap: 8px; }
+.pln-variant-row textarea { flex: 1; }
