@@ -94,6 +94,14 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   Un **rappel** (heure réglable) affiche un bandeau — et une notification navigateur
   si autorisée — quand des groupes restent à publier ; c'est un rappel côté client
   (utile pendant que le panneau est ouvert), pas une notification push serveur.
+  **Contenus puisés depuis Firebase** : à la création d'un secret/document/produit,
+  un sélecteur optionnel « Puiser depuis la bibliothèque » va chercher le titre et le
+  visuel directement dans les nœuds RTDB existants (`db_sirr_*`, `almaqtab`,
+  `det_produits`) — le texte des variantes reste écrit/ajusté à la main pour
+  Facebook. **Groupes** : import en masse (coller une liste de liens, aperçu
+  éditable, puis « Valider tout » crée les groupes en un clic) et bouton
+  **« Tout valider »** sur la checklist du jour pour marquer d'un coup toutes les
+  affectations restantes comme publiées, une fois la tournée manuelle terminée.
 
 ## À faire dans l'application principale
 

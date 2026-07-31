@@ -137,6 +137,7 @@
               <input type="time" id="plnReminderTime" title="Heure de rappel quotidien">
               <button id="plnSaveReminder" class="btn text" data-icon="bell">Rappel</button>
               <button id="plnGenerate" class="btn primary" data-icon="sparkle">Générer un planning</button>
+              <button id="plnPublishAll" class="btn text success-text" data-icon="check">Tout valider</button>
             </div>
           </div>
           <p class="muted" style="margin-bottom:6px">
@@ -163,7 +164,10 @@
         <div class="block max-width-sm">
           <div class="bar">
             <h3>Groupes cibles <span id="plnGroupCount" class="muted"></span></h3>
-            <button id="plnAddGroup" class="btn primary" data-icon="add">Ajouter un groupe</button>
+            <div class="bar-actions">
+              <button id="plnImportGroups" class="btn text" data-icon="add">Importer des liens</button>
+              <button id="plnAddGroup" class="btn primary" data-icon="add">Ajouter un groupe</button>
+            </div>
           </div>
           <div id="plnGroupsList" class="list"></div>
         </div>
