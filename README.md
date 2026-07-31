@@ -79,6 +79,17 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   bibliothèques et la grille occupent toute la largeur (navigation liste ↔ grille
   avec bouton « ← Bibliothèques »).
 - **Réglages** : mode **maintenance** + **annonce globale** (`config/`).
+- **Planificateur** (onglet dédié, nœud `planner/`) : prépare à l'avance des textes
+  (secrets, documents, produits) avec **plusieurs variantes** par contenu, pour vos
+  groupes Facebook cibles. **Checklist du jour** : un groupe par ligne, texte prêt à
+  copier-coller, statut publié / à publier — vous publiez vous-même sur Facebook, le
+  panneau ne poste jamais rien automatiquement (zéro automatisation détectable).
+  **Générer un planning** répartit un contenu sur plusieurs jours × groupes en
+  choisissant, pour chaque groupe, la variante la moins récemment utilisée (rotation
+  anti-répétition). **Historique** : quel groupe a reçu quelle variante, et quand.
+  Un **rappel** (heure réglable) affiche un bandeau — et une notification navigateur
+  si autorisée — quand des groupes restent à publier ; c'est un rappel côté client
+  (utile pendant que le panneau est ouvert), pas une notification push serveur.
 
 ## À faire dans l'application principale
 

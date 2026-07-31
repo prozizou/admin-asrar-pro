@@ -49,6 +49,7 @@
       <nav class="nav" id="mainNav">
         <button data-tab="dashboard" class="active" data-icon="overview">Vue d'ensemble</button>
         <button data-tab="content" data-icon="content">Contenus</button>
+        <button data-tab="planner" data-icon="calendar">Planificateur</button>
         <button data-tab="market" data-icon="market">Marché</button>
         <button data-tab="users" data-icon="users">Utilisateurs</button>
         <button data-tab="fonts" data-icon="fonts">Polices</button>
@@ -78,6 +79,7 @@
             <div class="bar"><h3>Accès rapides</h3></div>
             <div class="shortcuts">
               <button class="shortcut" data-goto="content" data-icon="content"><span>Contenus</span></button>
+              <button class="shortcut" data-goto="planner" data-icon="calendar"><span>Planificateur</span></button>
               <button class="shortcut" data-goto="market" data-icon="market"><span>Marché</span></button>
               <button class="shortcut" data-goto="users" data-icon="users"><span>Utilisateurs</span></button>
               <button class="shortcut" data-goto="referral" data-icon="referral"><span>Parrainage</span></button>
@@ -120,6 +122,68 @@
 
           <div id="cardsGrid" class="grid"></div>
           <button id="btnMoreItems" class="btn text load-more" hidden>Afficher 50 de plus</button>
+        </div>
+      </section>
+
+      <section id="tab-planner" class="panel" hidden>
+        <div class="block">
+          <div class="bar">
+            <h3 class="star">Checklist du jour</h3>
+            <div class="bar-actions">
+              <button id="plnPrevDay" class="btn text" title="Jour précédent">←</button>
+              <input type="date" id="plnDate">
+              <button id="plnNextDay" class="btn text" title="Jour suivant">→</button>
+              <button id="plnToday" class="btn text">Aujourd'hui</button>
+              <input type="time" id="plnReminderTime" title="Heure de rappel quotidien">
+              <button id="plnSaveReminder" class="btn text" data-icon="bell">Rappel</button>
+              <button id="plnGenerate" class="btn primary" data-icon="sparkle">Générer un planning</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-bottom:6px">
+            Les textes sont prêts à copier-coller. Le clic « Publié » ne publie rien automatiquement —
+            c'est vous, à la main, sur Facebook (~2-3 min par groupe).
+          </p>
+          <div id="plnReminderBar" class="msg err" hidden></div>
+          <div id="plnKpis" class="kpis"></div>
+          <div id="plnChecklist" class="list"></div>
+        </div>
+
+        <div class="block">
+          <div class="bar">
+            <h3>Contenus &amp; variantes de texte <span id="plnItemCount" class="muted"></span></h3>
+            <button id="plnAddItem" class="btn primary" data-icon="add">Nouveau contenu</button>
+          </div>
+          <p class="muted" style="margin-bottom:6px">
+            Plusieurs variantes de texte par contenu (secret, document, produit…) pour ne jamais
+            poster le même texte deux fois de suite dans un groupe — rotation automatique.
+          </p>
+          <div id="plnItemsGrid" class="grid"></div>
+        </div>
+
+        <div class="block max-width-sm">
+          <div class="bar">
+            <h3>Groupes cibles <span id="plnGroupCount" class="muted"></span></h3>
+            <button id="plnAddGroup" class="btn primary" data-icon="add">Ajouter un groupe</button>
+          </div>
+          <div id="plnGroupsList" class="list"></div>
+        </div>
+
+        <div class="block">
+          <div class="bar"><h3>Historique des publications</h3></div>
+          <p class="muted" style="margin-bottom:6px">Quel groupe a reçu quelle variante, et quand.</p>
+          <div class="access-form" style="margin-bottom:10px">
+            <label class="field-lg"><span>Contenu</span><select id="plnHistItem"><option value="">Tous</option></select></label>
+            <label class="field-lg"><span>Groupe</span><select id="plnHistGroup"><option value="">Tous</option></select></label>
+            <label class="field-lg"><span>Depuis</span><input type="date" id="plnHistFrom"></label>
+            <label class="field-lg"><span>Jusqu'à</span><input type="date" id="plnHistTo"></label>
+            <button id="plnHistLoad" class="btn text" data-icon="search">Filtrer</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="a-table">
+              <thead><tr><th>Date</th><th>Groupe</th><th>Contenu</th><th>Variante</th><th>Statut</th></tr></thead>
+              <tbody id="plnHistBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -378,6 +442,7 @@
   <script src="admin-core.js" defer></script>
   <script src="admin-dashboard.js" defer></script>
   <script src="admin-content.js" defer></script>
+  <script src="admin-planner.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>
   <script src="admin-fonts.js" defer></script>

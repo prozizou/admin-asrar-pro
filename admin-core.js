@@ -126,7 +126,8 @@
     gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8"/><path d="M12 8v12"/><path d="M12 8S10.5 3.5 8 4.5 8.5 8 12 8Z"/><path d="M12 8s1.5-4.5 4-3.5S15.5 8 12 8Z"/>',
     revenue: '<circle cx="12" cy="12" r="8.5"/><path d="M14.5 9c-.5-1-1.5-1.5-2.7-1.5-1.5 0-2.6.8-2.6 2 0 2.8 5.6 1.4 5.6 4.2 0 1.3-1.2 2.1-2.8 2.1-1.3 0-2.4-.6-2.9-1.6"/><path d="M12 6v1.5M12 16.5V18"/>',
     trend: '<path d="M3 17 9 11l4 4 8-8"/><path d="M15 7h6v6"/>',
-    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>'
   };
   // ic("name" | "name:currentColor") → chaîne SVG. Aliases fréquents inclus.
   const ICON_ALIAS = { add: "plus", reload: "refresh", "new": "sparkle", danger: "warning" };
@@ -338,6 +339,7 @@
 
     $("tab-dashboard").hidden = target !== "dashboard";
     $("tab-content").hidden = target !== "content";
+    $("tab-planner").hidden = target !== "planner";
     $("tab-market").hidden = target !== "market";
     $("tab-users").hidden = target !== "users";
     $("tab-fonts").hidden = target !== "fonts";
@@ -355,6 +357,7 @@
     if (!force && TAB_LOADED[target]) return;
     TAB_LOADED[target] = true;
     if (target === "content") loadNodesMenu();
+    if (target === "planner") loadPlanner();
     if (target === "users") { loadUsers(); loadAccess(); }
     if (target === "fonts") loadFonts();
     if (target === "referral") loadReferral();
