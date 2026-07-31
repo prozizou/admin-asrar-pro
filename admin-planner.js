@@ -6,6 +6,17 @@
   "use strict";
 
   const CATS = { secret: "Secret", document: "Document", produit: "Produit", autre: "Autre" };
+  // Nœuds RTDB dont on peut puiser le titre/visuel pour un contenu du planificateur
+  // (mêmes nœuds que l'onglet Contenus / le Marché — lecture seule ici).
+  const SRC_NODES = [
+    { node: "db_sirr_deblocage", label: "Sirr — Déblocage", cat: "secret" },
+    { node: "db_sirr_domptage", label: "Sirr — Domptage", cat: "secret" },
+    { node: "db_sirr_ilham", label: "Sirr — Ilham", cat: "secret" },
+    { node: "db_sirr_protection", label: "Sirr — Protection", cat: "secret" },
+    { node: "db_sirr_ouverture", label: "Sirr — Ouverture", cat: "secret" },
+    { node: "almaqtab", label: "Almaqtab (documents)", cat: "document" },
+    { node: "det_produits", label: "Produits en vente", cat: "produit" }
+  ];
   let PLN_GROUPS = [], PLN_ITEMS = [], PLN_SETTINGS = {}, PLN_ENTRIES = {};
 
   const todayStr = () => {
@@ -254,6 +265,81 @@
   const btnAddGroup = $("plnAddGroup");
   if (btnAddGroup) btnAddGroup.onclick = () => openGroupEditor(null);
 
+  // ── Import en masse de liens de groupes Facebook ──
+  // Colle une liste (une ligne par groupe : « Nom - lien » ou juste le lien),
+  // affiche un aperçu éditable, puis « Valider tout » crée les groupes en une fois.
+  function parseGroupLines(raw) {
+    return raw.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
+      const m = line.match(/https?:\/\/\S+/);
+      const url = m ? m[0].replace(/[),.;]+$/, "") : "";
+      let name = url ? line.replace(url, "").replace(/^[-–—|,:]+|[-–—|,:]+$/g, "").trim() : line.trim();
+      if (!name) name = url ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 40) : line;
+      return { name, url };
+    });
+  }
+
+  function renderImportPreview(rows) {
+    $("plnImportPreview").innerHTML = rows.map((r, i) => `
+      <div class="row">
+        <div class="acts" style="flex:1;gap:8px">
+          <input type="text" class="pln-imp-name" data-i="${i}" value="${esc(r.name)}" placeholder="Nom du groupe" style="flex:1">
+          <input type="url" class="pln-imp-url" data-i="${i}" value="${esc(r.url)}" placeholder="https://www.facebook.com/groups/…" style="flex:2">
+        </div>
+        <button type="button" class="btn text danger-text pln-imp-rm" data-i="${i}">✕</button>
+      </div>`).join("") || "<div class='empty'>Aucune ligne détectée.</div>";
+  }
+
+  function openGroupsImport() {
+    $("bigcard").innerHTML = `
+      <div class="bighead">
+        <h3>Importer des liens de groupes Facebook</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button>
+      </div>
+      <label class="field-lg">
+        <span>Collez votre liste (une ligne par groupe — « Nom - lien » ou juste le lien)</span>
+        <textarea id="plnImportRaw" rows="6" placeholder="Groupe Vente 1 - https://www.facebook.com/groups/123456
+https://www.facebook.com/groups/987654"></textarea>
+      </label>
+      <button type="button" id="plnImportParse" class="btn text" data-icon="search">Analyser la liste</button>
+      <div id="plnImportPreview" class="list" style="margin-top:14px"></div>
+      <div style="display:flex; justify-content:flex-end; margin-top:25px;">
+        <button id="btnRunImport" class="btn primary">Valider tout</button>
+      </div>`;
+    $("big").hidden = false;
+    applyIcons($("bigcard"));
+    let rows = [];
+
+    $("btnCancelBig").onclick = closeBig;
+    $("plnImportParse").onclick = () => {
+      rows = parseGroupLines($("plnImportRaw").value);
+      renderImportPreview(rows);
+    };
+    $("plnImportPreview").addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.i);
+      if (Number.isNaN(i)) return;
+      if (e.target.classList.contains("pln-imp-name")) rows[i].name = e.target.value;
+      if (e.target.classList.contains("pln-imp-url")) rows[i].url = e.target.value;
+    });
+    $("plnImportPreview").addEventListener("click", (e) => {
+      const rm = e.target.closest(".pln-imp-rm");
+      if (!rm) return;
+      rows.splice(Number(rm.dataset.i), 1);
+      renderImportPreview(rows);
+    });
+    $("btnRunImport").onclick = async () => {
+      const clean = rows.map((r) => ({ name: r.name.trim(), url: r.url.trim() })).filter((r) => r.name && r.url);
+      if (!clean.length) return showToast("Analysez d'abord une liste avec au moins un lien valide.", "err");
+      try {
+        const r = await api("planner", { action: "groups_bulk_import", groups: clean });
+        $("big").hidden = true;
+        showToast(`${r.created} groupe(s) importé(s)${r.skipped ? ", " + r.skipped + " ignoré(s) (lien invalide ou déjà existant)" : ""}.`);
+        loadPlanner();
+      } catch (e) { showToast(e.message, "err"); }
+    };
+  }
+  const btnImportGroups = $("plnImportGroups");
+  if (btnImportGroups) btnImportGroups.onclick = openGroupsImport;
+
   // ── Contenus & variantes ──
   function renderItems() {
     $("plnItemsGrid").innerHTML = PLN_ITEMS.map((it) => `
@@ -263,6 +349,7 @@
           <div class="row-head">
             <span class="card-title">${esc(it.title)}</span>
             <span class="badge gold">${esc(CATS[it.category] || it.category || "Autre")}</span>
+            ${it.sourceNode ? `<a href="${esc(hubShareLink(it.sourceNode, it.sourceKey) || "#")}" target="_blank" rel="noopener" class="pln-gl" title="Voir la source dans la bibliothèque">${ic("open")}</a>` : ""}
           </div>
           <p class="muted">${it.variants.length} variante(s)${it.note ? " · " + esc(it.note) : ""}</p>
           <div class="acts">
@@ -306,6 +393,18 @@
         <select id="plnItCat">
           ${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${item && item.category === k ? "selected" : ""}>${v}</option>`).join("")}
         </select></label>
+      <div class="field-lg">
+        <span>Puiser depuis la bibliothèque (optionnel — titre + visuel importés depuis Firebase)</span>
+        <select id="plnSrcNode">
+          <option value="">— Saisie manuelle —</option>
+          ${SRC_NODES.map((n) => `<option value="${esc(n.node)}" ${item && item.sourceNode === n.node ? "selected" : ""}>${esc(n.label)}</option>`).join("")}
+        </select>
+      </div>
+      <div id="plnSrcPickWrap" style="display:flex;flex-direction:column;gap:8px;margin:-6px 0 4px" ${item && item.sourceNode ? "" : "hidden"}>
+        <input type="text" id="plnSrcSearch" placeholder="Rechercher un titre…">
+        <select id="plnSrcItem" size="6"></select>
+        <button type="button" id="plnSrcUse" class="btn text" data-icon="check">Utiliser cet élément</button>
+      </div>
       <label class="field-lg"><span>Note interne (optionnel)</span><input type="text" id="plnItNote" value="${esc(item ? item.note || "" : "")}"></label>
       <div class="bigimg">
         <div class="frame" id="plnItImgPreview">
@@ -326,7 +425,49 @@
     applyIcons($("bigcard"));
 
     let imageUrl = item ? (item.image || "") : "", imageId = item ? (item.imageId || "") : "";
+    let srcRef = (item && item.sourceNode && item.sourceKey) ? { node: item.sourceNode, key: item.sourceKey } : null;
+    let srcAll = [];
     $("btnCancelBig").onclick = closeBig;
+
+    async function loadSrcList(node) {
+      $("plnSrcItem").innerHTML = "<option>Chargement…</option>";
+      try {
+        if (node === "det_produits") {
+          const d = await api("market", { action: "list" });
+          srcAll = (d.products || []).filter((p) => !p.blocked).map((p) => ({ key: p.key, title: p.name, image: p.image, desc: "" }));
+        } else {
+          const d = await api("content", { action: "list", node });
+          srcAll = Object.entries(d.value || {}).map(([k, v]) => ({ key: k, title: cardTitle(v, k), image: cardImg(v), desc: cardDesc(v) }));
+        }
+        renderSrcOptions();
+      } catch (e) { $("plnSrcItem").innerHTML = `<option value="">${esc(e.message)}</option>`; }
+    }
+    function renderSrcOptions() {
+      const q = ($("plnSrcSearch").value || "").toLowerCase().trim();
+      const rows = srcAll.map((it, i) => ({ ...it, i })).filter((it) => !q || it.title.toLowerCase().includes(q));
+      $("plnSrcItem").innerHTML = rows.map((it) => `<option value="${it.i}">${esc(it.title)}</option>`).join("") || "<option value=''>Aucun résultat</option>";
+    }
+    $("plnSrcNode").onchange = () => {
+      const node = $("plnSrcNode").value;
+      $("plnSrcPickWrap").hidden = !node;
+      if (node) loadSrcList(node);
+    };
+    $("plnSrcSearch").oninput = renderSrcOptions;
+    $("plnSrcUse").onclick = () => {
+      const idx = Number($("plnSrcItem").value);
+      const picked = srcAll[idx];
+      if (!picked) return showToast("Sélectionnez d'abord un élément dans la liste.", "err");
+      const node = $("plnSrcNode").value;
+      $("plnItTitle").value = picked.title;
+      if (picked.image) { imageUrl = picked.image; imageId = ""; $("plnItImgPreview").innerHTML = `<img src="${esc(picked.image)}" alt="Aperçu">`; }
+      srcRef = { node, key: picked.key };
+      const srcCat = (SRC_NODES.find((n) => n.node === node) || {}).cat;
+      if (srcCat) $("plnItCat").value = srcCat;
+      const firstTa = $("plnVarList").querySelector(".pln-variant-row textarea");
+      if (picked.desc && firstTa && !firstTa.value.trim()) firstTa.value = picked.desc;
+      showToast("Importé depuis la bibliothèque — ajustez le texte pour Facebook si besoin.");
+    };
+    if (item && item.sourceNode) loadSrcList(item.sourceNode);
     $("plnAddVariant").onclick = () => $("plnVarList").insertAdjacentHTML("beforeend", variantRowHtml(null));
     $("plnVarList").addEventListener("click", (e) => {
       const rm = e.target.closest(".pln-var-rm");
@@ -359,7 +500,8 @@
         await api("planner", {
           action: "item_save", iid: item ? item.iid : undefined,
           title, category: $("plnItCat").value, note: $("plnItNote").value.trim(),
-          image: imageUrl, imageId, variants: variantsOut, archived: item ? item.archived : false
+          image: imageUrl, imageId, variants: variantsOut, archived: item ? item.archived : false,
+          sourceNode: srcRef ? srcRef.node : null, sourceKey: srcRef ? srcRef.key : null
         });
         $("big").hidden = true;
         showToast(item ? "Contenu mis à jour." : "Contenu créé.");
@@ -453,6 +595,22 @@
   if (nextDay) nextDay.onclick = () => { dateInput.value = addDays(dateInput.value || todayStr(), 1); loadScheduleDay(dateInput.value); };
   const todayBtn = $("plnToday");
   if (todayBtn) todayBtn.onclick = () => { dateInput.value = todayStr(); loadScheduleDay(dateInput.value); };
+
+  const publishAll = $("plnPublishAll");
+  if (publishAll) publishAll.onclick = async () => {
+    const date = dateInput.value || todayStr();
+    const remaining = Object.values(PLN_ENTRIES).filter((e) => e.status !== "published").length;
+    if (!remaining) return showToast("Rien à valider — tout est déjà publié.");
+    if (!(await uiConfirm({
+      title: "Tout valider", icon: "check", confirmText: "Valider tout",
+      message: `Marquer les ${remaining} groupe(s) restant(s) comme publiés pour le ${date} ?\nÀ utiliser une fois que vous avez réellement posté dans chaque groupe.`
+    }))) return;
+    try {
+      const r = await api("planner", { action: "publish_all", date });
+      showToast(`${r.count} groupe(s) marqué(s) comme publiés.`);
+      loadScheduleDay(date);
+    } catch (e) { showToast(e.message, "err"); }
+  };
 
   const saveReminder = $("plnSaveReminder");
   if (saveReminder) saveReminder.onclick = async () => {

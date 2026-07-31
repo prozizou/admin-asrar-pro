@@ -84,6 +84,33 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
 
+    // ── Import en masse de liens de groupes Facebook (liste collée → validée d'un coup) ──
+    if (action === "groups_bulk_import") {
+      const rows = Array.isArray(body.groups) ? body.groups : [];
+      if (!rows.length) return res.status(400).json({ error: "Aucun groupe à importer" });
+      if (rows.length > 100) return res.status(400).json({ error: "Trop de groupes en une fois (max 100)" });
+      const existingSnap = await db.ref(`${ROOT}/groups`).once("value");
+      const existing = existingSnap.val() || {};
+      const existingUrls = new Set(Object.values(existing).map((g) => g.url).filter(Boolean));
+      const updates = {};
+      let created = 0, skipped = 0, order = Date.now();
+      for (const row of rows) {
+        const name = String((row && row.name) || "").trim().slice(0, 120);
+        const url = String((row && row.url) || "").trim().slice(0, 500);
+        if (!name || !url || !/^https:\/\/.+/i.test(url) || existingUrls.has(url)) { skipped++; continue; }
+        const gid = newId("grp");
+        updates[`${ROOT}/groups/${gid}`] = {
+          name, url, active: true, order: order++, notes: "",
+          createdBy: who.email, createdAt: Date.now(), updatedBy: who.email, updatedAt: Date.now()
+        };
+        existingUrls.add(url);
+        created++;
+      }
+      if (Object.keys(updates).length) await db.ref().update(updates);
+      await audit(who, "planner_groups_bulk_import", null, `${created} créé(s), ${skipped} ignoré(s)`);
+      return res.json({ ok: true, created, skipped });
+    }
+
     // ── Contenus (secrets / documents / produits) + variantes de texte ──
     if (action === "item_save") {
       const title = String(body.title || "").trim().slice(0, 160);
@@ -101,6 +128,8 @@ module.exports = async (req, res) => {
         title, category: String(body.category || "autre").slice(0, 40),
         note: String(body.note || "").slice(0, 300),
         image: String(body.image || ""), imageId: String(body.imageId || ""),
+        sourceNode: body.sourceNode ? String(body.sourceNode).slice(0, 60) : null,
+        sourceKey: body.sourceKey ? String(body.sourceKey).slice(0, 300) : null,
         archived: !!body.archived, variants,
         updatedBy: who.email, updatedAt: Date.now()
       };
@@ -151,6 +180,26 @@ module.exports = async (req, res) => {
       ]);
       await audit(who, "planner_assign", `${date}/${gid}`, item.title);
       return res.json({ ok: true, entry });
+    }
+
+    // ── Valider (publier) d'un coup toutes les affectations en attente d'un jour ──
+    if (action === "publish_all") {
+      const date = assertDate(body.date);
+      const snap = await db.ref(`${ROOT}/schedule/${date}`).once("value");
+      const day = snap.val() || {};
+      const updates = {};
+      let count = 0;
+      Object.entries(day).forEach(([gid, entry]) => {
+        if (entry && entry.status !== "published") {
+          updates[`${ROOT}/schedule/${date}/${gid}/status`] = "published";
+          updates[`${ROOT}/schedule/${date}/${gid}/publishedAt`] = Date.now();
+          updates[`${ROOT}/schedule/${date}/${gid}/publishedBy`] = who.email;
+          count++;
+        }
+      });
+      if (count) await db.ref().update(updates);
+      await audit(who, "planner_publish_all", date, `${count} groupe(s)`);
+      return res.json({ ok: true, count });
     }
 
     if (action === "publish" || action === "unpublish") {
