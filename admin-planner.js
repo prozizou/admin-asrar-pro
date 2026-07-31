@@ -70,12 +70,15 @@
     const itemOptions = PLN_ITEMS.filter((i) => !i.archived)
       .map((i) => `<option value="${esc(i.iid)}">${esc(i.title)} (${esc(CATS[i.category] || i.category)})</option>`).join("");
 
+    const groupLink = (g) => g.url
+      ? `<a href="${esc(g.url)}" target="_blank" rel="noopener" class="pln-gl" title="Ouvrir le groupe Facebook">${ic("open")}</a>` : "";
+
     const rows = groups.map((g) => {
       const entry = PLN_ENTRIES[g.gid];
       if (!entry) {
         unassigned++;
         return `<div class="row">
-          <div><b>${esc(g.name)}</b> <span class="badge expired">Non assigné</span></div>
+          <div><b>${esc(g.name)}</b> ${groupLink(g)} <span class="badge expired">Non assigné</span></div>
           <div class="acts">
             <select class="pln-pick" data-grp="${esc(g.gid)}"><option value="">Assigner un contenu…</option>${itemOptions}</select>
           </div>
@@ -86,12 +89,12 @@
         ? `<span class="badge ok">Publié</span>` : `<span class="badge gold">À publier</span>`;
       return `<div class="row">
         <div style="flex:1;min-width:220px">
-          <b>${esc(g.name)}</b> ${badge} <span class="muted">· ${esc(entry.itemTitle || "")}</span>
+          <b>${esc(g.name)}</b> ${groupLink(g)} ${badge} <span class="muted">· ${esc(entry.itemTitle || "")}</span>
           <div class="pln-text">${esc(entry.text)}</div>
           ${entry.publishedAt ? `<div class="muted">Publié le ${esc(when(entry.publishedAt))} par ${esc(entry.publishedBy || "")}</div>` : ""}
         </div>
         <div class="acts">
-          <button class="btn text" data-pln-copy="${esc(g.gid)}" data-icon="copy">Copier</button>
+          <button class="btn text" data-pln-copy="${esc(g.gid)}">${ic(g.url ? "open" : "copy")}${g.url ? "Copier &amp; ouvrir le groupe" : "Copier"}</button>
           ${entry.status === "published"
             ? `<button class="btn text" data-pln-unpublish="${esc(g.gid)}">↺ Repasser à faire</button>`
             : `<button class="btn text success-text" data-pln-publish="${esc(g.gid)}" data-icon="check">Publié</button>`}
@@ -121,9 +124,15 @@
         catch (e) { showToast(e.message, "err"); }
       };
     });
-    document.querySelectorAll("[data-pln-copy]").forEach((b) => b.onclick = () => {
-      const entry = PLN_ENTRIES[b.getAttribute("data-pln-copy")];
-      if (entry) copyText(entry.text);
+    document.querySelectorAll("[data-pln-copy]").forEach((b) => b.onclick = async () => {
+      const gid = b.getAttribute("data-pln-copy");
+      const entry = PLN_ENTRIES[gid];
+      if (!entry) return;
+      await copyText(entry.text);
+      const g = groupById(gid);
+      // Redirige vers le groupe Facebook — le texte est déjà dans le presse-papiers,
+      // il ne reste qu'à le coller dans le champ de publication du groupe.
+      if (g && g.url) window.open(g.url, "_blank", "noopener");
     });
     document.querySelectorAll("[data-pln-publish]").forEach((b) => b.onclick = async () => {
       try { await api("planner", { action: "publish", date, gid: b.getAttribute("data-pln-publish") }); loadScheduleDay(date); }
@@ -177,28 +186,23 @@
     $("plnGroupsList").innerHTML = PLN_GROUPS.map((g) => `
       <div class="row">
         <div><b>${esc(g.name)}</b> ${g.active !== false ? `<span class="badge gold">Actif</span>` : `<span class="badge expired">Inactif</span>`}
+          ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener" class="pln-gl" title="Ouvrir le groupe Facebook">${ic("open")}</a>` : `<span class="badge expired">Sans lien</span>`}
           ${g.notes ? `<div class="muted">${esc(g.notes)}</div>` : ""}</div>
         <div class="acts">
           <button class="btn text" data-grp-toggle="${esc(g.gid)}">${g.active !== false ? "Désactiver" : "Activer"}</button>
-          <button class="btn text" data-grp-rename="${esc(g.gid)}">Renommer</button>
+          <button class="btn text" data-grp-edit="${esc(g.gid)}" data-icon="edit">Éditer</button>
           <button class="btn text danger-text" data-grp-del="${esc(g.gid)}">Supprimer</button>
         </div>
-      </div>`).join("") || "<div class='empty'>Aucun groupe. Ajoutez vos 10 groupes cibles.</div>";
+      </div>`).join("") || "<div class='empty'>Aucun groupe. Ajoutez vos 10 groupes cibles, avec leur lien Facebook.</div>";
+    applyIcons($("plnGroupsList"));
 
     document.querySelectorAll("[data-grp-toggle]").forEach((b) => b.onclick = async () => {
       const gid = b.getAttribute("data-grp-toggle");
       const g = groupById(gid);
-      try { await api("planner", { action: "group_save", gid, name: g.name, notes: g.notes, order: g.order, active: !(g.active !== false) }); loadPlanner(); }
+      try { await api("planner", { action: "group_save", gid, name: g.name, url: g.url, notes: g.notes, order: g.order, active: !(g.active !== false) }); loadPlanner(); }
       catch (e) { showToast(e.message, "err"); }
     });
-    document.querySelectorAll("[data-grp-rename]").forEach((b) => b.onclick = async () => {
-      const gid = b.getAttribute("data-grp-rename");
-      const g = groupById(gid);
-      const name = await uiPrompt({ title: "Renommer le groupe", icon: "edit", default: g.name });
-      if (!name || !name.trim()) return;
-      try { await api("planner", { action: "group_save", gid, name: name.trim(), notes: g.notes, order: g.order, active: g.active !== false }); loadPlanner(); }
-      catch (e) { showToast(e.message, "err"); }
-    });
+    document.querySelectorAll("[data-grp-edit]").forEach((b) => b.onclick = () => openGroupEditor(groupById(b.getAttribute("data-grp-edit"))));
     document.querySelectorAll("[data-grp-del]").forEach((b) => b.onclick = async () => {
       const gid = b.getAttribute("data-grp-del");
       if (!(await uiConfirm({ title: "Supprimer le groupe", danger: true, icon: "trash", confirmText: "Supprimer", message: "Supprimer ce groupe cible ? L'historique des jours passés est conservé." }))) return;
@@ -207,13 +211,48 @@
     });
   }
 
+  function openGroupEditor(group) {
+    const name = group ? group.name : "";
+    const url = group ? (group.url || "") : "";
+    const notes = group ? (group.notes || "") : "";
+    const active = !group || group.active !== false;
+    $("bigcard").innerHTML = `
+      <div class="bighead">
+        <h3>${group ? "Éditer le groupe" : "Nouveau groupe Facebook"}</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button>
+      </div>
+      <label class="field-lg"><span>Nom du groupe</span><input type="text" id="plnGrpName" value="${esc(name)}"></label>
+      <label class="field-lg"><span>Lien du groupe Facebook</span>
+        <input type="url" id="plnGrpUrl" placeholder="https://www.facebook.com/groups/…" value="${esc(url)}"></label>
+      <p class="muted" style="margin-top:-4px">Sert à vous rediriger directement vers le groupe au moment de coller le texte.</p>
+      <label class="field-lg"><span>Notes (optionnel)</span><input type="text" id="plnGrpNotes" value="${esc(notes)}"></label>
+      <label class="chk-lbl"><input type="checkbox" id="plnGrpActive" ${active ? "checked" : ""}> Groupe actif (apparaît dans la checklist quotidienne)</label>
+      <div style="display:flex; justify-content:flex-end; margin-top:25px;">
+        <button id="btnSaveGroup" class="btn primary">${group ? "Enregistrer" : "Ajouter le groupe"}</button>
+      </div>`;
+    $("big").hidden = false;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnSaveGroup").onclick = async () => {
+      const nameVal = $("plnGrpName").value.trim();
+      const urlVal = $("plnGrpUrl").value.trim();
+      if (!nameVal) return showToast("Nom du groupe requis.", "err");
+      if (!urlVal) return showToast("Le lien du groupe Facebook est requis.", "err");
+      if (!/^https:\/\//i.test(urlVal)) return showToast("Le lien doit commencer par https://", "err");
+      try {
+        await api("planner", {
+          action: "group_save", gid: group ? group.gid : undefined,
+          name: nameVal, url: urlVal, notes: $("plnGrpNotes").value.trim(),
+          order: group ? group.order : undefined, active: $("plnGrpActive").checked
+        });
+        $("big").hidden = true;
+        showToast(group ? "Groupe mis à jour." : "Groupe ajouté.");
+        loadPlanner();
+      } catch (e) { showToast(e.message, "err"); }
+    };
+  }
+
   const btnAddGroup = $("plnAddGroup");
-  if (btnAddGroup) btnAddGroup.onclick = async () => {
-    const name = await uiPrompt({ title: "Nouveau groupe Facebook", icon: "add", placeholder: "Nom du groupe" });
-    if (!name || !name.trim()) return;
-    try { await api("planner", { action: "group_save", name: name.trim() }); showToast("Groupe ajouté."); loadPlanner(); }
-    catch (e) { showToast(e.message, "err"); }
-  };
+  if (btnAddGroup) btnAddGroup.onclick = () => openGroupEditor(null);
 
   // ── Contenus & variantes ──
   function renderItems() {

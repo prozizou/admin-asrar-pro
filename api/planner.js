@@ -63,9 +63,11 @@ module.exports = async (req, res) => {
     if (action === "group_save") {
       const name = String(body.name || "").trim().slice(0, 120);
       if (!name) return res.status(400).json({ error: "Nom du groupe requis" });
+      const url = String(body.url || "").trim().slice(0, 500);
+      if (url && !/^https:\/\/.+/i.test(url)) return res.status(400).json({ error: "Lien du groupe invalide (doit commencer par https://)" });
       const gid = body.gid && String(body.gid) || newId("grp");
       const data = {
-        name, active: body.active !== false, order: Number.isFinite(body.order) ? body.order : Date.now(),
+        name, url, active: body.active !== false, order: Number.isFinite(body.order) ? body.order : Date.now(),
         notes: String(body.notes || "").slice(0, 300),
         updatedBy: who.email, updatedAt: Date.now()
       };
