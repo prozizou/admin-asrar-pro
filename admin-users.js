@@ -127,19 +127,19 @@
           <tr class="${u.banned ? 'disabled-row' : ''}">
             <td data-label="Utilisateur">
               <span class="user-email">${esc(u.email)}</span><br>
-              <small class="user-uid muted">${u.uid}</small>
+              <small class="user-uid muted">${esc(u.uid)}</small>
             </td>
             <td data-label="Création"><small>${when(u.created)}</small></td>
             <td data-label="Dernière connexion"><small>${when(u.lastSeen)}</small></td>
             <td data-label="Rôles">
               ${u.isSuper ? `<span class="badge gold">SUPER-ADMIN</span>` : `
                 <label class="chk-lbl">
-                  <input type="checkbox" class="act-role" data-uid="${u.uid}" data-role="admin" ${u.isAdmin ? 'checked' : ''}> Administrateur
+                  <input type="checkbox" class="act-role" data-uid="${esc(u.uid)}" data-role="admin" ${u.isAdmin ? 'checked' : ''}> Administrateur
                 </label>
               `}
               <div style="margin-top: 5px;">
                 <label class="chk-lbl">
-                  <input type="checkbox" class="act-role" data-uid="${u.uid}" data-role="vip" ${u.isVip ? 'checked' : ''}> Accès VIP global
+                  <input type="checkbox" class="act-role" data-uid="${esc(u.uid)}" data-role="vip" ${u.isVip ? 'checked' : ''}> Accès VIP global
                 </label>
               </div>
               <div class="muted" style="margin-top:6px">
@@ -149,7 +149,7 @@
             <td data-label="Actions">
               <button class="btn text act-access" data-email="${esc(u.email)}">Gérer l'accès</button>
               ${u.isSuper ? '' : `
-                <button class="btn text ${u.banned ? 'success-text' : 'danger-text'} act-ban" data-uid="${u.uid}" data-ban="${!u.banned}">
+                <button class="btn text ${u.banned ? 'success-text' : 'danger-text'} act-ban" data-uid="${esc(u.uid)}" data-ban="${!u.banned}">
                   ${u.banned ? "Réactiver ✔" : "Révoquer / Bannir ⛔"}
                 </button>
               `}
