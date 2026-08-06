@@ -95,6 +95,17 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: "Date d'expiration (future) ou durée requise." });
       }
 
+      // Un accès à vie ou de plus d'un an, gratuit et sans double validation,
+      // est le vecteur de fraude interne le plus coûteux de cet endpoint (n'importe
+      // quel admin — pas seulement le super-admin — pouvait sinon se l'accorder à
+      // lui-même ou à un tiers). Réservé au super-admin ; les admins réguliers
+      // restent limités à 1 an, ce qui couvre tous les paliers légitimes.
+      const MAX_NON_SUPER_DAYS = 366;
+      const isLongGrant = expiresAt === "lifetime" ||
+        (typeof expiresAt === "number" && expiresAt - Date.now() > MAX_NON_SUPER_DAYS * 864e5);
+      if (isLongGrant && !who.isSuper)
+        return res.status(403).json({ error: "Accès à vie ou de plus d'un an : réservé au super-admin." });
+
       // MERGE (update) au lieu d'écraser : si un vrai achat existe déjà pour cet
       // e-mail, on préserve ses champs (token/productId/amount) et on ne modifie
       // que l'expiration + la traçabilité de l'octroi.
