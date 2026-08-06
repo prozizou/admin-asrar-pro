@@ -43,6 +43,32 @@ async function audit(by, action, target, details) {
   } catch (e) { /* l'audit ne doit jamais bloquer l'action */ }
 }
 
+// Liste TOUS les comptes Auth (pagination complète), avec un cache mémoire
+// très court (30 s par défaut) : users.js ET stats.js paginent chacun tous les
+// comptes à chaque chargement d'onglet, ce qui devient coûteux (et risque le
+// timeout d'une fonction serverless) à mesure que la base d'utilisateurs
+// grossit. Le cache ne profite qu'aux invocations qui retombent sur la même
+// instance "chaude" (best-effort, jamais partagé entre fonctions/instances
+// froides) — TTL volontairement court pour ne jamais servir des bans/inscriptions
+// périmés plus d'une demi-minute.
+let _usersCache = null; // { at, users }
+async function listAllAuthUsers(a, ttlMs = 30000) {
+  if (_usersCache && Date.now() - _usersCache.at < ttlMs) return _usersCache.users;
+  const users = [];
+  let pageToken;
+  do {
+    const page = await a.auth().listUsers(1000, pageToken);
+    users.push(...page.users);
+    pageToken = page.pageToken;
+  } while (pageToken);
+  _usersCache = { at: Date.now(), users };
+  return users;
+}
+// À appeler après toute mutation Auth (ban/unban) pour ne jamais servir un
+// statut périmé au prochain "list" — les autres mutations (admin/VIP) touchent
+// uniquement la RTDB, lue en direct par users.js, donc n'ont pas besoin d'invalider.
+function invalidateUsersCache() { _usersCache = null; }
+
 // Jeton d'accès OAuth du compte de service (pour les appels REST shallow du diagnostic).
 async function accessToken() {
   const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
@@ -57,4 +83,4 @@ function bearer(req) {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
 }
 
-module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer };
+module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer, listAllAuthUsers, invalidateUsersCache };

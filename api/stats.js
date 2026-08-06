@@ -1,5 +1,5 @@
 // api/stats.js — Réglages et Logs d'audits (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer, listAllAuthUsers } = require("./_lib/fb");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -104,18 +104,15 @@ module.exports = async (req, res) => {
         spark.push({ d: d.slice(5), total: dayTotal[d] || 0, uniq: dayUniq[d] || 0 });
       }
 
-      // Comptes Auth : total + nouveaux (7 j / 30 j).
-      let usersTotal = 0, new7 = 0, new30 = 0, pageToken;
-      do {
-        const page = await app().auth().listUsers(1000, pageToken);
-        for (const u of page.users) {
-          usersTotal++;
-          const c = Date.parse(u.metadata.creationTime || "") || 0;
-          if (c >= now - 7 * DAY) new7++;
-          if (c >= now - 30 * DAY) new30++;
-        }
-        pageToken = page.pageToken;
-      } while (pageToken);
+      // Comptes Auth : total + nouveaux (7 j / 30 j) — mise en cache 30 s (voir _lib/fb).
+      const authUsers = await listAllAuthUsers(app());
+      let usersTotal = 0, new7 = 0, new30 = 0;
+      for (const u of authUsers) {
+        usersTotal++;
+        const c = Date.parse(u.metadata.creationTime || "") || 0;
+        if (c >= now - 7 * DAY) new7++;
+        if (c >= now - 30 * DAY) new30++;
+      }
 
       // Activité récente (journal d'événements).
       const feed = feedSnap.val() || {};

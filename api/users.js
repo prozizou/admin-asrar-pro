@@ -1,5 +1,5 @@
 // api/users.js — Gestion des utilisateurs (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, bearer } = require("./_lib/fb");
+const { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, bearer, listAllAuthUsers, invalidateUsersCache } = require("./_lib/fb");
 const crypto = require("crypto");
 
 // Email valide + normalisé (minuscules) — la clé RTDB doit correspondre à celle
@@ -44,33 +44,28 @@ module.exports = async (req, res) => {
         db.ref("vip_users").once("value").then((s) => s.val() || {}),
         db.ref("purchased_user").once("value").then((s) => s.val() || {})
       ]);
-      // Pagination Auth : couvre TOUS les comptes, pas seulement les 1000 premiers.
-      const users = [];
-      let pageToken;
-      do {
-        const page = await a.auth().listUsers(1000, pageToken);
-        for (const u of page.users) {
-          const k = emailToKey((u.email || "").toLowerCase());
-          const p = purchased[k];
-          const active = subActive(p);
-          users.push({
-            uid: u.uid, email: u.email || "(sans email)",
-            created: u.metadata.creationTime, lastSeen: u.metadata.lastSignInTime,
-            banned: !!u.disabled,
-            isAdmin: u.email === SUPER_ADMIN || admins[k] === true,
-            isSuper: u.email === SUPER_ADMIN,
-            isVip: !!vips[u.uid],
-            subActive: active,
-            subExpiresAt: p ? p.expiresAt : null,
-            subLevel: p ? (p.level ?? null) : null,
-            subSource: p ? (p.source || p.productId || "") : "",
-            sub: active ? (p.expiresAt === "lifetime" ? "À vie"
-                          : new Date(p.expiresAt).toLocaleDateString("fr-FR"))
-                        : (p ? "expiré" : null)
-          });
-        }
-        pageToken = page.pageToken;
-      } while (pageToken);
+      // Pagination Auth (couvre TOUS les comptes) — mise en cache 30 s (voir _lib/fb).
+      const authUsers = await listAllAuthUsers(a);
+      const users = authUsers.map((u) => {
+        const k = emailToKey((u.email || "").toLowerCase());
+        const p = purchased[k];
+        const active = subActive(p);
+        return {
+          uid: u.uid, email: u.email || "(sans email)",
+          created: u.metadata.creationTime, lastSeen: u.metadata.lastSignInTime,
+          banned: !!u.disabled,
+          isAdmin: u.email === SUPER_ADMIN || admins[k] === true,
+          isSuper: u.email === SUPER_ADMIN,
+          isVip: !!vips[u.uid],
+          subActive: active,
+          subExpiresAt: p ? p.expiresAt : null,
+          subLevel: p ? (p.level ?? null) : null,
+          subSource: p ? (p.source || p.productId || "") : "",
+          sub: active ? (p.expiresAt === "lifetime" ? "À vie"
+                        : new Date(p.expiresAt).toLocaleDateString("fr-FR"))
+                      : (p ? "expiré" : null)
+        };
+      });
       return res.json({ users, total: users.length });
     }
 
@@ -172,6 +167,7 @@ module.exports = async (req, res) => {
       await a.auth().updateUser(target.uid, { disabled });
       if (disabled) await a.auth().revokeRefreshTokens(target.uid);
       await db.ref("banned/" + tKey).set(disabled ? { by: who.email, at: Date.now() } : null);
+      invalidateUsersCache(); // le statut "disabled" vient du cache Auth (list) : sinon périmé jusqu'à 30 s
       await audit(who, action, tEmail);
       return res.json({ ok: true });
     }
