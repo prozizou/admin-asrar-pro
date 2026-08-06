@@ -266,16 +266,44 @@
   if (btnAddGroup) btnAddGroup.onclick = () => openGroupEditor(null);
 
   // ── Import en masse de liens de groupes Facebook ──
-  // Colle une liste (une ligne par groupe : « Nom - lien » ou juste le lien),
-  // affiche un aperçu éditable, puis « Valider tout » crée les groupes en une fois.
+  // Colle n'importe quel texte (une ligne par groupe « Nom - lien », plusieurs liens
+  // sur une même ligne, ou un bloc collé en vrac) : on attrape TOUS les liens de
+  // groupes Facebook qu'il contient, on ignore le reste, et on déduplique avant
+  // aperçu — pratique pour vider d'un coup une longue liste de groupes déjà rejoints.
+  const FB_GROUP_URL_RE = /https?:\/\/(?:www\.|m\.|web\.)?(?:facebook|fb)\.com\/groups\/[^\s"'<>()]+/gi;
+
+  // Compare deux liens de groupe indépendamment du sous-domaine (www/m/web/fb.com),
+  // du slash final et des paramètres de tracking (?ref=…) pour éviter les doublons.
+  function normalizeGroupUrl(url) {
+    const clean = String(url || "").trim().replace(/[),.;]+$/, "");
+    try {
+      const u = new URL(clean);
+      let host = u.hostname.toLowerCase().replace(/^(www|m|web)\./, "");
+      if (host === "fb.com") host = "facebook.com";
+      return host + u.pathname.replace(/\/+$/, "");
+    } catch { return clean.toLowerCase(); }
+  }
+
   function parseGroupLines(raw) {
-    return raw.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-      const m = line.match(/https?:\/\/\S+/);
-      const url = m ? m[0].replace(/[),.;]+$/, "") : "";
-      let name = url ? line.replace(url, "").replace(/^[-–—|,:]+|[-–—|,:]+$/g, "").trim() : line.trim();
-      if (!name) name = url ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 40) : line;
-      return { name, url };
+    const rows = [], seen = new Set();
+    raw.split("\n").map((line) => line.trim()).filter(Boolean).forEach((line) => {
+      const urls = line.match(FB_GROUP_URL_RE) || [];
+      if (!urls.length) return; // ligne sans lien de groupe Facebook reconnaissable — ignorée
+      urls.forEach((raw_url) => {
+        const url = raw_url.replace(/[),.;]+$/, "");
+        const key = normalizeGroupUrl(url);
+        if (seen.has(key)) return; // déjà attrapé plus haut dans le collage
+        seen.add(key);
+        // Nom : texte restant sur la ligne quand elle ne contient qu'un seul lien,
+        // sinon dérivé de l'identifiant/slug du groupe dans le lien.
+        let name = urls.length === 1
+          ? line.replace(url, "").trim().replace(/^[-–—|,:]+\s*/, "").replace(/\s*[-–—|,:]+$/, "").trim()
+          : "";
+        if (!name) name = (url.replace(/^https?:\/\/(www\.|m\.|web\.)?(facebook|fb)\.com\/groups\//i, "").split(/[/?]/)[0] || url).slice(0, 40);
+        rows.push({ name, url });
+      });
     });
+    return rows;
   }
 
   function renderImportPreview(rows) {
@@ -296,9 +324,9 @@
         <button id="btnCancelBig" class="btn text">Fermer</button>
       </div>
       <label class="field-lg">
-        <span>Collez votre liste (une ligne par groupe — « Nom - lien » ou juste le lien)</span>
+        <span>Collez votre liste ou un texte en vrac — tous les liens de groupes Facebook qu'il contient seront attrapés (une ligne « Nom - lien », plusieurs liens sur une même ligne, doublons ignorés)</span>
         <textarea id="plnImportRaw" rows="6" placeholder="Groupe Vente 1 - https://www.facebook.com/groups/123456
-https://www.facebook.com/groups/987654"></textarea>
+https://www.facebook.com/groups/987654 https://www.facebook.com/groups/456789"></textarea>
       </label>
       <button type="button" id="plnImportParse" class="btn text" data-icon="search">Analyser la liste</button>
       <div id="plnImportPreview" class="list" style="margin-top:14px"></div>
