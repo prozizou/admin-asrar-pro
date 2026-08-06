@@ -21,6 +21,20 @@ const NODES = {
 const BAD_KEY = /[.#$\[\]\/\u0000-\u001F\u007F]/;
 const validKey = (k) => { const s = String(k ?? ""); return s.length > 0 && s.length <= 768 && !BAD_KEY.test(s); };
 
+// Champs rendus tels quels comme URL (image <img src>, ou <a href> pour pdfUrl)
+// par le panneau : un schéma non-http(s) (ex. javascript:) y serait exécuté au
+// clic/affichage par un autre admin qui ouvre la fiche. On rejette tout ce qui
+// n'est pas http(s) — même logique que pour les liens de groupe du planificateur.
+const URLISH_FIELDS = ["image", "img", "imageUrl", "pdfUrl", "url"];
+function unsafeUrlField(value) {
+  if (!value || typeof value !== "object") return null;
+  for (const f of URLISH_FIELDS) {
+    const v = value[f];
+    if (typeof v === "string" && v.trim() && !/^https?:\/\//i.test(v.trim())) return f;
+  }
+  return null;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
   const body = typeof req.body === "object" && req.body ? req.body
@@ -59,12 +73,16 @@ module.exports = async (req, res) => {
     if (action === "set") {
       if (!validKey(key)) return res.status(400).json({ error: "Clé invalide" });
       if (value === undefined) return res.status(400).json({ error: "Valeur manquante" });
+      const badField = unsafeUrlField(value);
+      if (badField) return res.status(400).json({ error: `Champ « ${badField} » : lien invalide (doit commencer par http:// ou https://)` });
       await base.child(key).set(value);
       await audit(who, "set", node + "/" + key);
       return res.json({ ok: true });
     }
 
     if (action === "add") {
+      const badField = unsafeUrlField(value);
+      if (badField) return res.status(400).json({ error: `Champ « ${badField} » : lien invalide (doit commencer par http:// ou https://)` });
       const ref = await base.push(value === undefined ? {} : value);
       await audit(who, "add", node + "/" + ref.key);
       return res.json({ ok: true, key: ref.key });
