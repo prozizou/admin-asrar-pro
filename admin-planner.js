@@ -40,6 +40,58 @@
     }
   }
 
+  // ── Image du contenu : copie dans le presse-papiers (à coller après le texte
+  // dans le champ de publication Facebook), avec repli en téléchargement quand
+  // le navigateur ne sait pas écrire d'image dans le presse-papiers (Firefox,
+  // ou contexte non sécurisé). Toujours manuel : c'est vous qui collez/glissez
+  // l'image puis cliquez sur « Publier » — rien n'est envoyé à Facebook ici.
+  const safeFilename = (s) => String(s || "image").normalize("NFKD").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "image";
+
+  async function toPngBlob(blob) {
+    if (blob.type === "image/png") return blob;
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width; canvas.height = bitmap.height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0);
+    return new Promise((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Conversion de l'image impossible"))), "image/png"));
+  }
+
+  async function downloadImage(url, hint) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("Téléchargement de l'image impossible");
+      const blob = await resp.blob();
+      const ext = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : "jpg";
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href; a.download = `${safeFilename(hint)}.${ext}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 15000);
+      showToast("Image téléchargée — glissez-la dans le champ de publication Facebook.");
+    } catch (e) {
+      window.open(url, "_blank", "noopener");
+      showToast("Copie automatique impossible — image ouverte dans un nouvel onglet (clic droit → Enregistrer l'image).", "err");
+    }
+  }
+
+  async function copyImage(url, hint) {
+    try {
+      if (!navigator.clipboard || !window.ClipboardItem) throw new Error("Presse-papiers image non supporté");
+      // On passe une promesse à ClipboardItem (plutôt que d'attendre le blob avant
+      // d'appeler write) pour rester dans la fenêtre de "user gesture" exigée par
+      // certains navigateurs pour l'accès au presse-papiers.
+      const pngPromise = fetch(url).then((r) => {
+        if (!r.ok) throw new Error("Téléchargement de l'image impossible");
+        return r.blob();
+      }).then(toPngBlob);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": pngPromise })]);
+      showToast("Image copiée — collez-la (Ctrl/Cmd+V) dans le champ du post Facebook, après le texte.");
+    } catch (e) {
+      await downloadImage(url, hint);
+    }
+  }
+
   // ── Chargement initial ──
   window.loadPlanner = async function () {
     const dateInput = $("plnDate");
@@ -98,6 +150,7 @@
       if (entry.status === "published") published++; else pending++;
       const badge = entry.status === "published"
         ? `<span class="badge ok">Publié</span>` : `<span class="badge gold">À publier</span>`;
+      const item = itemById(entry.itemId);
       return `<div class="row">
         <div style="flex:1;min-width:220px">
           <b>${esc(g.name)}</b> ${groupLink(g)} ${badge} <span class="muted">· ${esc(entry.itemTitle || "")}</span>
@@ -106,6 +159,7 @@
         </div>
         <div class="acts">
           <button class="btn text" data-pln-copy="${esc(g.gid)}">${ic(g.url ? "open" : "copy")}${g.url ? "Copier &amp; ouvrir le groupe" : "Copier"}</button>
+          ${item && item.image ? `<button class="btn text" data-pln-copy-img="${esc(g.gid)}" title="Copier l'image dans le presse-papiers, à coller après le texte">${ic("image")}Copier l'image</button>` : ""}
           ${entry.status === "published"
             ? `<button class="btn text" data-pln-unpublish="${esc(g.gid)}">↺ Repasser à faire</button>`
             : `<button class="btn text success-text" data-pln-publish="${esc(g.gid)}" data-icon="check">Publié</button>`}
@@ -144,6 +198,14 @@
       // Redirige vers le groupe Facebook — le texte est déjà dans le presse-papiers,
       // il ne reste qu'à le coller dans le champ de publication du groupe.
       if (g && g.url) window.open(g.url, "_blank", "noopener");
+    });
+    document.querySelectorAll("[data-pln-copy-img]").forEach((b) => b.onclick = async () => {
+      const gid = b.getAttribute("data-pln-copy-img");
+      const entry = PLN_ENTRIES[gid];
+      const item = entry && itemById(entry.itemId);
+      if (!item || !item.image) return;
+      const g = groupById(gid);
+      await copyImage(item.image, item.title || (g && g.name));
     });
     document.querySelectorAll("[data-pln-publish]").forEach((b) => b.onclick = async () => {
       try { await api("planner", { action: "publish", date, gid: b.getAttribute("data-pln-publish") }); loadScheduleDay(date); }
