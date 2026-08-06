@@ -1,5 +1,5 @@
 // api/content.js — Gestion des contenus PAGE PAR PAGE (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, accessToken, bearer } = require("./_lib/fb");
+const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 const NODES = {
   "db_sirr_deblocage":        { label: "Sirr — Déblocage",       page: "Secret Mystique", group: "Secrets" },
@@ -21,6 +21,20 @@ const NODES = {
 const BAD_KEY = /[.#$\[\]\/\u0000-\u001F\u007F]/;
 const validKey = (k) => { const s = String(k ?? ""); return s.length > 0 && s.length <= 768 && !BAD_KEY.test(s); };
 
+// Champs rendus tels quels comme URL (image <img src>, ou <a href> pour pdfUrl)
+// par le panneau : un schéma non-http(s) (ex. javascript:) y serait exécuté au
+// clic/affichage par un autre admin qui ouvre la fiche. On rejette tout ce qui
+// n'est pas http(s) — même logique que pour les liens de groupe du planificateur.
+const URLISH_FIELDS = ["image", "img", "imageUrl", "pdfUrl", "url"];
+function unsafeUrlField(value) {
+  if (!value || typeof value !== "object") return null;
+  for (const f of URLISH_FIELDS) {
+    const v = value[f];
+    if (typeof v === "string" && v.trim() && !/^https?:\/\//i.test(v.trim())) return f;
+  }
+  return null;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
   const body = typeof req.body === "object" && req.body ? req.body
@@ -32,36 +46,6 @@ module.exports = async (req, res) => {
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   if (action === "nodes") return res.json({ nodes: NODES });
-
-  // ── DIAGNOSTIC (temporaire) : voir les VRAIS nœuds / clés de la base ──
-  // Lecture "shallow" via REST : renvoie uniquement les noms de clés, jamais les
-  // valeurs → aucune surcharge même sur un gros nœud. À retirer après usage.
-  const dbUrl = () => String(process.env.FIREBASE_DB_URL || "").replace(/\/$/, "");
-  if (action === "raw_roots") {
-    try {
-      const tok = await accessToken();
-      const r = await fetch(dbUrl() + "/.json?shallow=true&access_token=" + tok);
-      const data = await r.json();
-      const roots = data && typeof data === "object" ? Object.keys(data) : [];
-      return res.json({ roots });
-    } catch (e) { return res.status(500).json({ error: "Diag racine : " + e.message }); }
-  }
-  if (action === "raw_keys") {
-    if (!validKey(node)) return res.status(400).json({ error: "Nom de nœud invalide" });
-    try {
-      const tok = await accessToken();
-      const r = await fetch(dbUrl() + "/" + encodeURIComponent(node) + ".json?shallow=true&access_token=" + tok);
-      const data = await r.json();
-      const keys = data && typeof data === "object" ? Object.keys(data) : [];
-      let sampleKey = keys.length ? keys[0] : null, sampleType = null, sampleFields = [];
-      if (sampleKey != null) {
-        const v = (await app().database().ref(node).child(sampleKey).once("value")).val();
-        sampleType = Array.isArray(v) ? "array" : (v && typeof v === "object" ? "object" : typeof v);
-        if (v && typeof v === "object") sampleFields = Object.keys(v).slice(0, 40);
-      }
-      return res.json({ node, total: keys.length, keys: keys.slice(0, 300), sampleKey, sampleType, sampleFields });
-    } catch (e) { return res.status(500).json({ error: "Diag nœud : " + e.message }); }
-  }
 
   if (!NODES[node]) return res.status(400).json({ error: "Nœud interdit ou inconnu" });
 
@@ -89,12 +73,16 @@ module.exports = async (req, res) => {
     if (action === "set") {
       if (!validKey(key)) return res.status(400).json({ error: "Clé invalide" });
       if (value === undefined) return res.status(400).json({ error: "Valeur manquante" });
+      const badField = unsafeUrlField(value);
+      if (badField) return res.status(400).json({ error: `Champ « ${badField} » : lien invalide (doit commencer par http:// ou https://)` });
       await base.child(key).set(value);
       await audit(who, "set", node + "/" + key);
       return res.json({ ok: true });
     }
 
     if (action === "add") {
+      const badField = unsafeUrlField(value);
+      if (badField) return res.status(400).json({ error: `Champ « ${badField} » : lien invalide (doit commencer par http:// ou https://)` });
       const ref = await base.push(value === undefined ? {} : value);
       await audit(who, "add", node + "/" + ref.key);
       return res.json({ ok: true, key: ref.key });
