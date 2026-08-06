@@ -22,9 +22,15 @@ module.exports = async (req, res) => {
   if (!fileId) return res.status(400).json({ error: 'Lien Google Drive invalide' });
 
   const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 Mo — suffisant pour un document Almaqtab, évite l'épuisement mémoire de la fonction serverless
 
   try {
-    const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+    const response = await axios.get(downloadUrl, {
+      responseType: 'arraybuffer',
+      timeout: 20000,
+      maxContentLength: MAX_PDF_BYTES,
+      maxBodyLength: MAX_PDF_BYTES
+    });
     const pdfBuffer = Buffer.from(response.data);
 
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dqixuyqqh';
