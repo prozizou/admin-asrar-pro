@@ -98,9 +98,13 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   un sélecteur optionnel « Puiser depuis la bibliothèque » va chercher le titre et le
   visuel directement dans les nœuds RTDB existants (`db_sirr_*`, `almaqtab`,
   `det_produits`) — le texte des variantes reste écrit/ajusté à la main pour
-  Facebook. **Groupes** : import en masse (coller une liste de liens, aperçu
-  éditable, puis « Valider tout » crée les groupes en un clic) et bouton
-  **« Tout valider »** sur la checklist du jour pour marquer d'un coup toutes les
+  Facebook. **Groupes** : import en masse — collez n'importe quel texte (liste
+  propre « Nom - lien », plusieurs liens sur une même ligne, ou bloc en vrac) et
+  tous les liens de groupes Facebook qu'il contient sont attrapés automatiquement,
+  dédupliqués (même lien resservi malgré `www.`/`m.`/`fb.com` ou un `/` final
+  différent) et présentés dans un aperçu éditable avant que « Valider tout » ne
+  les enregistre en base pour une utilisation ultérieure dans le planificateur.
+  Bouton **« Tout valider »** sur la checklist du jour pour marquer d'un coup toutes les
   affectations restantes comme publiées, une fois la tournée manuelle terminée.
 
 ## À faire dans l'application principale

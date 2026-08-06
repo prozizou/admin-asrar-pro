@@ -8,6 +8,19 @@ const ROOT = "planner";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const newId = (prefix) => `${prefix}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
+// Compare deux liens de groupe indépendamment du sous-domaine (www/m/web/fb.com),
+// du slash final et des paramètres de tracking — évite les doublons lors d'un import
+// en masse (ex. la même URL collée deux fois avec ou sans "www.").
+function normalizeGroupUrl(url) {
+  const clean = String(url || "").trim();
+  try {
+    const u = new URL(clean);
+    let host = u.hostname.toLowerCase().replace(/^(www|m|web)\./, "");
+    if (host === "fb.com") host = "facebook.com";
+    return host + u.pathname.replace(/\/+$/, "");
+  } catch { return clean.toLowerCase(); }
+}
+
 function assertDate(d) {
   if (!DATE_RE.test(String(d || ""))) { const e = new Error("Date invalide (AAAA-MM-JJ attendu)"); e.statusCode = 400; throw e; }
   return d;
@@ -91,19 +104,20 @@ module.exports = async (req, res) => {
       if (rows.length > 100) return res.status(400).json({ error: "Trop de groupes en une fois (max 100)" });
       const existingSnap = await db.ref(`${ROOT}/groups`).once("value");
       const existing = existingSnap.val() || {};
-      const existingUrls = new Set(Object.values(existing).map((g) => g.url).filter(Boolean));
+      const existingUrls = new Set(Object.values(existing).map((g) => normalizeGroupUrl(g.url)).filter(Boolean));
       const updates = {};
       let created = 0, skipped = 0, order = Date.now();
       for (const row of rows) {
         const name = String((row && row.name) || "").trim().slice(0, 120);
         const url = String((row && row.url) || "").trim().slice(0, 500);
-        if (!name || !url || !/^https:\/\/.+/i.test(url) || existingUrls.has(url)) { skipped++; continue; }
+        const key = normalizeGroupUrl(url);
+        if (!name || !url || !/^https:\/\/.+/i.test(url) || existingUrls.has(key)) { skipped++; continue; }
         const gid = newId("grp");
         updates[`${ROOT}/groups/${gid}`] = {
           name, url, active: true, order: order++, notes: "",
           createdBy: who.email, createdAt: Date.now(), updatedBy: who.email, updatedAt: Date.now()
         };
-        existingUrls.add(url);
+        existingUrls.add(key);
         created++;
       }
       if (Object.keys(updates).length) await db.ref().update(updates);
