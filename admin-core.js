@@ -429,18 +429,31 @@
   };
 
   // Charge pdf.js (cdnjs) à la demande — utilisé pour extraire la couverture EN LOCAL.
+  // Intégrité vérifiée (SRI) : une compromission du CDN ne peut pas faire exécuter
+  // du code arbitraire dans ce panneau admin à pleins pouvoirs — le hash doit
+  // correspondre exactement, sinon le navigateur refuse de charger le script.
+  const PDFJS_VERSION = "3.11.174";
+  const PDFJS_SRI = {
+    lib:    "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e",
+    worker: "sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2"
+  };
   let PDFLIB = null;
   window.loadPdfJs = function () {
     if (PDFLIB) return Promise.resolve(PDFLIB);
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      s.src = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
+      s.integrity = PDFJS_SRI.lib;
+      s.crossOrigin = "anonymous";
       s.onload = () => {
         PDFLIB = window.pdfjsLib;
-        PDFLIB.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        // Le worker est chargé par pdf.js lui-même (pas par ce <script>) : pas de
+        // moyen natif d'y attacher un SRI, mais il vient de la même version pinnée
+        // du même CDN que la lib déjà vérifiée ci-dessus.
+        PDFLIB.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
         resolve(PDFLIB);
       };
-      s.onerror = () => reject(new Error("Lecteur PDF indisponible (connexion internet requise)."));
+      s.onerror = () => reject(new Error("Lecteur PDF indisponible (connexion internet requise, ou intégrité du script invalide)."));
       document.head.appendChild(s);
     });
   };
