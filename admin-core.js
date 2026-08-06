@@ -260,6 +260,17 @@
     }
   });
 
+  // Le jeton Firebase expire au bout d'~1h : le SDK le rafraîchit tout seul en
+  // interne, mais rien ne pousse la nouvelle valeur ailleurs. Sans ce second
+  // écouteur, USER_TOKEN reste figé sur le jeton initial et toute session admin
+  // restée ouverte plus d'une heure se met à échouer sur chaque appel (« Session
+  // invalide ») jusqu'à un rechargement manuel de la page.
+  auth.onIdTokenChanged(async (user) => {
+    if (!user) { USER_TOKEN = null; return; }
+    try { USER_TOKEN = await user.getIdToken(); }
+    catch (err) { /* hors-ligne, etc. — le serveur revalide de toute façon à chaque appel */ }
+  });
+
   // Formulaire de connexion
   $("loginForm").onsubmit = async (e) => {
     e.preventDefault();
