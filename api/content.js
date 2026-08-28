@@ -11,9 +11,16 @@ const NODES = {
   "theme_fondamental":        { label: "Thème Fondamental",      page: "Calcul Numérique", group: "Calculs" },
   "sourate":                  { label: "Sourates & Propriétés",  page: "Coran",            group: "Coran" },
   "versetRef":                { label: "Versets Références",     page: "Coran",            group: "Coran" },
-  "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran" },
+  // Chemin réel côté asrar-main (server/sources.js → SOURCES.asma) : "data/appData/asmaUlHusna",
+  // PAS "asmaUlHusna" à la racine — sans `path`, ce nœud pointerait vers un
+  // emplacement orphelin jamais lu par l'app.
+  "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran", path: "data/appData/asmaUlHusna" },
   "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" }
 };
+
+// Chemin RTDB réel d'un nœud : `path` explicite (quand la clé NODES diffère du
+// chemin, ex. asmaUlHusna) sinon la clé elle-même.
+const nodePath = (n) => (NODES[n] && NODES[n].path) || n;
 
 // Clé Firebase valide : on accepte TOUT (espaces, accents, arabe, apostrophes…)
 // SAUF les caractères réellement interdits par RTDB ( . # $ [ ] / ) et les
@@ -50,7 +57,7 @@ module.exports = async (req, res) => {
   if (!NODES[node]) return res.status(400).json({ error: "Nœud interdit ou inconnu" });
 
   const db = app().database();
-  const base = db.ref(node);
+  const base = db.ref(nodePath(node));
 
   try {
     if (action === "list") {
@@ -121,7 +128,7 @@ module.exports = async (req, res) => {
       if (!NODES[target]) return res.status(400).json({ error: "Nœud cible non autorisé" });
       if (target === node) return res.status(400).json({ error: "Le nœud cible doit être différent du nœud source" });
       if (!keys.length) return res.status(400).json({ error: "Aucun élément sélectionné" });
-      const tref = db.ref(target);
+      const tref = db.ref(nodePath(target));
       let n = 0;
       for (const k of keys) {
         if (!validKey(k)) continue;

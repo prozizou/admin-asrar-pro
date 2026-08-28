@@ -66,6 +66,14 @@
     <main class="main-container">
 
       <section id="tab-dashboard" class="panel">
+        <div class="reality-notice">
+          <span class="ic">⚠️</span>
+          <span><b>FREE_FOR_ALL actif côté asrar-main.</b> Le drapeau <code>lib/plans.js → FREE_FOR_ALL</code>
+            rend actuellement TOUTE l'application gratuite pour tous les visiteurs, y compris les modules
+            premium — indépendamment des accès accordés ou révoqués ici. Les octrois/révocations restent
+            enregistrés (et s'appliqueront normalement) mais n'ont aucun effet visible tant que ce drapeau
+            n'est pas repassé à <code>false</code> dans le code d'asrar-main.</span>
+        </div>
         <div class="block">
           <div class="bar">
             <h3 class="star">Vue d'ensemble</h3>
@@ -413,7 +421,16 @@
       <section id="tab-settings" class="panel" hidden>
         <div class="block max-width-sm">
           <h3 class="star">Contrôle global du système</h3>
-          
+
+          <div class="reality-notice">
+            <span class="ic">⚠️</span>
+            <span><b>Non câblé côté asrar-main.</b> Ces réglages écrivent bien dans le nœud RTDB
+              <code>config/</code>, mais l'app cliente (migrée en Next.js) ne l'écoute plus nulle part
+              aujourd'hui — l'ancien code qui l'affichait vivait dans <code>js/firebase-config.js</code>
+              du site statique, retiré depuis. Voir le README (section « Maintenance / annonce ») pour le
+              composant à ajouter dans asrar-main afin que ces réglages redeviennent effectifs.</span>
+          </div>
+
           <label class="switch-row">
             <span class="switch">
               <input type="checkbox" id="cfgMaintenance">
