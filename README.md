@@ -1,10 +1,21 @@
 # ASRAR PRO — Panneau d'administration
 
-Projet **totalement dissocié** de l'application principale : à déployer comme un
-**projet Vercel séparé** (ex. `asrar-admin.vercel.app`), avec sa propre connexion
-Google. Il pilote la même base Firebase (`asrar-bc059`) via le **Firebase Admin SDK**
+Projet **totalement dissocié** de l'application principale (**asrar-main**, app
+Next.js unifiée — plus de « hub » statique séparé, voir sa migration documentée
+dans son propre README/`ANALYSE.md`) : à déployer comme un **projet Vercel
+séparé** (ex. `asrar-admin.vercel.app`), avec sa propre connexion Google. Il
+pilote la même base Firebase (`asrar-bc059`) via le **Firebase Admin SDK**
 côté serveur — aucune modification des règles de sécurité n'est requise pour
 fonctionner (les nœuds sensibles restent `read/write:false` côté client).
+
+> ℹ️ asrar-main contient encore un `pages/api/admin.js` hérité d'avant la
+> dissociation des deux projets (Session 4 de son `CHANGELOG.md`) : aucune UI
+> de son côté ne l'appelle (pas de route `app/admin/`). Ce panneau-ci ne s'en
+> sert pas et n'en dépend pas — chaque route `api/*.js` d'ASRAR PRO parle
+> directement au Firebase Admin SDK, avec ses propres conventions (ex.
+> `purchased_user` pour les octrois manuels, quand l'`api/admin.js` hérité
+> écrit dans `allowedUsers`) : les deux restent compatibles côté barrière
+> d'accès (`server/access.js` lit les deux nœuds), mais ne partagent pas de code.
 
 ## Déploiement (une fois)
 
@@ -14,8 +25,12 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
      (Console Firebase → Paramètres → Comptes de service → Générer une clé).
      ⚠️ À coller UNIQUEMENT dans Vercel. Jamais dans le code, ni dans un chat.
    - `FIREBASE_DB_URL` : `https://asrar-bc059.firebaseio.com`
-   - `HUB_URL` : URL publique du hub (ex. `https://asrar-hub.vercel.app`) —
-     sert à construire les liens partageables 🔗. Défaut : `https://asrar-hub.vercel.app`.
+   - `SITE_URL` : URL publique d'asrar-main (ex. `https://www.asrarpro.com` — même
+     valeur que la variable `SITE_URL` du projet asrar-main lui-même, cf. son
+     `.env.example`) — sert à construire les liens partageables 🔗 vers `/s`,
+     servi par asrar-main même (plus de hub séparé). Défaut : `https://www.asrarpro.com`.
+     (`HUB_URL` reste lu en repli, pour compatibilité avec un déploiement déjà
+     configuré sous l'ancien nom.)
 3. Console Firebase → Authentication → Settings → **Domaines autorisés** :
    ajouter le domaine du panneau (ex. `asrar-admin.vercel.app`).
 
@@ -28,7 +43,13 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 ## Fonctionnalités
 
 - **Tableau de bord** : visites journalières & mensuelles (barres survolables),
-  visiteurs uniques, revenus PayDunya (30 j / total / nb ventes), activité récente.
+  visiteurs uniques, revenus des accès accordés manuellement (30 j / total / nb
+  d'octrois), activité récente. *(asrar-main a retiré le paiement en ligne
+  PayDunya — un utilisateur contacte désormais l'administration par WhatsApp
+  pour activer son abonnement, qui l'accorde ensuite ici, onglet Utilisateurs ;
+  ces revenus reflètent donc les paliers accordés, pas des transactions PayDunya.
+  Voir aussi l'avertissement ⚠️ FREE_FOR_ALL affiché en haut de cet onglet dans
+  le panneau.)*
 - **Contenus page par page** : liste blanche de nœuds éditables (Noms d'Allah,
   versets, sourates, bibliothèques Sirr, produits, commentaires/notes…).
   Ajouter / éditer (JSON) / supprimer / **exporter en JSON**.
@@ -42,27 +63,28 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   Utilisateurs, saisir un e-mail + une **date d'expiration** (ou boutons rapides
   +1/+3/+6 mois, +1 an, ou « à vie ») pour accorder l'accès — **même à un e-mail
   qui n'a pas encore de compte**. L'accès est écrit dans `purchased_user/{clé}`
-  avec `expiresAt`. Le hub laisse alors passer l'utilisateur **jusqu'à cette
+  avec `expiresAt`. asrar-main laisse alors passer l'utilisateur **jusqu'à cette
   date** ; passé le délai, il est **automatiquement bloqué** jusqu'à un nouvel
   accès. La liste « Accès accordés » montre le statut (actif/expiré) et permet de
   **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
   `list_access`.)
 - **Journal d'audit** : chaque action admin est tracée (`audit_log`).
-- **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` du hub) :
+- **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` d'asrar-main) :
   KPIs (parrains, filleuls crédités, clics, taux clic→inscription, points en
   circulation, abonnements gagnés), **classement des parrains**, **alertes
   anti-fraude** (rafale de filleuls en 24 h, conversion anormale), **liste des
   filleuls** d'un parrain, **± points** (motif obligatoire, audité),
   **suspension** d'un parrain, **régénération de code**, et **réglages du
   programme** (`config/referral` : actif, points/filleul, seuil, jours offerts,
-  âge maximal du compte filleul) — le hub les applique immédiatement.
+  âge maximal du compte filleul) — asrar-main les applique immédiatement.
 - **Liens partageables** : bouton **🔗** sur chaque carte de contenu (Sirr,
   Almaqtab) et sur chaque produit du Marché → copie/partage du lien
-  `HUB_URL/s?k=…&c=…&i=…` (aperçu Open Graph sur WhatsApp / Facebook / TikTok).
+  `SITE_URL/s?k=…&c=…&i=…` (aperçu Open Graph sur WhatsApp / Facebook / TikTok).
 - **Palier d'abonnement** à l'octroi d'accès : le champ `level` est désormais écrit
-  dans `purchased_user` (automatique selon la durée, ou choisi). Sans lui, le hub
-  laissait l'utilisateur au niveau 0 → **PDF et polices Al-Qalam bloqués** malgré
-  un accès valide. Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
+  dans `purchased_user` (automatique selon la durée, ou choisi). Sans lui,
+  asrar-main laisserait l'utilisateur au niveau 0 → **PDF et polices Al-Qalam
+  bloqués** malgré un accès valide (une fois `FREE_FOR_ALL` désactivé — voir plus
+  bas). Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
 - **Marché (boutiques & produits)** : onglet dédié. Liste des boutiques
   (`sellers/{uid}`) avec statut (active / expirée), date d'expiration et nombre de
   produits. Actions par boutique : **Prolonger** (nouvelle date), **Renommer**,
@@ -112,11 +134,20 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   Bouton **« Tout valider »** sur la checklist du jour pour marquer d'un coup toutes les
   affectations restantes comme publiées, une fois la tournée manuelle terminée.
 
-## À faire dans l'application principale
+## À faire dans l'application principale (asrar-main)
+
+asrar-main a migré vers une **app Next.js unifiée** (plus de site statique
+« hub » — voir son README) et versionne désormais ses règles RTDB dans
+`rules/database.rules.json` (reconstituées à partir du code, cf. son
+`rules/README.md` : « base de travail », à comparer avec la console Firebase
+avant tout déploiement). À la date de cette revue, ce fichier **ne contient
+encore ni les nœuds de parrainage ni `config`** — les deux points ci-dessous
+restent donc à faire.
 
 ### 0. Parrainage — règles RTDB
 
-Le hub écrit `referrals`, `referral_codes` et `referred` (Admin SDK). À fusionner :
+asrar-main écrit `referrals`, `referral_codes` et `referred` (Admin SDK,
+`pages/api/referral.js`). À ajouter dans `rules/database.rules.json` :
 
 ```json
 "referrals":      { "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": false } },
@@ -124,12 +155,14 @@ Le hub écrit `referrals`, `referral_codes` et `referred` (Admin SDK). À fusion
 "referred":       { ".read": false, ".write": false, ".indexOn": ["by"] }
 ```
 
-`.indexOn: ["by"]` est requis par l'action **children** (filleuls d'un parrain).
-Les réglages du programme vivent dans `config/referral` — la règle `config`
-ci-dessous suffit (écriture serveur uniquement).
+`.indexOn: ["by"]` est requis par l'action **children** (filleuls d'un parrain,
+`api/referral.js` de ce panneau). Les réglages du programme vivent dans
+`config/referral` — la règle `config` ci-dessous suffit (écriture serveur
+uniquement, lue par personne côté client actuellement — voir point 2).
 
 ### 1. Règles Firebase — rendre `config` lisible par les utilisateurs
-Pour que l'app affiche l'annonce / l'écran de maintenance, ajoutez :
+Pour que l'app affiche l'annonce / l'écran de maintenance (une fois le point 2
+câblé), ajoutez dans `rules/database.rules.json` :
 
 ```json
 "config": {
@@ -138,35 +171,92 @@ Pour que l'app affiche l'annonce / l'écran de maintenance, ajoutez :
 }
 ```
 
+`AuthProvider` (asrar-main) affiche un écran de connexion tant que l'utilisateur
+n'est pas identifié : `auth != null` suffit donc à couvrir tous les visiteurs qui
+atteignent réellement les pages protégées (pas seulement les abonnés).
+
 (`audit_log`, `trash` et `banned` n'apparaissent pas dans les règles → refusés
 par défaut côté client : c'est voulu, ils sont serveur-only.)
 
-### 2. Snippet maintenance + annonce (dans `js/firebase-config.js` du hub)
+### 2. Composant maintenance + annonce (asrar-main est du Next.js — plus de
+### `js/firebase-config.js`)
 
-```js
-// Maintenance + annonce pilotées par le panneau admin (nœud config/).
-db.ref('config').on('value', (s) => {
-  const c = s.val() || {};
-  if (c.maintenance && auth.currentUser?.email !== 'prozizou298@gmail.com') {
-    document.body.innerHTML =
-      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
-      'text-align:center;padding:24px;font-family:system-ui"><div>' +
-      '<h1>🛠️ Maintenance en cours</h1><p>ASRAR PRO revient très vite, in shâ Allah.</p></div></div>';
-    return;
+⚠️ **Ce composant n'existe pas encore dans asrar-main** : tant qu'il n'est pas
+ajouté, les réglages de l'onglet **Réglages** de ce panneau (mode maintenance,
+annonce globale) sont enregistrés dans `config/` mais **n'ont aucun effet
+visible** pour les utilisateurs (voir l'avertissement affiché dans cet onglet).
+
+Nouveau fichier `components/MaintenanceGate.js` :
+
+```jsx
+'use client';
+// components/MaintenanceGate.js — Maintenance + annonce pilotées par le
+// panneau admin (nœud config/, écrit par ASRAR PRO → onglet Réglages).
+import { useEffect, useState } from 'react';
+import { ref, onValue } from 'firebase/database';
+import { db, auth } from '../lib/firebase';
+
+export default function MaintenanceGate({ children }) {
+  const [cfg, setCfg] = useState(null);
+
+  useEffect(() => onValue(ref(db, 'config'), (s) => setCfg(s.val() || {})), []);
+
+  if (cfg?.maintenance && auth.currentUser?.email !== 'prozizou298@gmail.com') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', textAlign: 'center', padding: 24, fontFamily: 'system-ui' }}>
+        <div>
+          <h1>🛠️ Maintenance en cours</h1>
+          <p>ASRAR PRO revient très vite, in shâ Allah.</p>
+        </div>
+      </div>
+    );
   }
-  let b = document.getElementById('asrar-announce');
-  if (c.announcement) {
-    if (!b) {
-      b = document.createElement('div');
-      b.id = 'asrar-announce';
-      b.style.cssText = 'background:#3b2f0e;color:#f0d878;padding:10px 14px;' +
-        'text-align:center;font-size:.9rem;position:sticky;top:0;z-index:9999';
-      document.body.prepend(b);
-    }
-    b.textContent = '📢 ' + c.announcement;
-  } else if (b) b.remove();
-});
+
+  return (
+    <>
+      {cfg?.announcement && (
+        <div style={{ background: '#3b2f0e', color: '#f0d878', padding: '10px 14px',
+          textAlign: 'center', fontSize: '.9rem', position: 'sticky', top: 0, zIndex: 9999 }}>
+          📢 {cfg.announcement}
+        </div>
+      )}
+      {children}
+    </>
+  );
+}
 ```
+
+Monté dans `components/Providers.js`, à l'intérieur d'`AuthProvider` (pour que
+`auth.currentUser` soit renseigné) et englobant le reste de la coquille :
+
+```jsx
+import MaintenanceGate from './MaintenanceGate';
+// ...
+<AuthProvider>
+  <AccessProvider>
+    <MaintenanceGate>
+      <PendingDeepLink />
+      {children}
+    </MaintenanceGate>
+  </AccessProvider>
+</AuthProvider>
+```
+
+## ⚠️ Paywall actuellement désactivé côté asrar-main (`FREE_FOR_ALL`)
+
+`lib/plans.js` d'asrar-main déclare `export const FREE_FOR_ALL = true;` : tant
+que ce drapeau reste actif, `hasActiveAccess` / `getAccessLevel` /
+`getAccessStatus` (`server/access.js`) court-circuitent leurs lectures RTDB et
+répondent « accès total » à **tout le monde**, y compris pour les modules
+premium (Al Qalam, Géomancie). Conséquence pour ce panneau : les octrois et
+révocations d'accès (onglet Utilisateurs) sont **bien enregistrés** dans
+`purchased_user`/`allowedUsers` (rien n'est cassé ni perdu) mais **n'ont
+aucun effet visible** pour les utilisateurs tant que ce drapeau n'est pas
+repassé à `false` dans le code d'asrar-main — c'est le seul geste nécessaire
+pour réactiver le paywall, tout le reste (achats, grants, code du paywall)
+reste intact. Un bandeau ⚠️ le rappelle en haut de l'onglet **Vue d'ensemble**
+du panneau.
 
 ## Notes de sécurité
 

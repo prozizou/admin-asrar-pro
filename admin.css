@@ -626,6 +626,24 @@ input:checked + span:before { transform: translateX(22px); background-color: var
 .msg.err { color: var(--danger); }
 .msg.ok { color: var(--ok); }
 .max-width-sm { max-width: 620px; }
+
+/* ── Bandeaux « réalité asrar-main » ── signalent un écart entre ce panneau
+   et l'état réel de l'app cliente (drapeau serveur, fonctionnalité non câblée…). */
+.reality-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(209, 104, 92, 0.4);
+  border-radius: 12px;
+  background: rgba(209, 104, 92, 0.08);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.reality-notice b { color: var(--danger); }
+.reality-notice .ic { flex: none; font-size: 1.1rem; line-height: 1.4; }
 .user-email { font-weight: 600; }
 .user-email, .user-uid { overflow-wrap: anywhere; word-break: break-word; }
 

@@ -69,8 +69,11 @@
   };
   window.extraFieldHtml = (key, val) => isComplex(val) ? complexFieldHtml(key, val) : simpleFieldHtml(key, val);
 
-  // URL du hub (pour construire les liens partageables /s) — injectée par /api/config.
-  window.HUB_URL = String(window.HUB_URL || "https://asrar-hub.vercel.app").replace(/\/+$/, "");
+  // URL du site (asrar-main — pour construire les liens partageables /s), injectée
+  // par /api/config. asrar-main n'a plus de "hub" séparé : c'est une app Next.js
+  // unifiée qui sert elle-même /s (voir next.config.mjs → api/share). HUB_URL reste
+  // lu en repli (ancien nom) pour compatibilité avec un déploiement déjà configuré.
+  window.SITE_URL = String(window.SITE_URL || window.HUB_URL || "https://www.asrarpro.com").replace(/\/+$/, "");
 
   // Variables globales
   window.USER_TOKEN = null;
@@ -380,8 +383,9 @@
     if (target === "settings") loadConfig();
   };
 
-  // ── LIENS PARTAGEABLES DU HUB (/s) ───────────────────────────────────
-  // Conjugué avec api/share.js du hub : /s?k=<type>&c=<cat>&i=<clé>
+  // ── LIENS PARTAGEABLES DU SITE (/s) ──────────────────────────────────
+  // Conjugué avec pages/api/share.js d'asrar-main (rewrite /s → api/share,
+  // next.config.mjs) : /s?k=<type>&c=<cat>&i=<clé>
   // Permet à l'administration de poster elle-même un secret / livre / produit
   // sur WhatsApp, Facebook ou TikTok (avec vignette Open Graph).
   window.shareKindOf = function (node) {
@@ -393,7 +397,7 @@
   window.hubShareLink = function (node, key) {
     const m = shareKindOf(node);
     if (!m || !key) return null;
-    let u = HUB_URL + "/s?k=" + encodeURIComponent(m.kind);
+    let u = SITE_URL + "/s?k=" + encodeURIComponent(m.kind);
     if (m.cat) u += "&c=" + encodeURIComponent(m.cat);
     return u + "&i=" + encodeURIComponent(key);
   };

@@ -13,13 +13,19 @@ module.exports = (req, res) => {
     appId:       process.env.FIREBASE_APP_ID || "1:199810893447:web:165ed3d51093d83c68da22"
   };
 
-  // URL publique du hub : sert à construire les liens partageables /s?k=…&i=…
-  // depuis le panneau (onglet Contenus → bouton 🔗). Définir HUB_URL sur Vercel.
-  const hub = String(process.env.HUB_URL || "https://asrar-hub.vercel.app").replace(/\/+$/, "");
+  // URL publique du site (asrar-main) : sert à construire les liens partageables
+  // /s?k=…&i=… depuis le panneau (onglet Contenus → bouton 🔗). asrar-main est
+  // désormais une app Next.js unifiée (plus de "hub" séparé) qui sert elle-même
+  // /s (rewrite → api/share, cf. next.config.mjs) — même variable d'env que
+  // l'app (`SITE_URL`, .env.example) et même valeur par défaut (lib/firebase.js
+  // → ASRAR_CONFIG.siteUrl). Définir SITE_URL sur Vercel (l'ancien nom HUB_URL
+  // reste lu en repli pour ne pas casser un déploiement déjà configuré).
+  const site = String(process.env.SITE_URL || process.env.HUB_URL || "https://www.asrarpro.com").replace(/\/+$/, "");
 
   res.status(200).send(
     "window.FIREBASE_CONFIG=" + JSON.stringify(cfg) + ";" +
-    "window.HUB_URL=" + JSON.stringify(hub) + ";"
+    "window.SITE_URL=" + JSON.stringify(site) + ";" +
+    "window.HUB_URL=" + JSON.stringify(site) + ";" // alias historique — cf. admin-core.js
   );
 };
 
