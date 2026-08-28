@@ -238,23 +238,54 @@
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Une erreur inconnue est survenue côté serveur.");
+    if (!res.ok) {
+      // .status exposé pour distinguer un vrai refus serveur (401/403) d'une
+      // erreur métier quelconque — utilisé par verifyAdminOrSignOut() ci-dessous.
+      const err = new Error(data.error || "Une erreur inconnue est survenue côté serveur.");
+      err.status = res.status;
+      throw err;
+    }
     return data;
   };
+
+  // Confirme côté serveur que le compte Google connecté est bien administrateur
+  // (super-admin prozizou298@gmail.com, ou admins/{clé}===true — cf. _lib/fb.js
+  // → verifyAdmin) AVANT d'exposer le panneau : n'importe quel compte Google peut
+  // ouvrir une session Firebase, ce n'est que cette vérification qui filtre.
+  // Une erreur RÉSEAU (hors-ligne, timeout — pas de statut HTTP) ne déconnecte
+  // PAS : seul un refus explicite du serveur (401/403) le fait.
+  async function verifyAdminOrSignOut() {
+    try {
+      await api("stats", { action: "overview" });
+      return true;
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) {
+        $("loginMsg").className = "msg err";
+        $("loginMsg").textContent = "Accès administrateur refusé pour ce compte Google.";
+        await auth.signOut();
+        return false;
+      }
+      return true; // erreur réseau : chaque appel API revérifie de toute façon.
+    }
+  }
 
   // Observateur d'authentification
   auth.onAuthStateChanged(async (user) => {
     if (user) {
-      // Session déjà ouverte → on laisse passer sans redemander les identifiants.
-      // On ne déconnecte PAS sur un simple échec de rafraîchissement de jeton
-      // (hors-ligne, etc.) : le serveur revalide l'admin à chaque appel.
-      $("login").hidden = true;
-      $("app").hidden = false;
       try {
         USER_TOKEN = await user.getIdToken();
       } catch (err) {
         USER_TOKEN = null;
       }
+      const msg = $("loginMsg");
+      msg.className = "msg info";
+      msg.textContent = "Vérification des privilèges administrateur…";
+      // Session déjà ouverte → on laisse passer sans redemander la connexion
+      // Google, juste la vérification admin ci-dessus.
+      if (!(await verifyAdminOrSignOut())) return; // signOut() redéclenche ce handler avec user=null.
+      msg.textContent = "";
+      $("login").hidden = true;
+      $("app").hidden = false;
       initDashboard();
     } else {
       USER_TOKEN = null;
@@ -274,22 +305,40 @@
     catch (err) { /* hors-ligne, etc. — le serveur revalide de toute façon à chaque appel */ }
   });
 
-  // Formulaire de connexion
-  $("loginForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const email = $("loginEmail").value.trim();
-    const password = $("loginPassword").value;
+  // Bouton de connexion Google (popup, avec repli redirection si la popup est
+  // bloquée — même logique que components/AuthProvider.js côté asrar-main).
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+  googleProvider.setCustomParameters({ prompt: "select_account" });
+
+  const POPUP_FALLBACK_CODES = [
+    "auth/popup-blocked", "auth/operation-not-supported-in-this-environment", "auth/cancelled-popup-request"
+  ];
+  $("btnGoogleLogin").onclick = async () => {
     const msg = $("loginMsg");
     msg.className = "msg info";
-    msg.textContent = "Signature spirituelle en cours de vérification…";
+    msg.textContent = "Connexion à Google en cours…";
     try {
-      await auth.signInWithEmailAndPassword(email, password);
+      await auth.signInWithPopup(googleProvider);
       msg.textContent = "";
     } catch (err) {
+      if (err && err.code === "auth/popup-closed-by-user") { msg.textContent = ""; return; }
+      if (err && POPUP_FALLBACK_CODES.includes(err.code)) {
+        msg.textContent = "Ouverture de Google…";
+        try { await auth.signInWithRedirect(googleProvider); }
+        catch (err2) { msg.className = "msg err"; msg.textContent = "Connexion Google impossible : " + err2.message; }
+        return;
+      }
       msg.className = "msg err";
-      msg.textContent = "Identifiants incorrects ou privilèges insuffisants.";
+      msg.textContent = "Connexion Google impossible : " + (err && err.message || "erreur inconnue");
     }
   };
+  // Reprend après un repli signInWithRedirect (retour de Google sur cette page).
+  auth.getRedirectResult().catch((err) => {
+    if (err && err.code && err.code !== "auth/no-auth-event") {
+      $("loginMsg").className = "msg err";
+      $("loginMsg").textContent = "Connexion Google impossible : " + err.message;
+    }
+  });
 
   $("btnLogout").onclick = () => auth.signOut();
 
@@ -355,15 +404,12 @@
 
     $("tab-dashboard").hidden = target !== "dashboard";
     $("tab-content").hidden = target !== "content";
-    $("tab-planner").hidden = target !== "planner";
     $("tab-market").hidden = target !== "market";
     $("tab-users").hidden = target !== "users";
     $("tab-fonts").hidden = target !== "fonts";
     $("tab-referral").hidden = target !== "referral";
     $("tab-analytics").hidden = target !== "analytics";
     $("tab-visits").hidden = target !== "visits";
-    $("tab-audit").hidden = target !== "audit";
-    $("tab-settings").hidden = target !== "settings";
 
     // Onglets rechargés à chaque visite (données volatiles).
     if (target === "dashboard") return loadDashboard();
@@ -373,14 +419,11 @@
     if (!force && TAB_LOADED[target]) return;
     TAB_LOADED[target] = true;
     if (target === "content") loadNodesMenu();
-    if (target === "planner") loadPlanner();
-    if (target === "users") { loadUsers(); loadAccess(); }
+    if (target === "users") loadAccess();
     if (target === "fonts") loadFonts();
     if (target === "referral") loadReferral();
     if (target === "analytics") loadAnalytics();
     if (target === "visits") loadVisits();
-    if (target === "audit") loadAudit();
-    if (target === "settings") loadConfig();
   };
 
   // ── LIENS PARTAGEABLES DU SITE (/s) ──────────────────────────────────

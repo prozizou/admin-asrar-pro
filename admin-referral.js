@@ -140,7 +140,7 @@
     try {
       const d = await api("referral", { action: "adjust", uid, delta, reason });
       showToast("Points : " + d.points);
-      loadReferral(); loadAudit();
+      loadReferral();
     } catch (e) { showToast(e.message, "err"); }
   }
 
@@ -153,7 +153,7 @@
     try {
       await api("referral", { action: on ? "block" : "unblock", uid, reason });
       showToast(on ? "Parrain suspendu." : "Parrain réactivé.");
-      loadReferral(); loadAudit();
+      loadReferral();
     } catch (e) { showToast(e.message, "err"); }
   }
 
@@ -164,7 +164,7 @@
     try {
       const d = await api("referral", { action: "reset_code", uid });
       showToast("Nouveau code : " + d.code);
-      loadReferral(); loadAudit();
+      loadReferral();
     } catch (e) { showToast(e.message, "err"); }
   }
 
@@ -189,8 +189,8 @@
       const d = await api("referral", { action: "settings_set", settings });
       REF.settings = d.settings;
       msg.className = "msg ok";
-      msg.textContent = "Paramètres appliqués — le hub les prend en compte immédiatement.";
-      renderReferral(); loadAudit();
+      msg.textContent = "Paramètres appliqués — asrar-main les prend en compte immédiatement.";
+      renderReferral();
     } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
   };
 })();

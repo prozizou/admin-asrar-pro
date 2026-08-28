@@ -1,4 +1,4 @@
-// admin-users.js — Gestion des utilisateurs et accès premium
+// admin-users.js — Accès premium par e-mail (octroi, prolongation, révocation)
 
 (function () {
   "use strict";
@@ -53,7 +53,7 @@
           + (r && r.level ? " Palier " + r.level + "." : "");
         $("accEmail").value = ""; $("accLifetime").checked = false;
         $("accDate").disabled = false; $("accDate").value = "";
-        loadAccess(); loadUsers();
+        loadAccess();
       } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
       btnGrant.disabled = false;
     };
@@ -99,7 +99,7 @@
       const em = b.getAttribute("data-acc-revoke");
       if (!(await uiConfirm({ title: "Révoquer l'accès", danger: true, icon: "block", confirmText: "Révoquer",
         message: "Révoquer l'accès premium de " + em + " ?" }))) return;
-      try { await api("users", { action: "revoke_access", email: em }); showToast("Accès révoqué."); loadAccess(); loadUsers(); }
+      try { await api("users", { action: "revoke_access", email: em }); showToast("Accès révoqué."); loadAccess(); }
       catch (e) { showToast(e.message, "err"); }
     });
     document.querySelectorAll("[data-acc-edit]").forEach((b) => b.onclick = () => prefillAccess(b.getAttribute("data-acc-edit")));
@@ -111,110 +111,6 @@
     accEmail.value = email;
     accEmail.scrollIntoView({ behavior: "smooth", block: "center" });
     accEmail.focus();
-  };
-
-  // ── Utilisateurs ──
-  window.loadUsers = async function () {
-    const usersList = $("usersList");
-    if (!usersList) return;
-    usersList.innerHTML = "<tr><td colspan='5' class='muted' style='text-align:center;'>Interrogation des comptes de l'écosystème…</td></tr>";
-    try {
-      const d = await api("users", { action: "list" });
-      const rows = d.users || [];
-      
-      const render = (arr) => {
-        usersList.innerHTML = arr.map((u) => `
-          <tr class="${u.banned ? 'disabled-row' : ''}">
-            <td data-label="Utilisateur">
-              <span class="user-email">${esc(u.email)}</span><br>
-              <small class="user-uid muted">${esc(u.uid)}</small>
-            </td>
-            <td data-label="Création"><small>${when(u.created)}</small></td>
-            <td data-label="Dernière connexion"><small>${when(u.lastSeen)}</small></td>
-            <td data-label="Rôles">
-              ${u.isSuper ? `<span class="badge gold">SUPER-ADMIN</span>` : `
-                <label class="chk-lbl">
-                  <input type="checkbox" class="act-role" data-uid="${esc(u.uid)}" data-role="admin" ${u.isAdmin ? 'checked' : ''}> Administrateur
-                </label>
-              `}
-              <div style="margin-top: 5px;">
-                <label class="chk-lbl">
-                  <input type="checkbox" class="act-role" data-uid="${esc(u.uid)}" data-role="vip" ${u.isVip ? 'checked' : ''}> Accès VIP global
-                </label>
-              </div>
-              <div class="muted" style="margin-top:6px">
-                ${u.sub ? (u.subActive ? '💎 Abonné · ' + esc(u.sub) : '⛔ Abonnement expiré') : 'Aucun abonnement'}
-              </div>
-            </td>
-            <td data-label="Actions">
-              <button class="btn text act-access" data-email="${esc(u.email)}">Gérer l'accès</button>
-              ${u.isSuper ? '' : `
-                <button class="btn text ${u.banned ? 'success-text' : 'danger-text'} act-ban" data-uid="${esc(u.uid)}" data-ban="${!u.banned}">
-                  ${u.banned ? "Réactiver ✔" : "Révoquer / Bannir ⛔"}
-                </button>
-              `}
-            </td>
-          </tr>
-        `).join("") || "<tr><td colspan='5' style='text-align:center;'>Aucun chercheur ne correspond à vos filtres.</td></tr>";
-
-        document.querySelectorAll(".act-role").forEach((chk) => {
-          chk.onchange = async () => {
-            const uid = chk.getAttribute("data-uid");
-            const role = chk.getAttribute("data-role");
-            const isChecked = chk.checked;
-            const action = role === "admin" ? (isChecked ? "admin_on" : "admin_off") : (isChecked ? "vip_on" : "vip_off");
-            try {
-              await api("users", { action, uid });
-              showToast("Autorisations d'accès recalculées.");
-            } catch (e) {
-              chk.checked = !isChecked; 
-              showToast(e.message, "err"); 
-            }
-          };
-        });
-
-        document.querySelectorAll(".act-access").forEach((b) => {
-          b.onclick = () => prefillAccess(b.getAttribute("data-email"));
-        });
-
-        document.querySelectorAll(".act-ban").forEach((b) => {
-          b.onclick = async () => {
-            const uid = b.getAttribute("data-uid");
-            const operationalBan = b.getAttribute("data-ban") === "true";
-            if (operationalBan && !(await uiConfirm({ title: "Bannir ce compte", danger: true, icon: "block", confirmText: "Bannir",
-              message: "Révoquer définitivement les jetons et interdire l'accès à ce compte ?\nL'utilisateur sera déconnecté partout en ≤ 1 h." }))) return;
-            try {
-              await api("users", { action: operationalBan ? "ban" : "unban", uid });
-              showToast(operationalBan ? "Utilisateur exclu du système." : "Compte de l'utilisateur restauré.");
-              loadUsers();
-            } catch (e) { showToast(e.message, "err"); }
-          };
-        });
-      };
-
-      let filtered = rows, ushown = 50;
-      const draw = () => {
-        render(filtered.slice(0, ushown));
-        const moreBtn = $("btnMoreUsers");
-        if (moreBtn) {
-          moreBtn.hidden = ushown >= filtered.length;
-          moreBtn.textContent = "Afficher 50 de plus (" + Math.max(0, filtered.length - ushown) + " restants)";
-        }
-      };
-      const resetUsers = (arr) => { filtered = arr; ushown = 50; draw(); };
-      const moreUsersBtn = $("btnMoreUsers");
-      if (moreUsersBtn) moreUsersBtn.onclick = () => { ushown += 50; draw(); };
-      resetUsers(rows);
-
-      const userSearch = $("userSearch");
-      if (userSearch) {
-        userSearch.oninput = (e) => {
-          const query = e.target.value.toLowerCase().trim();
-          resetUsers(rows.filter(u => u.email.toLowerCase().includes(query) || u.uid.includes(query)));
-        };
-      }
-
-    } catch (e) { usersList.innerHTML = `<tr><td colspan='5' style='color:var(--danger); text-align:center;'>${esc(e.message)}</td></tr>`; }
   };
 
 })();

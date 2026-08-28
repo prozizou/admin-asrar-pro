@@ -36,9 +36,19 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 
 ## Qui a accès ?
 
-- Le **super-admin** (`prozizou298@gmail.com`) — toujours.
-- Tout email présent dans `admins/{email avec , à la place de .} = true`.
-- Chaque appel API re-vérifie le statut **côté serveur** (jeton + `checkRevoked`).
+Authentification **Google uniquement** (bouton « Se connecter avec Google »,
+popup avec repli en redirection si la popup est bloquée) — aucun mot de passe
+propre au panneau.
+
+- Le **super-admin** (`prozizou298@gmail.com`) — toujours, quel que soit le
+  contenu de `admins/`.
+- Tout autre compte Google dont l'email est présent dans
+  `admins/{email avec , à la place de .} = true`.
+- N'importe quel compte Google peut ouvrir une session Firebase (rien ne
+  filtre à ce stade) : c'est la vérification **côté serveur**, juste après la
+  connexion (jeton + statut admin re-contrôlés à **chaque** appel API,
+  `verifyAdmin` dans `api/_lib/fb.js`), qui déconnecte immédiatement tout
+  compte non autorisé avant de laisser apparaître le panneau.
 
 ## Fonctionnalités
 
@@ -55,20 +65,16 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   Ajouter / éditer (JSON) / supprimer / **exporter en JSON**.
   Toute suppression passe par **double confirmation** et une copie part dans
   `trash/` (corbeille) avant effacement.
-- **Utilisateurs** : recherche, badges (admin / VIP / abonné / banni),
-  **bannissement réel** (compte Firebase Auth désactivé + jetons révoqués →
-  déconnecté partout en ≤ 1 h, reconnexion impossible), VIP, promotion admin
-  (**réservée au super-admin**).
-- **Accès premium par e-mail (avec date d'expiration)** : dans l'onglet
-  Utilisateurs, saisir un e-mail + une **date d'expiration** (ou boutons rapides
-  +1/+3/+6 mois, +1 an, ou « à vie ») pour accorder l'accès — **même à un e-mail
+- **Utilisateurs — accès premium par e-mail (avec date d'expiration)** :
+  saisir un e-mail + une **date d'expiration** (ou boutons rapides +1/+3/+6
+  mois, +1 an, ou « à vie ») pour accorder l'accès — **même à un e-mail
   qui n'a pas encore de compte**. L'accès est écrit dans `purchased_user/{clé}`
   avec `expiresAt`. asrar-main laisse alors passer l'utilisateur **jusqu'à cette
   date** ; passé le délai, il est **automatiquement bloqué** jusqu'à un nouvel
   accès. La liste « Accès accordés » montre le statut (actif/expiré) et permet de
   **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
-  `list_access`.)
-- **Journal d'audit** : chaque action admin est tracée (`audit_log`).
+  `list_access` — c'est tout ce que cet onglet fait : pas de liste de comptes,
+  pas de bannissement, pas de promotion admin/VIP depuis cette interface.)
 - **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` d'asrar-main) :
   KPIs (parrains, filleuls crédités, clics, taux clic→inscription, points en
   circulation, abonnements gagnés), **classement des parrains**, **alertes
@@ -95,44 +101,11 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
   **par 50** avec blocage / déblocage / suppression à l'unité.
 - **Sélection multiple (contenus)** : bouton **☑ Sélection** → cases à cocher sur
   les cartes → **supprimer** en lot ou **déplacer** vers un autre nœud RTDB.
-- **Affichage par 50** : contenus, utilisateurs et produits se chargent par pages
-  de 50 (bouton « Afficher 50 de plus ») pour ne pas tout charger d'un coup.
+- **Affichage par 50** : contenus et produits se chargent par pages de 50
+  (bouton « Afficher 50 de plus ») pour ne pas tout charger d'un coup.
 - **Interface responsive** : détection mobile / PC. Sur mobile, la liste des
   bibliothèques et la grille occupent toute la largeur (navigation liste ↔ grille
   avec bouton « ← Bibliothèques »).
-- **Réglages** : mode **maintenance** + **annonce globale** (`config/`).
-- **Planificateur** (onglet dédié, nœud `planner/`) : prépare à l'avance des textes
-  (secrets, documents, produits) avec **plusieurs variantes** par contenu, pour vos
-  groupes Facebook cibles. Chaque **groupe** a son **propre lien Facebook** (requis à
-  la création) : le bouton **« Copier & ouvrir le groupe »** copie le texte dans le
-  presse-papiers puis ouvre le groupe dans un nouvel onglet — il ne reste qu'à coller
-  (Ctrl/Cmd+V) dans le champ de publication du groupe. Quand le contenu a un visuel,
-  un bouton **« Copier l'image »** copie l'image dans le presse-papiers (repli en
-  téléchargement si le navigateur ne sait pas écrire d'image dans le presse-papiers) :
-  collez le texte, puis l'image, et cliquez vous-même sur « Publier ». **Checklist du
-  jour** : un groupe par ligne, texte prêt à copier-coller, statut publié / à publier
-  — vous publiez vous-même sur Facebook, le panneau ne poste jamais rien
-  automatiquement et ne remplit aucun champ à votre place sur Facebook (zéro
-  automatisation détectable — l'API Facebook ne permet d'ailleurs plus de poster
-  automatiquement dans un groupe pour une app tierce).
-  **Générer un planning** répartit un contenu sur plusieurs jours × groupes en
-  choisissant, pour chaque groupe, la variante la moins récemment utilisée (rotation
-  anti-répétition). **Historique** : quel groupe a reçu quelle variante, et quand.
-  Un **rappel** (heure réglable) affiche un bandeau — et une notification navigateur
-  si autorisée — quand des groupes restent à publier ; c'est un rappel côté client
-  (utile pendant que le panneau est ouvert), pas une notification push serveur.
-  **Contenus puisés depuis Firebase** : à la création d'un secret/document/produit,
-  un sélecteur optionnel « Puiser depuis la bibliothèque » va chercher le titre et le
-  visuel directement dans les nœuds RTDB existants (`db_sirr_*`, `almaqtab`,
-  `det_produits`) — le texte des variantes reste écrit/ajusté à la main pour
-  Facebook. **Groupes** : import en masse — collez n'importe quel texte (liste
-  propre « Nom - lien », plusieurs liens sur une même ligne, ou bloc en vrac) et
-  tous les liens de groupes Facebook qu'il contient sont attrapés automatiquement,
-  dédupliqués (même lien resservi malgré `www.`/`m.`/`fb.com` ou un `/` final
-  différent) et présentés dans un aperçu éditable avant que « Valider tout » ne
-  les enregistre en base pour une utilisation ultérieure dans le planificateur.
-  Bouton **« Tout valider »** sur la checklist du jour pour marquer d'un coup toutes les
-  affectations restantes comme publiées, une fois la tournée manuelle terminée.
 
 ## À faire dans l'application principale (asrar-main)
 
@@ -141,10 +114,9 @@ asrar-main a migré vers une **app Next.js unifiée** (plus de site statique
 `rules/database.rules.json` (reconstituées à partir du code, cf. son
 `rules/README.md` : « base de travail », à comparer avec la console Firebase
 avant tout déploiement). À la date de cette revue, ce fichier **ne contient
-encore ni les nœuds de parrainage ni `config`** — les deux points ci-dessous
-restent donc à faire.
+pas encore les nœuds de parrainage** — le point ci-dessous reste donc à faire.
 
-### 0. Parrainage — règles RTDB
+### Parrainage — règles RTDB
 
 asrar-main écrit `referrals`, `referral_codes` et `referred` (Admin SDK,
 `pages/api/referral.js`). À ajouter dans `rules/database.rules.json` :
@@ -157,91 +129,17 @@ asrar-main écrit `referrals`, `referral_codes` et `referred` (Admin SDK,
 
 `.indexOn: ["by"]` est requis par l'action **children** (filleuls d'un parrain,
 `api/referral.js` de ce panneau). Les réglages du programme vivent dans
-`config/referral` — la règle `config` ci-dessous suffit (écriture serveur
-uniquement, lue par personne côté client actuellement — voir point 2).
-
-### 1. Règles Firebase — rendre `config` lisible par les utilisateurs
-Pour que l'app affiche l'annonce / l'écran de maintenance (une fois le point 2
-câblé), ajoutez dans `rules/database.rules.json` :
+`config/referral` — inutile d'ouvrir tout `config/` en lecture pour ça, une
+règle ciblée suffit (écriture serveur uniquement) :
 
 ```json
 "config": {
-  ".read": "auth != null",
-  ".write": false
+  "referral": { ".read": false, ".write": false }
 }
 ```
-
-`AuthProvider` (asrar-main) affiche un écran de connexion tant que l'utilisateur
-n'est pas identifié : `auth != null` suffit donc à couvrir tous les visiteurs qui
-atteignent réellement les pages protégées (pas seulement les abonnés).
 
 (`audit_log`, `trash` et `banned` n'apparaissent pas dans les règles → refusés
 par défaut côté client : c'est voulu, ils sont serveur-only.)
-
-### 2. Composant maintenance + annonce (asrar-main est du Next.js — plus de
-### `js/firebase-config.js`)
-
-⚠️ **Ce composant n'existe pas encore dans asrar-main** : tant qu'il n'est pas
-ajouté, les réglages de l'onglet **Réglages** de ce panneau (mode maintenance,
-annonce globale) sont enregistrés dans `config/` mais **n'ont aucun effet
-visible** pour les utilisateurs (voir l'avertissement affiché dans cet onglet).
-
-Nouveau fichier `components/MaintenanceGate.js` :
-
-```jsx
-'use client';
-// components/MaintenanceGate.js — Maintenance + annonce pilotées par le
-// panneau admin (nœud config/, écrit par ASRAR PRO → onglet Réglages).
-import { useEffect, useState } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db, auth } from '../lib/firebase';
-
-export default function MaintenanceGate({ children }) {
-  const [cfg, setCfg] = useState(null);
-
-  useEffect(() => onValue(ref(db, 'config'), (s) => setCfg(s.val() || {})), []);
-
-  if (cfg?.maintenance && auth.currentUser?.email !== 'prozizou298@gmail.com') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', textAlign: 'center', padding: 24, fontFamily: 'system-ui' }}>
-        <div>
-          <h1>🛠️ Maintenance en cours</h1>
-          <p>ASRAR PRO revient très vite, in shâ Allah.</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {cfg?.announcement && (
-        <div style={{ background: '#3b2f0e', color: '#f0d878', padding: '10px 14px',
-          textAlign: 'center', fontSize: '.9rem', position: 'sticky', top: 0, zIndex: 9999 }}>
-          📢 {cfg.announcement}
-        </div>
-      )}
-      {children}
-    </>
-  );
-}
-```
-
-Monté dans `components/Providers.js`, à l'intérieur d'`AuthProvider` (pour que
-`auth.currentUser` soit renseigné) et englobant le reste de la coquille :
-
-```jsx
-import MaintenanceGate from './MaintenanceGate';
-// ...
-<AuthProvider>
-  <AccessProvider>
-    <MaintenanceGate>
-      <PendingDeepLink />
-      {children}
-    </MaintenanceGate>
-  </AccessProvider>
-</AuthProvider>
-```
 
 ## ⚠️ Paywall actuellement désactivé côté asrar-main (`FREE_FOR_ALL`)
 
@@ -261,8 +159,12 @@ du panneau.
 ## Notes de sécurité
 
 - Le panneau est en `noindex` + `Cache-Control: no-store` + `X-Frame-Options: DENY`.
-- Un admin banni est rejeté dès son prochain appel (`checkRevoked: true`).
-- Le super-admin ne peut être ni banni ni rétrogradé depuis l'interface.
+- Authentification **Google uniquement** ; tout compte non admin est déconnecté
+  automatiquement dès la première vérification serveur post-connexion (voir
+  « Qui a accès ? »).
+- Ce panneau ne bannit plus de compte Firebase Auth ni ne promeut d'admin/VIP
+  depuis son interface (fonctionnalité retirée) — reste possible depuis la
+  console Firebase si nécessaire.
 - La liste blanche de `api/content.js` empêche d'éditer les nœuds de droits
   (`purchased_user`, `admins`, `vip_users`) hors des routes dédiées et auditées.
 
