@@ -1,60 +1,7 @@
-// admin-stats.js — Statistiques, visites, audit, configuration
+// admin-stats.js — Statistiques, visites, analytique
 
 (function () {
   "use strict";
-
-  // ── Audit ──
-  window.loadAudit = async function () {
-    const auditList = $("auditList");
-    if (!auditList) return; // ➜ CORRECTION : éviter l'erreur "null"
-    auditList.innerHTML = "<div class='empty'>Lecture analytique du journal d'audit…</div>";
-    try {
-      const d = await api("stats", { action: "audit" });
-      auditList.innerHTML = (d.rows || []).map((r) => `
-        <div class="row">
-          <div class="audit-meta">
-            <span class="audit-action">${esc(r.action)}</span>
-            <span class="audit-target">${esc(r.target || "—")}</span>
-          </div>
-          <div class="audit-details muted">
-            Opérateur : <b>${esc(r.by)}</b> · Date : ${when(r.at)} ${r.details ? ' · Spécifications : <i>' + esc(r.details) + '</i>' : ''}
-          </div>
-        </div>
-      `).join("") || "<div class='empty'>Le journal d'audit est totalement vierge.</div>";
-    } catch (e) {
-      auditList.innerHTML = `<div class='empty' style='color:var(--danger);'>Erreur d'accès au journal : ${esc(e.message)}</div>`;
-    }
-  };
-
-  // ── Configuration ──
-  window.loadConfig = async function () {
-    try {
-      const d = await api("stats", { action: "config_get" });
-      if ($("cfgMaintenance")) $("cfgMaintenance").checked = !!d.config.maintenance;
-      if ($("cfgAnnouncement")) $("cfgAnnouncement").value = d.config.announcement || "";
-    } catch (e) {}
-  };
-
-  // ➜ CORRECTION : Vérifier l'existence de l'élément avant d'attacher l'événement
-  const btnSaveCfg = $("btnSaveCfg");
-  if (btnSaveCfg) {
-    btnSaveCfg.onclick = async () => {
-      const cfgMain = $("cfgMaintenance");
-      const cfgAnn = $("cfgAnnouncement");
-      if (cfgMain && cfgMain.checked && !(await uiConfirm({ title: "Activer la maintenance", danger: true, icon: "warning", confirmText: "Activer",
-        message: "Tous les utilisateurs réguliers se heurteront à une barrière d'accès. Continuer ?" }))) return;
-      try {
-        await api("stats", { 
-          action: "config_set", 
-          config: { 
-            maintenance: cfgMain ? cfgMain.checked : false, 
-            announcement: cfgAnn ? cfgAnn.value.trim() : "" 
-          } 
-        });
-        showToast("Les modifications de configuration système sont en ligne.");
-      } catch (e) { showToast(e.message, "err"); }
-    };
-  }
 
   // ── Analytics ──
   let ANA = null;
@@ -89,7 +36,6 @@
       kpi(t.boutiques ?? 0, "Boutiques") +
       kpi(t.likesTotal ?? 0, "Aimes cumulés");
     if ($("anaPages")) $("anaPages").innerHTML = hbars(ANA.topPages, (i) => i.page);
-    if ($("anaTypes")) $("anaTypes").innerHTML = hbars(ANA.types, (i) => i.type);
     if ($("anaBoutiques")) $("anaBoutiques").innerHTML = (ANA.boutiques || []).map((b) => `
       <div class="bq-row">
         ${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="frame" style="width:42px;height:42px;flex:0 0 42px"><div class="noimg" style="font-size:.55rem">—</div></div>`}

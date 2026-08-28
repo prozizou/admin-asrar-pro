@@ -261,6 +261,7 @@ textarea { resize: vertical; min-height: 60px; }
   background: rgba(209, 104, 92, 0.25);
 }
 .full-width { width: 100%; }
+.google-btn svg { flex: none; background: #fff; border-radius: 50%; padding: 2px; }
 
 /* ── Panneaux et structure ── */
 .panel {

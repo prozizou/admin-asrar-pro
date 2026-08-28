@@ -22,18 +22,19 @@
     <div class="login-box">
       <img src="/assets/logo-mark.png" alt="ASRAR PRO" class="login-logo">
       <h1>Administration</h1>
-      <p class="muted">Panneau de contrôle ASRAR PRO — Accès strictement réservé.</p>
-      
-      <form id="loginForm">
-        <div class="form-group">
-          <input type="email" id="loginEmail" placeholder="Email de l'administrateur" required autocomplete="username">
-        </div>
-        <div class="form-group">
-          <input type="password" id="loginPassword" placeholder="Mot de passe" required autocomplete="current-password">
-        </div>
-        <button type="submit" class="btn primary full-width">Se connecter au sanctuaire</button>
-      </form>
-      
+      <p class="muted">Panneau de contrôle ASRAR PRO — Accès strictement réservé aux administrateurs
+        (super-admin : prozizou298@gmail.com).</p>
+
+      <button type="button" id="btnGoogleLogin" class="btn primary full-width google-btn">
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+          <path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        <span>Se connecter avec Google</span>
+      </button>
+
       <p id="loginMsg" class="msg"></p>
     </div>
   </div>
@@ -49,15 +50,12 @@
       <nav class="nav" id="mainNav">
         <button data-tab="dashboard" class="active" data-icon="overview">Vue d'ensemble</button>
         <button data-tab="content" data-icon="content">Contenus</button>
-        <button data-tab="planner" data-icon="calendar">Planificateur</button>
         <button data-tab="market" data-icon="market">Marché</button>
         <button data-tab="users" data-icon="users">Utilisateurs</button>
         <button data-tab="fonts" data-icon="fonts">Polices</button>
         <button data-tab="referral" data-icon="referral">Parrainage</button>
         <button data-tab="analytics" data-icon="analytics">Analytique</button>
         <button data-tab="visits" data-icon="visits">Visites</button>
-        <button data-tab="audit" data-icon="audit">Journal d'Audit</button>
-        <button data-tab="settings" data-icon="settings">Réglages</button>
         <button id="btnLogout" class="btn-out" data-icon="logout">Quitter</button>
       </nav>
     </header>
@@ -87,12 +85,10 @@
             <div class="bar"><h3>Accès rapides</h3></div>
             <div class="shortcuts">
               <button class="shortcut" data-goto="content" data-icon="content"><span>Contenus</span></button>
-              <button class="shortcut" data-goto="planner" data-icon="calendar"><span>Planificateur</span></button>
               <button class="shortcut" data-goto="market" data-icon="market"><span>Marché</span></button>
               <button class="shortcut" data-goto="users" data-icon="users"><span>Utilisateurs</span></button>
               <button class="shortcut" data-goto="referral" data-icon="referral"><span>Parrainage</span></button>
               <button class="shortcut" data-goto="analytics" data-icon="analytics"><span>Analytique</span></button>
-              <button class="shortcut" data-goto="settings" data-icon="settings"><span>Réglages</span></button>
             </div>
           </div>
           <div class="dash-col">
@@ -130,72 +126,6 @@
 
           <div id="cardsGrid" class="grid"></div>
           <button id="btnMoreItems" class="btn text load-more" hidden>Afficher 50 de plus</button>
-        </div>
-      </section>
-
-      <section id="tab-planner" class="panel" hidden>
-        <div class="block">
-          <div class="bar">
-            <h3 class="star">Checklist du jour</h3>
-            <div class="bar-actions">
-              <button id="plnPrevDay" class="btn text" title="Jour précédent">←</button>
-              <input type="date" id="plnDate">
-              <button id="plnNextDay" class="btn text" title="Jour suivant">→</button>
-              <button id="plnToday" class="btn text">Aujourd'hui</button>
-              <input type="time" id="plnReminderTime" title="Heure de rappel quotidien">
-              <button id="plnSaveReminder" class="btn text" data-icon="bell">Rappel</button>
-              <button id="plnGenerate" class="btn primary" data-icon="sparkle">Générer un planning</button>
-              <button id="plnPublishAll" class="btn text success-text" data-icon="check">Tout valider</button>
-            </div>
-          </div>
-          <p class="muted" style="margin-bottom:6px">
-            Les textes sont prêts à copier-coller. Le clic « Publié » ne publie rien automatiquement —
-            c'est vous, à la main, sur Facebook (~2-3 min par groupe).
-          </p>
-          <div id="plnReminderBar" class="msg err" hidden></div>
-          <div id="plnKpis" class="kpis"></div>
-          <div id="plnChecklist" class="list"></div>
-        </div>
-
-        <div class="block">
-          <div class="bar">
-            <h3>Contenus &amp; variantes de texte <span id="plnItemCount" class="muted"></span></h3>
-            <button id="plnAddItem" class="btn primary" data-icon="add">Nouveau contenu</button>
-          </div>
-          <p class="muted" style="margin-bottom:6px">
-            Plusieurs variantes de texte par contenu (secret, document, produit…) pour ne jamais
-            poster le même texte deux fois de suite dans un groupe — rotation automatique.
-          </p>
-          <div id="plnItemsGrid" class="grid"></div>
-        </div>
-
-        <div class="block max-width-sm">
-          <div class="bar">
-            <h3>Groupes cibles <span id="plnGroupCount" class="muted"></span></h3>
-            <div class="bar-actions">
-              <button id="plnImportGroups" class="btn text" data-icon="add">Importer des liens</button>
-              <button id="plnAddGroup" class="btn primary" data-icon="add">Ajouter un groupe</button>
-            </div>
-          </div>
-          <div id="plnGroupsList" class="list"></div>
-        </div>
-
-        <div class="block">
-          <div class="bar"><h3>Historique des publications</h3></div>
-          <p class="muted" style="margin-bottom:6px">Quel groupe a reçu quelle variante, et quand.</p>
-          <div class="access-form" style="margin-bottom:10px">
-            <label class="field-lg"><span>Contenu</span><select id="plnHistItem"><option value="">Tous</option></select></label>
-            <label class="field-lg"><span>Groupe</span><select id="plnHistGroup"><option value="">Tous</option></select></label>
-            <label class="field-lg"><span>Depuis</span><input type="date" id="plnHistFrom"></label>
-            <label class="field-lg"><span>Jusqu'à</span><input type="date" id="plnHistTo"></label>
-            <button id="plnHistLoad" class="btn text" data-icon="search">Filtrer</button>
-          </div>
-          <div class="tbl-wrap">
-            <table class="a-table">
-              <thead><tr><th>Date</th><th>Groupe</th><th>Contenu</th><th>Variante</th><th>Statut</th></tr></thead>
-              <tbody id="plnHistBody"></tbody>
-            </table>
-          </div>
         </div>
       </section>
 
@@ -256,28 +186,6 @@
             <input type="text" id="accSearch" placeholder="Filtrer par e-mail…">
           </div>
           <div id="accessList" class="list"></div>
-        </div>
-
-        <div class="block">
-          <div class="bar">
-            <h3>Comptes Utilisateurs & Permissions</h3>
-            <input type="text" id="userSearch" placeholder="Rechercher par email ou UID…">
-          </div>
-          <div class="tbl-wrap responsive-cards">
-            <table>
-              <thead>
-                <tr>
-                  <th>Utilisateur (Email / UID)</th>
-                  <th>Création</th>
-                  <th>Dernière Connexion</th>
-                  <th>Rôles & Privilèges</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="usersList"></tbody>
-            </table>
-          </div>
-          <button id="btnMoreUsers" class="btn text load-more" hidden>Afficher 50 de plus</button>
         </div>
       </section>
 
@@ -369,9 +277,6 @@
           <h3 style="margin:6px 0 10px">Pages les plus consultées</h3>
           <div id="anaPages" class="hbars"><div class="empty">Chargement…</div></div>
 
-          <h3 style="margin:22px 0 10px">Répartition par type d'activité</h3>
-          <div id="anaTypes" class="hbars"></div>
-
           <div class="bar" style="margin:22px 0 10px">
             <h3 style="margin:0">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
             <button id="btnAddBoutique" class="btn primary" data-icon="add">Ajouter une boutique</button>
@@ -410,46 +315,6 @@
         </div>
       </section>
 
-      <section id="tab-audit" class="panel" hidden>
-        <div class="block">
-          <h3>Historique des actions administratives</h3>
-          <p class="muted" style="margin-bottom:15px;">Les 100 dernières actions effectuées sur la base de données.</p>
-          <div id="auditList" class="list"></div>
-        </div>
-      </section>
-
-      <section id="tab-settings" class="panel" hidden>
-        <div class="block max-width-sm">
-          <h3 class="star">Contrôle global du système</h3>
-
-          <div class="reality-notice">
-            <span class="ic">⚠️</span>
-            <span><b>Non câblé côté asrar-main.</b> Ces réglages écrivent bien dans le nœud RTDB
-              <code>config/</code>, mais l'app cliente (migrée en Next.js) ne l'écoute plus nulle part
-              aujourd'hui — l'ancien code qui l'affichait vivait dans <code>js/firebase-config.js</code>
-              du site statique, retiré depuis. Voir le README (section « Maintenance / annonce ») pour le
-              composant à ajouter dans asrar-main afin que ces réglages redeviennent effectifs.</span>
-          </div>
-
-          <label class="switch-row">
-            <span class="switch">
-              <input type="checkbox" id="cfgMaintenance">
-              <span></span>
-            </span>
-            <span><b>Mode maintenance général</b> — Bloque l'accès aux clients et affiche un écran de mise à jour.</span>
-          </label>
-
-          <label class="field-lg">
-            <span>Annonce globale (Bandeau défilant dans l'application · Laisser vide pour masquer)</span>
-            <textarea id="cfgAnnouncement" rows="4" maxlength="300" placeholder="Ex. : Maintenance planifiée ce vendredi à 22h..."></textarea>
-          </label>
-
-          <button id="btnSaveCfg" class="btn primary" data-icon="check">Sauvegarder les configurations</button>
-          <p id="cfgMsg" class="msg"></p>
-        </div>
-
-      </section>
-
     </main>
   </div>
 
@@ -465,7 +330,6 @@
   <script src="admin-core.js" defer></script>
   <script src="admin-dashboard.js" defer></script>
   <script src="admin-content.js" defer></script>
-  <script src="admin-planner.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>
   <script src="admin-fonts.js" defer></script>

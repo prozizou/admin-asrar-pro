@@ -1,5 +1,5 @@
-// api/stats.js — Réglages et Logs d'audits (Admin SDK, admins seulement).
-const { app, verifyAdmin, audit, bearer, listAllAuthUsers } = require("./_lib/fb");
+// api/stats.js — Statistiques & analytique (Admin SDK, admins seulement).
+const { app, verifyAdmin, bearer, listAllAuthUsers } = require("./_lib/fb");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -14,30 +14,6 @@ module.exports = async (req, res) => {
   const db = app().database();
 
   try {
-    if (action === "audit") {
-      const snap = await db.ref("audit_log").limitToLast(100).once("value");
-      const rows = [];
-      snap.forEach((c) => rows.push(c.val()));
-      rows.reverse();
-      return res.json({ rows });
-    }
-
-    if (action === "config_get") {
-      const snap = await db.ref("config").once("value");
-      return res.json({ config: snap.val() || {} });
-    }
-
-    if (action === "config_set") {
-      const c = body.config || {};
-      await db.ref("config").update({
-        maintenance: !!c.maintenance,
-        announcement: String(c.announcement || "").slice(0, 300),
-        updatedBy: who.email, updatedAt: Date.now()
-      });
-      await audit(who, "config_set", null, JSON.stringify(c).slice(0, 200));
-      return res.json({ ok: true });
-    }
-
     // ── VUE D'ENSEMBLE (dashboard d'accueil) ─────────────────────────────
     // KPIs synthétiques, tendances 30 j et sparkline — le tout à partir des
     // données réelles (aucune valeur inventée).
@@ -190,23 +166,20 @@ module.exports = async (req, res) => {
         }
       }
 
-      // Journal d'activité : top pages, types, flux récent.
+      // Journal d'activité : top pages, flux récent.
       const feed = feedSnap.val() || {};
-      const pageCount = {}, typeCount = {};
+      const pageCount = {};
       let recent = [];
       for (const e of Object.values(feed)) {
         if (!e || typeof e !== "object") continue;
         const p = e.page || "?", t = e.type || "?";
         pageCount[p] = (pageCount[p] || 0) + 1;
-        typeCount[t] = (typeCount[t] || 0) + 1;
         recent.push({ at: e.at || 0, email: e.email || "", page: p, type: t });
       }
       recent.sort((a, b) => b.at - a.at);
       recent = recent.slice(0, 60);
       const topPages = Object.entries(pageCount).map(([page, count]) => ({ page, count }))
         .sort((a, b) => b.count - a.count).slice(0, 15);
-      const types = Object.entries(typeCount).map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count);
 
       // Boutiques (profile_clients) + total des « aimes » (true).
       const prof = profSnap.val() || {};
@@ -230,7 +203,7 @@ module.exports = async (req, res) => {
       }).sort((a, b) => b.likes - a.likes || b.follow - a.follow);
 
       return res.json({
-        daily, weekly, monthly, topPages, types, recent, boutiques,
+        daily, weekly, monthly, topPages, recent, boutiques,
         totals: {
           uniqueAllTime: allUids.size,
           totalVisits,
