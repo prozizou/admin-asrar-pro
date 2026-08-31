@@ -15,7 +15,15 @@ const NODES = {
   // PAS "asmaUlHusna" à la racine — sans `path`, ce nœud pointerait vers un
   // emplacement orphelin jamais lu par l'app.
   "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran", path: "data/appData/asmaUlHusna" },
-  "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" }
+  "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" },
+  // Schéma réel (server/sources.js → SOURCES.formation, côté asrar-main) :
+  // { titre, description, attentes, duree, prix, img, meetLink } — PAS
+  // title/content/image (les CORE_FIELDS de l'éditeur générique) : utiliser
+  // le créateur dédié (bouton « Formation », admin-content.js
+  // openFormationCreator) pour écrire les bons noms de champs. L'éditeur
+  // générique reste utilisable pour une modification ponctuelle (les champs
+  // titre/description/… apparaissent alors en « champs supplémentaires »).
+  "formations":               { label: "Formations",             page: "Formation mystique", group: "Formations" }
 };
 
 // Chemin RTDB réel d'un nœud : `path` explicite (quand la clé NODES diffère du
@@ -32,7 +40,7 @@ const validKey = (k) => { const s = String(k ?? ""); return s.length > 0 && s.le
 // par le panneau : un schéma non-http(s) (ex. javascript:) y serait exécuté au
 // clic/affichage par un autre admin qui ouvre la fiche. On rejette tout ce qui
 // n'est pas http(s) — même logique que pour les liens de groupe du planificateur.
-const URLISH_FIELDS = ["image", "img", "imageUrl", "pdfUrl", "url"];
+const URLISH_FIELDS = ["image", "img", "imageUrl", "pdfUrl", "url", "meetLink"];
 function unsafeUrlField(value) {
   if (!value || typeof value !== "object") return null;
   for (const f of URLISH_FIELDS) {
