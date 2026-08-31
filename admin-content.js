@@ -38,6 +38,11 @@
       btnDoc.hidden = (node !== 'almaqtab');
       btnDoc.onclick = openDocumentCreator;
     }
+    const btnForm = $("btnAddFormation");
+    if (btnForm) {
+      btnForm.hidden = (node !== 'formations');
+      btnForm.onclick = openFormationCreator;
+    }
 
     loadGrid();
   };
@@ -458,6 +463,68 @@
         showToast("Document ajouté à Almaqtab.");
         if (CURRENT_NODE === "almaqtab") loadGrid();
       } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Enregistrer"; }
+    };
+  };
+
+  // ── Créateur de FORMATION MYSTIQUE — schéma dédié (titre/description/
+  // attentes/duree/prix/img/meetLink), distinct des CORE_FIELDS de l'éditeur
+  // générique (title/faida/content/image) : voir le commentaire sur
+  // NODES.formations dans api/content.js. Lien Google Meet SIMPLE (collé à
+  // la main, créé au préalable sur meet.google.com) — pas d'intégration
+  // Google Calendar API. Si laissé vide, l'app ouvre meet.google.com/new au
+  // moment de rejoindre (repli côté app/formation/page.tsx, asrar-main).
+  window.openFormationCreator = function () {
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>Nouvelle formation</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <div class="bigimg">
+        <div class="frame" id="previewImg"><div class="noimg">Logo / affiche de la formation</div></div>
+        <input type="file" id="fileField" accept="image/*" style="display:none">
+        <button id="btnUpload" class="btn text">✨ Choisir une image</button>
+      </div>
+      <label class="field-lg"><span>Titre</span><input type="text" id="fmTitre"></label>
+      <label class="field-lg"><span>Lien Google Meet</span>
+        <input type="url" id="fmMeetLink" placeholder="https://meet.google.com/xxx-xxxx-xxx"></label>
+      <p class="muted" style="margin:-6px 0 4px">Créez le lien à l'avance sur meet.google.com, puis collez-le ici. Laissé vide, l'app ouvrira un nouveau Meet à la volée.</p>
+      <label class="field-lg"><span>Description</span><textarea id="fmDescription" rows="5"></textarea></label>
+      <label class="field-lg"><span>Ce que ça apporte (attentes)</span><textarea id="fmAttentes" rows="4"></textarea></label>
+      <label class="field-lg"><span>Durée</span><input type="text" id="fmDuree" placeholder="ex. 4 semaines"></label>
+      <label class="field-lg"><span>Prix (FCFA, 0 si non affiché)</span><input type="text" inputmode="decimal" id="fmPrix" placeholder="15000"></label>
+      <div style="display:flex; justify-content:flex-end; margin-top:20px;"><button id="btnSaveBig" class="btn primary">Créer</button></div>`;
+    $("big").hidden = false;
+    let localFile = null;
+    $("btnCancelBig").onclick = closeBig;
+    $("btnUpload").onclick = () => $("fileField").click();
+    $("fileField").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      localFile = f;
+      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
+    };
+    $("btnSaveBig").onclick = async () => {
+      const btn = $("btnSaveBig"); btn.disabled = true; btn.textContent = "Création…";
+      try {
+        const titre = $("fmTitre").value.trim();
+        if (!titre) throw new Error("Le titre ne peut être vide.");
+        const meetLink = $("fmMeetLink").value.trim();
+        if (meetLink && !/^https?:\/\//i.test(meetLink)) throw new Error("Lien Meet invalide (doit commencer par http:// ou https://).");
+        const prixNum = Number(($("fmPrix").value || "").replace(/[^\d.]/g, ""));
+        const rec = {
+          titre,
+          description: $("fmDescription").value.trim(),
+          attentes: $("fmAttentes").value.trim(),
+          duree: $("fmDuree").value.trim(),
+          prix: isNaN(prixNum) ? 0 : prixNum,
+          meetLink,
+          createdAt: Date.now()
+        };
+        if (localFile) { const up = await uploadToCloudinary(localFile, "formations"); rec.img = up.url; rec.imageId = up.id; }
+        const added = await api("content", { action: "add", node: "formations", value: rec });
+        rec.key = added.key; // clé auto-référencée comme le reste de l'app
+        await api("content", { action: "set", node: "formations", key: added.key, value: rec });
+        $("big").hidden = true;
+        showToast("Formation créée.");
+        if (CURRENT_NODE === "formations") loadGrid();
+      } catch (e) { showToast(e.message, "err"); btn.disabled = false; btn.textContent = "Créer"; }
     };
   };
 
