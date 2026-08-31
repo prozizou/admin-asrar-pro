@@ -419,7 +419,7 @@
     if (!force && TAB_LOADED[target]) return;
     TAB_LOADED[target] = true;
     if (target === "content") loadNodesMenu();
-    if (target === "users") loadAccess();
+    if (target === "users") { loadAccess(); loadFormationMinutes(); }
     if (target === "fonts") loadFonts();
     if (target === "referral") loadReferral();
     if (target === "analytics") loadAnalytics();
