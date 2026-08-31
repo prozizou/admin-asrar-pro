@@ -17,12 +17,14 @@ const NODES = {
   "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran", path: "data/appData/asmaUlHusna" },
   "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" },
   // Schéma réel (server/sources.js → SOURCES.formation, côté asrar-main) :
-  // { titre, description, attentes, duree, prix, img, meetLink } — PAS
-  // title/content/image (les CORE_FIELDS de l'éditeur générique) : utiliser
-  // le créateur dédié (bouton « Formation », admin-content.js
+  // { titre, description, attentes, duree, prix, pricePerMinute, img, meetLink }
+  // — PAS title/content/image (les CORE_FIELDS de l'éditeur générique) :
+  // utiliser le créateur dédié (bouton « Formation », admin-content.js
   // openFormationCreator) pour écrire les bons noms de champs. L'éditeur
   // générique reste utilisable pour une modification ponctuelle (les champs
   // titre/description/… apparaissent alors en « champs supplémentaires »).
+  // pricePerMinute (FCFA) : tarif du réservateur de minutes de visioconférence
+  // (indépendant de l'abonnement — voir api/formation-access.js, formation_access/…).
   "formations":               { label: "Formations",             page: "Formation mystique", group: "Formations" }
 };
 

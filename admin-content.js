@@ -490,6 +490,9 @@
       <label class="field-lg"><span>Ce que ça apporte (attentes)</span><textarea id="fmAttentes" rows="4"></textarea></label>
       <label class="field-lg"><span>Durée</span><input type="text" id="fmDuree" placeholder="ex. 4 semaines"></label>
       <label class="field-lg"><span>Prix (FCFA, 0 si non affiché)</span><input type="text" inputmode="decimal" id="fmPrix" placeholder="15000"></label>
+      <label class="field-lg"><span>Prix par minute de visioconférence (FCFA)</span>
+        <input type="text" inputmode="decimal" id="fmPricePerMinute" placeholder="250"></label>
+      <p class="muted" style="margin:-6px 0 4px">Tarif appliqué au réservateur de minutes de l'app (indépendant de l'abonnement). Laissé vide : 250 FCFA/min par défaut.</p>
       <div style="display:flex; justify-content:flex-end; margin-top:20px;"><button id="btnSaveBig" class="btn primary">Créer</button></div>`;
     $("big").hidden = false;
     let localFile = null;
@@ -508,12 +511,14 @@
         const meetLink = $("fmMeetLink").value.trim();
         if (meetLink && !/^https?:\/\//i.test(meetLink)) throw new Error("Lien Meet invalide (doit commencer par http:// ou https://).");
         const prixNum = Number(($("fmPrix").value || "").replace(/[^\d.]/g, ""));
+        const pricePerMinuteNum = Number(($("fmPricePerMinute").value || "").replace(/[^\d.]/g, ""));
         const rec = {
           titre,
           description: $("fmDescription").value.trim(),
           attentes: $("fmAttentes").value.trim(),
           duree: $("fmDuree").value.trim(),
           prix: isNaN(prixNum) ? 0 : prixNum,
+          pricePerMinute: pricePerMinuteNum > 0 ? pricePerMinuteNum : 0,
           meetLink,
           createdAt: Date.now()
         };

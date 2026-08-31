@@ -188,6 +188,30 @@
           </div>
           <div id="accessList" class="list"></div>
         </div>
+
+        <div class="block">
+          <div class="bar"><h3 class="star">Minutes de visioconférence — Formation mystique</h3></div>
+          <p class="muted" style="margin-bottom:6px">
+            Accès INDÉPENDANT de l'abonnement ci-dessus : chaque formation se paie à la minute
+            (l'utilisateur choisit sa durée et réserve via WhatsApp depuis l'app). Créditez ici les
+            minutes payées, pour UNE formation précise.
+          </p>
+          <div class="access-form">
+            <label class="field-lg"><span>Formation</span>
+              <select id="fmaFormation"></select></label>
+            <label class="field-lg"><span>E-mail de l'utilisateur</span>
+              <input type="email" id="fmaEmail" placeholder="exemple@gmail.com" autocomplete="off"></label>
+            <label class="field-lg"><span>Minutes créditées</span>
+              <input type="number" id="fmaMinutes" min="1" step="1" value="10"></label>
+            <button id="btnGrantFormationMinutes" class="btn primary" data-icon="check">Créditer les minutes</button>
+            <p id="fmaMsg" class="msg"></p>
+          </div>
+
+          <div class="bar" style="margin-top:28px">
+            <h3>Crédits accordés <span id="fmaCount" class="muted"></span></h3>
+          </div>
+          <div id="fmaList" class="list"></div>
+        </div>
       </section>
 
       <section id="tab-fonts" class="panel" hidden>
@@ -333,6 +357,7 @@
   <script src="admin-content.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>
+  <script src="admin-formation-access.js" defer></script>
   <script src="admin-fonts.js" defer></script>
   <script src="admin-referral.js" defer></script>
   <script src="admin-stats.js" defer></script>
