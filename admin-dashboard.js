@@ -1,6 +1,6 @@
 // admin-dashboard.js — Vue d'ensemble (écran d'accueil du panneau).
 // Agrège les KPIs métier (revenus, abonnés, visites, comptes) via l'action
-// serveur `stats:overview`, avec tendances 30 j, sparkline 14 j et activité récente.
+// serveur `stats:overview`, avec tendances 30 j, sparkline 7 j et activité récente.
 
 (function () {
   "use strict";
@@ -8,6 +8,19 @@
   const nf = new Intl.NumberFormat("fr-FR");
   const fmt = (n) => nf.format(Math.round(Number(n) || 0));
   const money = (n) => fmt(n) + " F";
+
+  // Avatar du flux d'activité : initiale + teinte dérivée de l'e-mail (stable,
+  // pas de dépendance externe) — juste assez de distinction visuelle entre lignes.
+  const initial = (email) => (email && email !== "—" ? email.trim()[0].toUpperCase() : "?");
+  const hue = (email) => {
+    let h = 0;
+    for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) % 360;
+    return h;
+  };
+  // Heure seule (colonne étroite, alignée à droite) — la date complète reste
+  // dans le [title] du survol si besoin ; ce flux ne couvre de toute façon que
+  // les tout derniers événements.
+  const shortTime = (t) => t ? new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—";
 
   // Carte KPI : icône + valeur + libellé + (optionnel) puce de tendance / sous-texte.
   const stat = ({ icon, val, label, sub, delta, tone }) => `
@@ -47,16 +60,17 @@
         stat({ icon: "market", val: fmt(k.boutiques), label: "Boutiques" }) +
         stat({ icon: "settings", val: fmt(k.admins) + " / " + fmt(k.vips), label: "Admins / VIP" });
 
-      // Sparkline 14 jours (visites totales, uniques en surimpression).
+      // Sparkline : 7 derniers jours (sur les 14 renvoyés par le serveur) —
+      // plus lisible qu'une bande de 14 barres serrées, dates plus espacées.
       if (spark) {
-        const rows = d.spark || [];
+        const rows = (d.spark || []).slice(-7);
         const max = Math.max(1, ...rows.map((r) => r.total));
         spark.innerHTML = `
           <div class="bar" style="border:none;padding:0;margin-bottom:10px">
-            <h3 style="margin:0">Fréquentation · 14 derniers jours</h3>
+            <h3 style="margin:0">Fréquentation · 7 derniers jours</h3>
             <span class="legend" style="margin:0">
               <span><i style="background:linear-gradient(180deg,var(--gold-2),var(--gold))"></i>Visites</span>
-              <span><i style="background:var(--info);opacity:.6"></i>Uniques</span>
+              <span><i style="background:linear-gradient(180deg,#6fc3e0,#2d7ea8)"></i>Uniques</span>
             </span>
           </div>
           <div class="spark-bars">
@@ -64,6 +78,7 @@
               const hT = Math.max(3, Math.round(r.total / max * 100));
               const hU = Math.max(2, Math.round(r.uniq / max * 100));
               return `<div class="spark-col" title="${esc(r.d)} · ${r.total} visites · ${r.uniq} uniques">
+                <span class="spark-tip">${fmt(r.total)} vis. · ${fmt(r.uniq)} uniq.</span>
                 <div class="spark-stack">
                   <div class="spark-fill" style="height:${hT}%"></div>
                   <div class="spark-fill uniq" style="height:${hU}%"></div>
@@ -74,13 +89,21 @@
           </div>`;
       }
 
-      // Activité récente.
+      // Activité récente — lignes denses (avatar + email + page + type + heure).
       if (feed) {
-        feed.innerHTML = (d.recent || []).map((e) => `
-          <div class="row">
-            <div><b>${esc(e.email || "—")}</b> <span class="muted">· ${esc(e.page)}</span></div>
-            <div class="muted">${esc(e.type)} · ${when(e.at)}</div>
-          </div>`).join("") || "<div class='empty'>Aucune activité récente.</div>";
+        feed.innerHTML = (d.recent || []).map((e) => {
+          const email = e.email || "—";
+          return `
+          <div class="feed-row">
+            <span class="feed-avatar" style="--h:${hue(email)}">${esc(initial(email))}</span>
+            <div class="feed-main">
+              <span class="feed-email">${esc(email)}</span>
+              <span class="feed-page">${esc(e.page)}</span>
+            </div>
+            <span class="feed-type">${esc(e.type)}</span>
+            <span class="feed-time" title="${esc(when(e.at))}">${shortTime(e.at)}</span>
+          </div>`;
+        }).join("") || "<div class='empty'>Aucune activité récente.</div>";
       }
     } catch (e) {
       root.innerHTML = `<div class='empty' style='grid-column:1/-1;color:var(--danger)'>Erreur de chargement : ${esc(e.message)}</div>`;
@@ -92,6 +115,18 @@
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-goto]");
     if (b && typeof showTab === "function") showTab(b.getAttribute("data-goto"));
+  });
+
+  // Sparkline : tap pour afficher l'infobulle — le [title] natif ne se
+  // déclenche pas au tap sur mobile. Un seul barreau actif à la fois.
+  // Délégué sur document (persiste même quand loadDashboard() reconstruit
+  // le HTML des barres à chaque rechargement).
+  document.addEventListener("click", (e) => {
+    const col = e.target.closest(".spark-col");
+    if (!col) return;
+    const wasActive = col.classList.contains("tip-active");
+    document.querySelectorAll(".spark-col.tip-active").forEach((c) => c.classList.remove("tip-active"));
+    if (!wasActive) col.classList.add("tip-active");
   });
 
   // Bouton d'actualisation.
