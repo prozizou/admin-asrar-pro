@@ -21,11 +21,11 @@
   <div id="login" class="login-wrap">
     <div class="login-box">
       <img src="/assets/logo-mark.png" alt="ASRAR PRO" class="login-logo">
-      <h1>Administration</h1>
-      <p class="muted">Panneau de contrôle ASRAR PRO — Accès strictement réservé aux administrateurs
-        (super-admin : prozizou298@gmail.com).</p>
+      <p class="login-eyebrow">ASRAR PRO</p>
+      <h1>Panneau d'administration</h1>
+      <p class="login-sub">Connectez-vous avec le compte Google associé à votre accès administrateur.</p>
 
-      <button type="button" id="btnGoogleLogin" class="btn primary full-width google-btn">
+      <button type="button" id="btnGoogleLogin" class="btn google full-width">
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
           <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
           <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
@@ -36,6 +36,7 @@
       </button>
 
       <p id="loginMsg" class="msg"></p>
+      <p class="login-fine">Accès strictement réservé aux administrateurs — super-admin : prozizou298@gmail.com</p>
     </div>
   </div>
 
@@ -43,6 +44,7 @@
     <header class="topbar">
       <div class="brand">
         <img src="/assets/logo-full.png" alt="ASRAR PRO">
+        <span id="pageTitle" class="page-title">Vue d'ensemble</span>
       </div>
       <button id="navToggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mainNav">
         <span></span><span></span><span></span>
@@ -64,14 +66,18 @@
     <main class="main-container">
 
       <section id="tab-dashboard" class="panel">
-        <div class="reality-notice">
-          <span class="ic">⚠️</span>
-          <span><b>FREE_FOR_ALL actif côté asrar-main.</b> Le drapeau <code>lib/plans.js → FREE_FOR_ALL</code>
+        <details class="reality-notice">
+          <summary>
+            <span class="ic">⚠️</span>
+            <span class="reality-notice-title">FREE_FOR_ALL actif — le paywall d'asrar-main est désactivé</span>
+            <span class="reality-notice-toggle">Détails</span>
+          </summary>
+          <p><b>FREE_FOR_ALL actif côté asrar-main.</b> Le drapeau <code>lib/plans.js → FREE_FOR_ALL</code>
             rend actuellement TOUTE l'application gratuite pour tous les visiteurs, y compris les modules
             premium — indépendamment des accès accordés ou révoqués ici. Les octrois/révocations restent
             enregistrés (et s'appliqueront normalement) mais n'ont aucun effet visible tant que ce drapeau
-            n'est pas repassé à <code>false</code> dans le code d'asrar-main.</span>
-        </div>
+            n'est pas repassé à <code>false</code> dans le code d'asrar-main.</p>
+        </details>
         <div class="block">
           <div class="bar">
             <h3 class="star">Vue d'ensemble</h3>

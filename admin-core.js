@@ -396,11 +396,19 @@
     };
   });
 
+  // Titre affiché dans l'en-tête (à côté du logo) — reprend le libellé du bouton nav.
+  const TAB_TITLES = {
+    dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Utilisateurs",
+    fonts: "Polices", referral: "Parrainage", analytics: "Analytique", visits: "Visites"
+  };
+
   // Affiche un onglet et charge SES données à la demande (lazy) — une seule fois.
   const TAB_LOADED = {};
   window.showTab = function (target, force) {
     document.querySelectorAll("[data-tab]").forEach((b) =>
       b.classList.toggle("active", b.getAttribute("data-tab") === target));
+    const pt = $("pageTitle");
+    if (pt) pt.textContent = TAB_TITLES[target] || "";
 
     $("tab-dashboard").hidden = target !== "dashboard";
     $("tab-content").hidden = target !== "content";
