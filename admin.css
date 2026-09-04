@@ -142,7 +142,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 32px;
+  padding: 8px 24px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   backdrop-filter: var(--blur);
@@ -150,21 +150,22 @@ body {
   top: 0;
   z-index: 100;
 }
-.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand img { height: 46px; flex: none; }
+/* En-tête compact deux lignes : logo + nom sur la première, section en cours
+   (mise à jour par showTab(), admin-core.js) sur la seconde — contexte
+   toujours visible, y compris sur mobile, sans agrandir la barre : le padding
+   vertical réduit ci-dessus compense l'ajout de cette ligne. */
+.brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.brand-row { display: flex; align-items: center; gap: 10px; }
+.brand img { height: 34px; flex: none; }
+.brand-name { font-family: var(--display); color: var(--ink); font-size: 1rem; letter-spacing: 0.3px; white-space: nowrap; }
 .page-title {
-  font-family: var(--display);
+  font-size: 0.74rem;
   color: var(--gold-2);
-  font-size: 1.05rem;
-  letter-spacing: 0.3px;
-  padding-left: 14px;
-  border-left: 1px solid var(--line);
+  letter-spacing: 0.2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-@media (max-width: 1100px) {
-  .page-title { display: none; }
+  padding-left: 44px; /* aligne sous le nom, pas sous le logo */
 }
 .nav {
   display: flex;
@@ -205,13 +206,13 @@ body {
   display: none;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  width: 44px;
-  height: 44px;
-  padding: 0 10px;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 0 8px;
   background: var(--raised);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
 }
 .nav-toggle span {
@@ -243,6 +244,7 @@ input[type="date"],
 input[type="search"],
 input[type="url"],
 input[type="time"],
+input[type="number"],
 textarea,
 select {
   width: 100%;
@@ -263,6 +265,21 @@ select:focus {
   box-shadow: 0 0 0 2px rgba(232, 205, 120, 0.15);
 }
 textarea { resize: vertical; min-height: 60px; }
+/* select natif : appearance:none retire le double liseré que certains
+   navigateurs dessinent par-dessus la bordure CSS (chrome natif + bordure
+   personnalisée superposées) — une seule bordure fine, l'or réservé au focus
+   (règle ci-dessus). Chevron dessiné en CSS, pas une image externe. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                     linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 20px center, right 15px center;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
 
 /* ── Boutons ── */
 .btn {
@@ -564,11 +581,42 @@ textarea { resize: vertical; min-height: 60px; }
 /* Actions en ligne dans une .row (boutons Activer/Supprimer, etc.) */
 .acts { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 
-/* Onglet Polices : espacement du formulaire d'ajout */
-#tab-fonts .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-#tab-fonts .field-lg { display: flex; flex-direction: column; gap: 6px; }
-#tab-fonts .field-lg > span { font-size: 0.9rem; color: var(--muted, #9a9a9a); }
-#tab-fonts .chk-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+/* ── Formulaires de champs empilés (.field-lg) — GLOBAL ──
+   Utilisé par tous les formulaires du panneau : onglets Polices/Parrainage/
+   Utilisateurs, et TOUTES les modales .bigcard (créateurs de boutique/
+   formation/document, éditeurs de contenu…). Auparavant défini seulement
+   par tab (#tab-fonts/#tab-referral/#tab-planner) : les formulaires hors de
+   ces trois onglets (dont .bigcard, la Formation « Créditer des minutes » et
+   l'octroi d'accès) n'avaient AUCUNE mise en page — juste le texte du label
+   suivi de l'input, empilés par un retour à la ligne accidentel (largeur
+   100 % de l'input le poussant sous le label). Ça « marchait » la plupart
+   du temps mais sans rien en commun d'un champ à l'autre — d'où l'impression
+   de composants dépareillés (ex. le champ Minutes, en <input type=number>,
+   pas même concerné par ce repli accidentel : voir input[type="number"]
+   plus haut, lui non plus absent de la liste stylée avant ce correctif). */
+.access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.field-lg { display: flex; flex-direction: column; gap: 6px; }
+.field-lg > span { font-size: 0.9rem; color: var(--muted); }
+.chk-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+
+/* Sélecteur compact de durée (chips) — remplace un champ date brut +
+   plusieurs boutons épars par un choix binaire clair, une seule ligne. */
+.chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 9px 16px;
+  border-radius: 20px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.chip:hover { border-color: var(--line-2); }
+.chip.active { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #231a05; border-color: transparent; }
+.field-hint { font-size: 0.78rem; color: var(--muted); margin-top: -2px; }
 
 /* Aperçu de police (avant upload) */
 #tab-fonts .font-preview { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--panel); }
@@ -602,6 +650,77 @@ tr:hover { background: rgba(255, 255, 255, 0.03); }
 }
 .badge.gold { background: rgba(201,162,39,0.18); color: var(--gold-2); border: 1px solid var(--line); }
 .badge.expired { background: rgba(209,104,92,0.15); color: var(--danger); border: 1px solid rgba(209,104,92,0.3); }
+
+/* ── Carte d'accès compacte (Abonnements / Formations) ──
+   Deux lignes au lieu d'un bloc étalé : e-mail + statut, puis palier/résumé,
+   puis les actions. Le geste destructif (Révoquer) est replié dans le menu
+   ⋮ plutôt qu'exposé en permanence à côté de Prolonger. */
+.access-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-soft);
+}
+.access-card:hover { border-color: var(--line-2); }
+.access-card-main { flex: 1; min-width: 0; }
+.access-card-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.access-email { font-weight: 600; font-size: 0.92rem; overflow-wrap: anywhere; }
+.access-status { display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 700; white-space: nowrap; }
+.access-status::before { content: "●"; font-size: 0.6rem; }
+.access-status.on { color: var(--ok); }
+.access-status.off { color: var(--danger); }
+.access-sub { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
+.access-card-acts { flex: none; display: flex; align-items: center; gap: 6px; }
+
+/* Menu ⋮ générique (actions secondaires/destructives repliées). */
+.kebab { position: relative; }
+.kebab-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.kebab-btn:hover, .kebab.open .kebab-btn { background: var(--raised); border-color: var(--line-2); color: var(--ink); }
+.kebab-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: var(--panel2);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 50;
+}
+.kebab-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.kebab-menu button:hover { background: var(--raised); }
+.kebab-menu button.danger-text:hover { background: rgba(209, 104, 92, 0.14); }
+@media (max-width: 480px) {
+  .access-card { flex-direction: column; align-items: stretch; }
+  .access-card-acts { justify-content: flex-end; margin-top: 4px; }
+}
 
 /* ── Grand éditeur (bigwrap) ── */
 .bigwrap {
@@ -930,25 +1049,18 @@ body.light .toast { color: #1b1405; }
 body.light .toast.success { background: rgba(47, 143, 95, 0.92); color: #fff; }
 body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
 
-/* ── Bouton thème ── */
+/* ── Bouton thème ── déplacé dans le menu principal (.nav) : l'ancien bouton
+   flottant en bas à droite (position:fixed) masquait ou concurrençait des
+   informations à cet endroit sur plusieurs écrans (dashboard, listes…).
+   Même gabarit que les autres boutons de nav, icône seule. */
 .theme-btn {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 9998;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 1px solid var(--line-2);
-  background: var(--panel2);
-  color: var(--gold-2);
-  font-size: 1.2rem;
-  backdrop-filter: var(--blur);
-  box-shadow: var(--shadow);
-  transition: transform .2s ease;
+  width: 40px;
+  padding: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
-.theme-btn:hover { transform: scale(1.08); }
 
 /* ── Responsive ─────────────────────────────────────────────── */
 .mobile-only { display: none; }
@@ -1056,7 +1168,6 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .bulkbar { gap: 8px; }
   .toast { padding: 14px 20px; font-size: 0.9rem; }
   #toast-container { top: 12px; right: 12px; left: 12px; }
-  .theme-btn { width: 44px; height: 44px; right: 14px; bottom: 14px; }
 
   /* Tableaux → cartes empilées */
   .tbl-wrap.responsive-cards { border: none; overflow: visible; }
@@ -1116,10 +1227,6 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
 }
 .tag.ok { background: rgba(90, 180, 120, 0.16); color: var(--ok); border-color: rgba(90, 180, 120, 0.3); }
 .tag.danger { background: rgba(209, 104, 92, 0.15); color: var(--danger); border-color: rgba(209, 104, 92, 0.3); }
-#tab-referral .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-#tab-referral .field-lg { display: flex; flex-direction: column; gap: 6px; }
-#tab-referral .field-lg > span { font-size: 0.9rem; color: var(--muted); }
-#tab-referral .chk-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
 
 /* Bouton « lien partageable » sur une carte de contenu */
 .card { position: relative; }
@@ -1147,7 +1254,7 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
 }
 .nav button .ic { width: 17px; height: 17px; margin-right: 2px; opacity: 0.9; }
 .nav button.active .ic { opacity: 1; }
-.theme-btn .ic { width: 20px; height: 20px; vertical-align: middle; }
+.theme-btn .ic { margin-right: 0; } /* icône seule, pas de texte à côté : pas de marge */
 
 /* Accessibilité : focus visible doré cohérent au clavier */
 a:focus-visible,
@@ -1406,28 +1513,6 @@ textarea:focus-visible,
   .modal-actions { flex-direction: column-reverse; }
 }
 
-/* ── Planificateur (contenu Facebook) ── */
-#tab-planner .access-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-#tab-planner .field-lg { display: flex; flex-direction: column; gap: 6px; }
-#tab-planner .field-lg > span { font-size: 0.9rem; color: var(--muted); }
 .bar-actions input[type="date"],
 .bar-actions input[type="time"] { width: auto; flex: 0 0 auto; min-width: 0; }
 .badge.ok { background: rgba(102, 185, 138, 0.15); color: var(--ok); border: 1px solid rgba(102, 185, 138, 0.3); }
-.pln-item { display: flex; flex-direction: column; gap: 10px; }
-.pln-item .row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.pln-text {
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  max-height: 140px;
-  overflow-y: auto;
-}
-.pln-empty { color: var(--muted); font-size: 0.9rem; font-style: italic; }
-.pln-gl { display: inline-flex; vertical-align: middle; color: var(--gold-2); margin: 0 4px; }
-.pln-gl:hover { color: var(--gold); }
-.pln-variant-row { display: flex; align-items: flex-start; gap: 8px; }
-.pln-variant-row textarea { flex: 1; }
