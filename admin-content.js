@@ -8,27 +8,41 @@
     try {
       const d = await api("content", { action: "nodes" });
       NODES_CACHE = d.nodes || {};
-      $("nodeList").innerHTML = Object.entries(NODES_CACHE).map(([k, n]) =>
-        `<button class="menu-item" data-node="${k}">
-          <b>${esc(n.label)}</b>
-          <span class="muted">${esc(n.page)}</span>
-         </button>`
-      ).join("");
-
-      document.querySelectorAll("[data-node]").forEach((b) => {
-        b.onclick = () => {
-          document.querySelectorAll("[data-node]").forEach((m) => m.classList.remove("active"));
-          b.classList.add("active");
-          selectNode(b.getAttribute("data-node"), b.querySelector("b").textContent);
-        };
-      });
+      renderNodesList();
     } catch (e) { showToast(e.message, "err"); }
   };
+
+  // Filtre local (libellé + page + groupe) — les bibliothèques restent peu
+  // nombreuses, mais la liste ne cesse de grandir (Formations, Boutiques…).
+  window.renderNodesList = function () {
+    const q = ($("nodeSearch") ? $("nodeSearch").value : "").toLowerCase().trim();
+    const entries = Object.entries(NODES_CACHE).filter(([, n]) =>
+      !q || (n.label + " " + n.page + " " + (n.group || "")).toLowerCase().includes(q));
+
+    $("nodeList").innerHTML = entries.map(([k, n]) =>
+      `<button class="menu-item ${CURRENT_NODE === k ? "active" : ""}" data-node="${k}">
+        <b>${esc(n.label)}</b>
+        <span class="muted">${esc(n.page)}</span>
+       </button>`
+    ).join("") || "<p class='empty' style='padding:8px 4px'>Aucune bibliothèque ne correspond.</p>";
+
+    document.querySelectorAll("[data-node]").forEach((b) => {
+      b.onclick = () => {
+        document.querySelectorAll("[data-node]").forEach((m) => m.classList.remove("active"));
+        b.classList.add("active");
+        selectNode(b.getAttribute("data-node"), b.querySelector("b").textContent);
+      };
+    });
+  };
+  const nodeSearchEl = $("nodeSearch");
+  if (nodeSearchEl) nodeSearchEl.oninput = renderNodesList;
 
   window.selectNode = function (node, title) {
     CURRENT_NODE = node;
     $("currentNodeTitle").textContent = title;
     $("contentActions").style.display = "flex";
+    const itemSearchEl = $("itemSearch");
+    if (itemSearchEl) { itemSearchEl.hidden = false; itemSearchEl.value = ""; }
     exitSelectMode();
     $("tab-content").classList.add("show-grid");
     $("btnBackNodes").hidden = false;
@@ -50,12 +64,19 @@
 
   // ── Grille paginée ──
   const PAGE = 50;
-  let ITEMS = [], shown = 0, selectMode = false;
+  let ITEMS = [], shown = 0, selectMode = false, query = "";
   const selected = new Set();
+
+  // Filtre local (titre + description) sur les éléments déjà chargés — même
+  // principe que #prodSearch/#shopSearch ailleurs dans le panneau, pas un
+  // aller-retour serveur par frappe.
+  const filteredItems = () => !query ? ITEMS
+    : ITEMS.filter(([k, v]) => (cardTitle(v, k) + " " + cardDesc(v)).toLowerCase().includes(query));
 
   window.loadGrid = async function () {
     $("cardsGrid").innerHTML = "<div class='empty'>Extraction des enregistrements…</div>";
     $("btnMoreItems").hidden = true;
+    query = ""; // nouvelle bibliothèque → on repart sans filtre (itemSearch a déjà été vidé par selectNode)
     try {
       const d = await api("content", { action: "list", node: CURRENT_NODE });
       ITEMS = Object.entries(d.value || {}).reverse();
@@ -83,24 +104,35 @@
   };
 
   window.renderMore = function () {
-    const next = ITEMS.slice(shown, shown + PAGE);
+    const list = filteredItems();
+    if (!list.length) { $("cardsGrid").innerHTML = "<div class='empty'>Aucun résultat pour cette recherche.</div>"; $("btnMoreItems").hidden = true; return; }
+    const next = list.slice(shown, shown + PAGE);
     $("cardsGrid").insertAdjacentHTML("beforeend", next.map(([k, v]) => cardHtml(k, v)).join(""));
     shown += next.length;
-    $("btnMoreItems").hidden = shown >= ITEMS.length;
-    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (ITEMS.length - shown) + " restants)";
+    $("btnMoreItems").hidden = shown >= list.length;
+    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (list.length - shown) + " restants)";
     wireCards();
   };
   $("btnMoreItems").onclick = renderMore;
 
   window.rerender = function () {
+    const list = filteredItems();
     const count = Math.max(shown, PAGE);
     $("cardsGrid").innerHTML = "";
-    const slice = ITEMS.slice(0, count);
-    $("cardsGrid").innerHTML = slice.map(([k, v]) => cardHtml(k, v)).join("");
+    const slice = list.slice(0, count);
+    $("cardsGrid").innerHTML = slice.map(([k, v]) => cardHtml(k, v)).join("") || "<div class='empty'>Aucun résultat pour cette recherche.</div>";
     shown = slice.length;
-    $("btnMoreItems").hidden = shown >= ITEMS.length;
-    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (ITEMS.length - shown) + " restants)";
+    $("btnMoreItems").hidden = shown >= list.length;
+    $("btnMoreItems").textContent = "Afficher 50 de plus (" + (list.length - shown) + " restants)";
     wireCards();
+  };
+
+  const itemSearchEl = $("itemSearch");
+  if (itemSearchEl) itemSearchEl.oninput = () => {
+    query = itemSearchEl.value.toLowerCase().trim();
+    shown = 0;
+    $("cardsGrid").innerHTML = "";
+    renderMore();
   };
 
   window.wireCards = function () {
@@ -142,7 +174,7 @@
   };
 
   $("bulkSelectAll").onclick = () => {
-    const vis = ITEMS.slice(0, shown).map(([k]) => k);
+    const vis = filteredItems().slice(0, shown).map(([k]) => k);
     const allOn = vis.length && vis.every((k) => selected.has(k));
     vis.forEach((k) => allOn ? selected.delete(k) : selected.add(k));
     rerender(); updateBulk();

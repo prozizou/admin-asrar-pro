@@ -367,7 +367,15 @@ textarea { resize: vertical; min-height: 60px; }
   flex-direction: column;
   transition: all 0.2s;
 }
-.menu-item:hover,
+/* :hover réservé aux pointeurs qui survolent réellement (souris) : sur tactile,
+   un navigateur peut laisser :hover « collé » après un tap tant qu'on ne touche
+   pas ailleurs — un item (ex. le dernier bibliothèque ouverte) se retrouvait
+   visuellement « sélectionné » sans l'être, pendant que .active (posé/retiré
+   par le JS au clic — seule source de vérité pour la sélection réelle) restait
+   correct. Même rendu, juste plus de :hover fantôme sur mobile. */
+@media (hover: hover) and (pointer: fine) {
+  .menu-item:hover { background: var(--raised); border-color: var(--line); }
+}
 .menu-item.active {
   background: var(--raised);
   border-color: var(--line);
@@ -375,6 +383,8 @@ textarea { resize: vertical; min-height: 60px; }
 .menu-item.active b { color: var(--gold-2); }
 .menu-item b { font-weight: 600; font-size: 1rem; }
 .menu-item .muted { font-size: 0.8rem; margin-top: 2px; }
+.node-search { margin: 10px 0 12px; }
+.item-search { margin: 2px 0 20px; }
 
 #tab-content .main-content {
   flex: 1 1 auto;
@@ -998,14 +1008,28 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .panel { padding: 12px 14px; }
   #tab-content { flex-direction: column; }
   #tab-content .sidebar {
+    /* PAS de max-height/overflow ici : sur mobile, sidebar (liste) et
+       main-content (grille) ne sont JAMAIS visibles en même temps
+       (body.is-mobile #tab-content[.show-grid] masque l'un ou l'autre plus
+       bas) — rien ne justifiait de plafonner la liste à 46vh avec son propre
+       scroll interne. Ce plafond coupait net la liste des bibliothèques
+       (ex. « Sirr — Ouverture ») avec, en dessous, le fond de page nu (donc
+       visuellement noir) faute d'un autre bloc pour occuper l'espace restant.
+       Hauteur naturelle + scroll de la page entière, comme le reste du panneau. */
     flex: none;
     width: 100%;
+    height: auto;
+    padding: 16px 14px 12px;
     border-right: none;
     border-bottom: 1px solid var(--line);
     border-radius: 20px 20px 0 0;
-    max-height: 46vh;
-    overflow-y: auto;
   }
+  /* En-tête plus compact (moins d'espace avant d'atteindre la liste réelle). */
+  #tab-content .sidebar h3 { margin-bottom: 10px; font-size: 1.05rem; }
+  #tab-content .menu { gap: 6px; }
+  #tab-content .menu-item { padding: 11px 14px; }
+  #tab-content .bar { margin-bottom: 14px; padding-bottom: 12px; }
+  #tab-content .card-body { padding: 14px 16px; }
   #tab-content .main-content {
     width: 100%;
     padding: 16px 12px;
