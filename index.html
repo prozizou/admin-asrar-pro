@@ -203,35 +203,14 @@
       </section>
 
       <section id="tab-fonts" class="panel" hidden>
-        <div class="block max-width-sm">
-          <div class="bar"><h3 class="star">Ajouter une police (Al-Qalam)</h3></div>
-          <p class="muted" style="margin-bottom:6px">
-            Téléversez un fichier de police (.ttf, .otf, .woff, .woff2). Elle sera hébergée sur
-            Cloudinary et proposée dans le module Al-Qalam aux abonnés au palier choisi.
-          </p>
-          <div class="access-form">
-            <label class="field-lg"><span>Nom affiché</span>
-              <input type="text" id="fontName" placeholder="ex. Amiri, Aref Ruqaa…" autocomplete="off"></label>
-            <label class="field-lg"><span>Fichier de police</span>
-              <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2"></label>
-
-            <div id="fontPreviewWrap" class="font-preview" hidden>
-              <div class="bar" style="margin-bottom:8px">
-                <span class="muted">Aperçu</span>
-                <input type="text" id="fontPreviewText" value="بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ" dir="rtl" placeholder="Texte d'essai…">
-              </div>
-              <div id="fontPreviewSample" class="font-preview-sample" dir="rtl">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-            </div>
-            <label class="field-lg"><span>Palier d'abonnement requis (FCFA)</span>
-              <input type="number" id="fontLevel" value="45000" min="0" step="5000"></label>
-            <label class="chk-lbl"><input type="checkbox" id="fontEnabled" checked> Police active (visible dans Al-Qalam)</label>
-            <button id="btnAddFont" class="btn primary" data-icon="check">Téléverser et enregistrer</button>
-            <p id="fontMsg" class="msg"></p>
+        <div class="bar"><h3 class="star">Polices Al-Qalam</h3></div>
+        <p class="muted" style="margin:-12px 0 16px">Gérez les polices disponibles dans le Hub.</p>
+        <div class="block">
+          <div class="bar">
+            <h3>Polices <span id="fontCount" class="muted"></span></h3>
+            <button id="btnOpenAddFont" class="btn primary" data-icon="add">Ajouter</button>
           </div>
-
-          <div class="bar" style="margin-top:28px">
-            <h3>Polices disponibles <span id="fontCount" class="muted"></span></h3>
-          </div>
+          <input type="text" id="fontSearch" placeholder="Rechercher une police…">
           <div id="fontsList" class="list"></div>
         </div>
       </section>
