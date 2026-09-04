@@ -846,26 +846,8 @@ tr:hover { background: rgba(255, 255, 255, 0.03); }
 }
 .bigimg .frame img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ── Champs supplémentaires ── */
-.xfields-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 28px 0 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-.xfields-head span { color: var(--gold); font-size: 0.95rem; font-weight: 500; }
-#xfields { display: flex; flex-direction: column; gap: 16px; }
-.xfield {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--raised);
-  border-radius: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-}
+/* En-tête de section de champ générique — ex. « Récompense »/« Protection »
+   dans Réglages (Parrainage). */
 .xfield-h {
   display: flex;
   align-items: center;
@@ -873,6 +855,35 @@ tr:hover { background: rgba(255, 255, 255, 0.03); }
 }
 .xfield-h span { color: var(--gold-2); font-size: 0.9rem; font-weight: 600; }
 .xfield-h .btn.text { padding: 4px 10px; font-size: 0.75rem; }
+
+/* ── Galerie d'images multiple (modale « Nouvel enregistrement ») ──
+   Remplace l'aperçu image unique : miniatures horizontales défilables,
+   chacune retirable, la première sert automatiquement de couverture. */
+.img-gallery { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 8px; }
+.img-thumb {
+  position: relative; flex: 0 0 76px; width: 76px; height: 76px;
+  border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--raised);
+}
+.img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-thumb-cover {
+  position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.3px; color: #fff;
+  background: linear-gradient(0deg, rgba(0,0,0,0.65), transparent); padding: 10px 0 3px;
+}
+.img-thumb-rm {
+  position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(10,8,5,0.7); border: none; color: #fff; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.img-thumb-rm .ic { width: 11px; height: 11px; }
+.img-thumb-rm:hover { background: var(--danger); }
+.img-add-tile {
+  flex: 0 0 76px; width: 76px; height: 76px; border-radius: 12px;
+  border: 1.5px dashed var(--line-2); background: var(--raised); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;
+}
+.img-add-tile:hover { border-color: var(--gold); color: var(--gold-2); background: rgba(201,162,39,0.06); }
+.img-add-tile .ic { width: 20px; height: 20px; }
 
 /* ── Switch ── */
 .switch-row { display: flex; align-items: center; gap: 16px; margin: 20px 0; cursor: pointer; }

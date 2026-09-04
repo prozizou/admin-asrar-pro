@@ -200,9 +200,15 @@
   };
 
   // ── Éditeur principal ──
+  // Volontairement minimal : Images (galerie multiple) → Titre → Contenu
+  // détaillé → Enregistrer. L'ancien champ « Faïda » et les « champs
+  // supplémentaires » libres ont été retirés de l'interface — mais un
+  // enregistrement existant garde INTACTS tous ses autres champs (spread de
+  // `original` ci-dessous) : seuls titre/contenu/images sont réellement
+  // réécrits, rien d'autre n'est jamais supprimé silencieusement.
   window.openEditor = async function (key = null) {
     let original = null;
-    let item = { title: "", faida: "", content: "", image: "", imageId: "" };
+    let item = { title: "", content: "", image: "", imageId: "", images: null };
     if (key) {
       try {
         const d = await api("content", { action: "get", node: CURRENT_NODE, key });
@@ -212,104 +218,107 @@
       item = original;
     }
 
-    const extra = Object.entries(item).filter(([k]) => !CORE_FIELDS.includes(k) && k !== "createdAt");
+    // État de la galerie : depuis item.images (nouveau schéma) sinon, à
+    // défaut, depuis l'ancien couple image/imageId (rétrocompatibilité).
+    let images = Array.isArray(item.images) && item.images.length
+      ? item.images.map((im) => ({ url: (im && im.url) || "", id: (im && im.id) || "", isNew: false }))
+      : ((item.image || item.img) ? [{ url: item.image || item.img, id: item.imageId || "", isNew: false }] : []);
 
     $("bigcard").innerHTML = `
       <div class="bighead">
-        <h3>${key ? "Édition du document" : "Nouvel enregistrement"}</h3>
-        <button id="btnCancelBig" class="btn text">Fermer</button>
+        <h3>${key ? "Modifier l'enregistrement" : "Nouvel enregistrement"}</h3>
+        <button id="btnCancelBig" class="btn text" aria-label="Fermer">${ic("close") || "✕"}</button>
       </div>
-      ${item.pdfUrl ? `<p class="muted">📄 PDF : <a href="${esc(item.pdfUrl)}" target="_blank">Télécharger</a></p>` : ''}
-      <div class="bigimg">
-        <div class="frame" id="previewImg">${(item.image || item.img) ? `<img src="${esc(item.image || item.img)}" alt="Aperçu">` : `<div class="noimg">Aucun média associé</div>`}</div>
-        <input type="file" id="fileField" accept="image/*" style="display:none">
-        <button id="btnUpload" class="btn text">✨ Choisir une image</button>
-      </div>
+      ${item.pdfUrl ? `<p class="muted" style="margin-bottom:12px">📄 PDF : <a href="${esc(item.pdfUrl)}" target="_blank">Télécharger</a></p>` : ''}
+
+      <label class="field-lg"><span>Images</span></label>
+      <div id="imgGalleryWrap"></div>
+      <input type="file" id="fileField" accept="image/*" multiple hidden>
+
       <label class="field-lg"><span>Titre</span><input type="text" id="editTitle" value="${esc(item.title || "")}"></label>
-      <label class="field-lg"><span>Faïda (résumé court)</span><textarea id="editFaida" rows="3">${esc(item.faida || "")}</textarea></label>
       <label class="field-lg"><span>Contenu détaillé</span><textarea id="editContent" rows="8">${esc(item.content || "")}</textarea></label>
 
-      <div class="xfields-head">
-        <span>Champs supplémentaires</span>
-        <button type="button" id="btnAddField" class="btn text">＋ Ajouter un champ</button>
-      </div>
-      <div id="xfields">${extra.map(([k, v]) => extraFieldHtml(k, v)).join("")}</div>
-
-      <div style="display:flex; justify-content:space-between; margin-top:25px; gap:15px;">
-        ${key ? `<button id="btnDeleteBig" class="btn danger">Supprimer</button>` : `<div></div>`}
-        <button id="btnSaveBig" class="btn primary">Enregistrer</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:22px; gap:12px;">
+        ${key ? `<button id="btnDeleteBig" class="btn text danger-text">Supprimer</button>` : `<span></span>`}
+        <button id="btnSaveBig" class="btn primary" style="flex:1">Enregistrer</button>
       </div>
     `;
-
     $("big").hidden = false;
-    let localFile = null;
 
-    const bindRemovers = () => document.querySelectorAll("#xfields .xf-rm")
-      .forEach((b) => b.onclick = () => b.closest(".xfield").remove());
-    bindRemovers();
+    // Galerie horizontale défilable : zone d'import quand elle est vide,
+    // sinon miniatures + tuile « + » en fin de ligne. La première miniature
+    // devient automatiquement la couverture (badge, sans action manuelle).
+    function renderGallery() {
+      const wrap = $("imgGalleryWrap");
+      if (!wrap) return;
+      if (!images.length) {
+        wrap.innerHTML = `
+          <div class="upload-drop" id="imgDropzone">
+            ${ic("upload")}
+            <b>Ajouter des images</b>
+            <span>JPG · PNG · WEBP — plusieurs à la fois</span>
+          </div>`;
+        $("imgDropzone").onclick = () => $("fileField").click();
+        return;
+      }
+      wrap.innerHTML = `<div class="img-gallery">
+        ${images.map((im, idx) => `
+          <div class="img-thumb">
+            <img src="${esc(im.url)}" alt="">
+            ${idx === 0 ? `<span class="img-thumb-cover">Couverture</span>` : ""}
+            <button type="button" class="img-thumb-rm" data-img-rm="${idx}" title="Retirer">${ic("close") || "×"}</button>
+          </div>`).join("")}
+        <div class="img-add-tile" id="imgAddTile" title="Ajouter des images">${ic("plus") || "+"}</div>
+      </div>`;
+      wrap.querySelectorAll("[data-img-rm]").forEach((b) => b.onclick = () => {
+        const idx = Number(b.getAttribute("data-img-rm"));
+        const removed = images.splice(idx, 1)[0];
+        if (removed && removed.isNew && removed.url) URL.revokeObjectURL(removed.url);
+        renderGallery();
+      });
+      $("imgAddTile").onclick = () => $("fileField").click();
+    }
+    renderGallery();
+
+    $("fileField").onchange = (e) => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = ""; // permet de resélectionner le même fichier plus tard
+      files.forEach((f) => images.push({ url: URL.createObjectURL(f), id: "", isNew: true, file: f }));
+      renderGallery();
+    };
 
     $("btnCancelBig").onclick = closeBig;
-    $("btnUpload").onclick = () => $("fileField").click();
-    $("fileField").onchange = (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      localFile = f;
-      $("previewImg").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="Aperçu local">`;
-    };
-
-    $("btnAddField").onclick = async () => {
-      const name = ((await uiPrompt({ title: "Nouveau champ", placeholder: "ex. auteur, prix, lien" })) || "").trim();
-      if (!name) return;
-      if (!/^[a-zA-Z0-9_\-]+$/.test(name)) return showToast("Nom de champ invalide (lettres, chiffres, _ ou -).", "err");
-      if (CORE_FIELDS.includes(name) || document.querySelector(`#xfields [data-fkey="${name}"]`))
-        return showToast("Ce champ existe déjà.", "err");
-      $("xfields").insertAdjacentHTML("beforeend", extraFieldHtml(name, ""));
-      bindRemovers();
-    };
 
     $("btnSaveBig").onclick = async () => {
       const btn = $("btnSaveBig");
       btn.disabled = true; btn.textContent = "Enregistrement…";
       try {
-        if (localFile) {
-          const sign = await api("cloudinary-sign", { folder: CURRENT_NODE });
-          const fd = new FormData();
-          fd.append("file", localFile);
-          fd.append("api_key", sign.apiKey);
-          fd.append("timestamp", sign.timestamp);
-          fd.append("signature", sign.signature);
-          fd.append("folder", sign.folder);
-          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`, { method: "POST", body: fd });
-          const cData = await cRes.json();
-          if (!cRes.ok) throw new Error(cData.error?.message || "L'envoi du média a échoué.");
-          item.image = cData.secure_url;
-          item.imageId = cData.public_id;
+        // Téléverse uniquement les images nouvellement ajoutées, dans l'ordre.
+        for (const im of images) {
+          if (!im.isNew) continue;
+          const localUrl = im.url;
+          const up = await uploadToCloudinary(im.file, CURRENT_NODE);
+          im.url = up.url; im.id = up.id; im.isNew = false; delete im.file;
+          URL.revokeObjectURL(localUrl);
         }
 
-        const out = {};
         const title = $("editTitle").value.trim();
         if (!title) throw new Error("Le champ « Titre » ne peut rester vide.");
-        out.title = title;
-        const faida = $("editFaida").value.trim();
         const content = $("editContent").value.trim();
-        if (faida) out.faida = faida;
-        if (content) out.content = content;
-        if (item.image) { out.image = item.image; if (item.imageId) out.imageId = item.imageId; }
 
-        document.querySelectorAll("#xfields .xfield[data-simple]").forEach((f) => {
-          const k = f.getAttribute("data-fkey");
-          const el = f.querySelector("[data-ftype]");
-          if (k && el && !CORE_FIELDS.includes(k)) out[k] = coerceField(el);
-        });
-        for (const f of document.querySelectorAll("#xfields .xfield[data-complex]")) {
-          const k = f.getAttribute("data-fkey");
-          const ta = f.querySelector("[data-json]");
-          if (!k || CORE_FIELDS.includes(k) || !ta) continue;
-          try { out[k] = JSON.parse(ta.value); }
-          catch (parseErr) { throw new Error("JSON invalide dans le champ « " + k + " » : " + parseErr.message); }
+        // Part de l'enregistrement existant (préserve tout champ hérité que
+        // cette vue simplifiée n'affiche plus) puis applique le formulaire.
+        const out = isObj(original) ? { ...original } : {};
+        out.title = title;
+        if (content) out.content = content; else delete out.content;
+        if (images.length) {
+          out.images = images.map((im) => ({ url: im.url, id: im.id }));
+          out.image = images[0].url;
+          if (images[0].id) out.imageId = images[0].id; else delete out.imageId;
+        } else {
+          delete out.images; delete out.image; delete out.imageId;
         }
-
         if (!key) out.createdAt = Date.now();
-        else if (isObj(original) && original.createdAt != null) out.createdAt = original.createdAt;
 
         await api("content", { action: key ? "set" : "add", node: CURRENT_NODE, key, value: out });
         $("big").hidden = true;
@@ -499,8 +508,8 @@
   };
 
   // ── Créateur de FORMATION MYSTIQUE — schéma dédié (titre/description/
-  // attentes/duree/prix/img/meetLink), distinct des CORE_FIELDS de l'éditeur
-  // générique (title/faida/content/image) : voir le commentaire sur
+  // attentes/duree/prix/img/meetLink), distinct des champs de l'éditeur
+  // générique (title/content/images) : voir le commentaire sur
   // NODES.formations dans api/content.js. Lien Google Meet SIMPLE (collé à
   // la main, créé au préalable sur meet.google.com) — pas d'intégration
   // Google Calendar API. Si laissé vide, l'app ouvre meet.google.com/new au

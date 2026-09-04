@@ -18,11 +18,12 @@ const NODES = {
   "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" },
   // Schéma réel (server/sources.js → SOURCES.formation, côté asrar-main) :
   // { titre, description, attentes, duree, prix, pricePerMinute, img, meetLink }
-  // — PAS title/content/image (les CORE_FIELDS de l'éditeur générique) :
-  // utiliser le créateur dédié (bouton « Formation », admin-content.js
+  // — PAS title/content/images (les champs de l'éditeur générique) : utiliser
+  // le créateur dédié (bouton « Formation », admin-content.js
   // openFormationCreator) pour écrire les bons noms de champs. L'éditeur
-  // générique reste utilisable pour une modification ponctuelle (les champs
-  // titre/description/… apparaissent alors en « champs supplémentaires »).
+  // générique préserve les champs existants d'un enregistrement (titre/
+  // description/…) même s'il ne les affiche plus individuellement — voir
+  // openEditor, admin-content.js.
   // pricePerMinute (FCFA) : tarif du réservateur de minutes de visioconférence
   // (indépendant de l'abonnement — voir api/formation-access.js, formation_access/…).
   "formations":               { label: "Formations",             page: "Formation mystique", group: "Formations" }
