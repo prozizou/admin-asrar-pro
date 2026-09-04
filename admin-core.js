@@ -17,7 +17,22 @@
   // Initialisation de Firebase localisé
   firebase.initializeApp(cfg);
   const auth = firebase.auth();
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+  // Persistance LOCAL (IndexedDB) → survit à un rafraîchissement/fermeture
+  // d'onglet. Repli SESSION (sessionStorage) si le navigateur bloque
+  // IndexedDB (navigation privée, certains navigateurs in-app) : la session
+  // tient au moins tant que l'onglet reste ouvert, au lieu d'échouer
+  // silencieusement et de forcer une reconnexion Google à CHAQUE
+  // rafraîchissement. Un avertissement visible explique pourquoi si même
+  // SESSION échoue (stockage entièrement bloqué).
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() =>
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+  ).catch(() => {
+    const msg = $("loginMsg");
+    if (msg) {
+      msg.className = "msg err";
+      msg.textContent = "Votre navigateur bloque le stockage local (navigation privée ?) — vous devrez vous reconnecter à chaque visite.";
+    }
+  });
 
   // Utilitaires DOM et sécurité
   window.$ = (id) => document.getElementById(id);
@@ -34,40 +49,6 @@
     : String(v ?? "");
   window.cardImg = (v) => isObj(v) ? String(v.image || v.img || v.url || v.imageUrl || "") : "";
 
-  // Champs « cœur » et utilitaires d'édition
-  window.CORE_FIELDS = ["title", "faida", "content", "image", "imageId"];
-  window.isComplex = (v) => v !== null && typeof v === "object";
-  window.coerceField = (el) => {
-    const t = el.getAttribute("data-ftype");
-    if (t === "bool") return el.checked;
-    if (t === "number") { const n = Number(el.value); return el.value.trim() === "" ? "" : (isNaN(n) ? el.value : n); }
-    return el.value;
-  };
-  window.simpleFieldHtml = (key, val) => {
-    const type = typeof val === "boolean" ? "bool" : typeof val === "number" ? "number" : "string";
-    let ctrl;
-    if (type === "bool")
-      ctrl = `<label class="switch"><input type="checkbox" data-ftype="bool" ${val ? "checked" : ""}><span></span></label>`;
-    else if (type === "number")
-      ctrl = `<input type="text" inputmode="decimal" data-ftype="number" value="${esc(val)}">`;
-    else {
-      const s = String(val ?? "");
-      ctrl = (s.length > 60 || s.includes("\n"))
-        ? `<textarea rows="3" data-ftype="string">${esc(s)}</textarea>`
-        : `<input type="text" data-ftype="string" value="${esc(s)}">`;
-    }
-    return `<div class="xfield" data-simple data-fkey="${esc(key)}">
-      <div class="xfield-h"><span>${esc(key)}</span>
-      <button type="button" class="btn text danger-text xf-rm">✕ retirer</button></div>${ctrl}</div>`;
-  };
-  window.complexFieldHtml = (key, val) => {
-    const json = esc(JSON.stringify(val, null, 2));
-    return `<div class="xfield" data-complex data-fkey="${esc(key)}">
-      <div class="xfield-h"><span>${esc(key)} <em class="muted">(objet — JSON, structure préservée)</em></span>
-      <button type="button" class="btn text danger-text xf-rm">✕ retirer</button></div>
-      <textarea rows="6" data-json spellcheck="false" style="font-family:monospace;font-size:.82rem;line-height:1.4">${json}</textarea></div>`;
-  };
-  window.extraFieldHtml = (key, val) => isComplex(val) ? complexFieldHtml(key, val) : simpleFieldHtml(key, val);
 
   // URL du site (asrar-main — pour construire les liens partageables /s), injectée
   // par /api/config. asrar-main n'a plus de "hub" séparé : c'est une app Next.js
