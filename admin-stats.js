@@ -3,16 +3,18 @@
 (function () {
   "use strict";
 
-  // ── Analytics ──
-  let ANA = null;
+  const nf = new Intl.NumberFormat("fr-FR");
+  const fmt = (n) => nf.format(Math.round(Number(n) || 0));
+  const fmtPct = (n) => nf.format(Math.abs(n)) + " %";
+
   const kpi = (val, lbl) => `<div class="kpi"><div class="kpi-val">${esc(val)}</div><div class="kpi-lbl">${esc(lbl)}</div></div>`;
-  const hbars = (items, labelFn) => {
+  const hbars = (items, labelFn, subFn) => {
     if (!items || !items.length) return "<div class='empty'>Aucune donnée.</div>";
     const m = Math.max(1, ...items.map((i) => i.count));
     return items.map((i) => `<div class="hbar">
       <div class="hbar-lbl">${esc(labelFn(i))}</div>
       <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(i.count / m * 100)}%"></div></div>
-      <div class="hbar-n">${i.count}</div></div>`).join("");
+      <div class="hbar-n">${fmt(i.count)}${subFn ? " · " + esc(subFn(i)) : ""}</div></div>`).join("");
   };
   const shortBucket = (b) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(b)) return b.slice(5);
@@ -20,39 +22,174 @@
     if (/^\d{4}-\d{2}$/.test(b)) return b.slice(5) + "/" + b.slice(2, 4);
     return b;
   };
+  // Horodatage relatif court (« il y a 2 min ») — pour remplacer un gros
+  // bouton « Actualiser » par une mention discrète + une icône.
+  const relTime = (ms) => {
+    if (!ms) return "";
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 10) return "à l'instant";
+    if (s < 60) return "il y a " + s + " s";
+    const m = Math.round(s / 60);
+    if (m < 60) return "il y a " + m + " min";
+    const h = Math.round(m / 60);
+    if (h < 24) return "il y a " + h + " h";
+    return "il y a " + Math.round(h / 24) + " j";
+  };
+  // Carte KPI compacte réutilisant le composant .stat du dashboard (icône,
+  // valeur, libellé, puce de tendance) — même design system, pas un second
+  // gabarit de carte pour cet onglet.
+  const statTile = ({ icon, val, label, deltaPct, tone, span }) => `
+    <div class="stat${span ? " span2" : ""}">
+      <div class="stat-top">
+        <span class="stat-ic ${tone || ""}">${ic(icon)}</span>
+        ${deltaPct != null ? `<span class="stat-delta ${deltaPct > 0 ? "up" : deltaPct < 0 ? "down" : ""}">${ic("trend")}${deltaPct > 0 ? "+" : ""}${fmtPct(deltaPct)}</span>` : ""}
+      </div>
+      <div class="stat-val">${fmt(val)}</div>
+      <div class="stat-lbl">${esc(label)}</div>
+    </div>`;
+
+  // ── Analytics ──
+  let ANA = null, ANA_AT = 0, ANA_PERIOD = "d30", PAGES_EXPANDED = false;
 
   window.loadAnalytics = async function () {
     if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";
-    try { ANA = await api("stats", { action: "analytics" }); renderAnalytics(); }
+    try { ANA = await api("stats", { action: "analytics" }); ANA_AT = Date.now(); renderAnalytics(); }
     catch (e) { if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
+
   window.renderAnalytics = function () {
     if (!ANA) return;
+    const per = (ANA.periods && ANA.periods[ANA_PERIOD]) || {};
     const t = ANA.totals || {};
+
     if ($("anaKpis")) $("anaKpis").innerHTML =
-      kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
-      kpi(t.totalVisits ?? 0, "Visites cumulées") +
-      kpi(t.events ?? 0, "Événements enregistrés") +
-      kpi(t.boutiques ?? 0, "Boutiques") +
-      kpi(t.likesTotal ?? 0, "Aimes cumulés");
-    if ($("anaPages")) $("anaPages").innerHTML = hbars(ANA.topPages, (i) => i.page);
-    if ($("anaBoutiques")) $("anaBoutiques").innerHTML = (ANA.boutiques || []).map((b) => `
-      <div class="bq-row">
-        ${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="frame" style="width:42px;height:42px;flex:0 0 42px"><div class="noimg" style="font-size:.55rem">—</div></div>`}
+      statTile({ icon: "visits", val: per.unique ?? 0, label: "Visiteurs uniques", deltaPct: per.deltaUnique, tone: "gold" }) +
+      statTile({ icon: "analytics", val: per.total ?? 0, label: "Visites totales", deltaPct: per.deltaTotal }) +
+      statTile({ icon: "sparkle", val: per.interactions ?? 0, label: "Interactions" }) +
+      statTile({ icon: "market", val: t.boutiques ?? 0, label: "Boutiques" }) +
+      statTile({ icon: "gift", val: t.likesTotal ?? 0, label: "J'aime cumulés", tone: "gold", span: true });
+
+    renderAnaChart();
+    renderAnaPages();
+    renderAnaBoutiques();
+
+    const upd = $("anaUpdated");
+    if (upd) upd.textContent = ANA_AT ? "Mis à jour " + relTime(ANA_AT) : "";
+  };
+
+  // Sélecteur de période — change seulement l'affichage, aucune requête :
+  // les 4 fenêtres (7/30/90 j, Tout) sont déjà dans la même réponse.
+  const periodSeg = $("anaPeriodSeg");
+  if (periodSeg) periodSeg.querySelectorAll("[data-period]").forEach((b) => b.onclick = () => {
+    ANA_PERIOD = b.getAttribute("data-period");
+    periodSeg.querySelectorAll("[data-period]").forEach((x) => x.classList.toggle("active", x === b));
+    renderAnalytics();
+  });
+
+  // Graphique « Évolution du trafic » — barres compactes (même gabarit que la
+  // sparkline du dashboard). 7/30/90 j → daily (dernier N) ; Tout → monthly
+  // (l'historique quotidien complet n'est pas renvoyé par le serveur, borné
+  // à 90 j — inutile pour une vue Tout, où le mois est la bonne résolution).
+  function renderAnaChart() {
+    const el = $("anaChart");
+    if (!el || !ANA) return;
+    const nDays = { d7: 7, d30: 30, d90: 90 }[ANA_PERIOD];
+    const rows = nDays
+      ? (ANA.daily || []).slice(-nDays).map((r) => ({ x: shortBucket(r.bucket), total: r.total, unique: r.unique, full: r.bucket }))
+      : (ANA.monthly || []).map((r) => ({ x: shortBucket(r.bucket), total: r.total, unique: r.unique, full: r.bucket }));
+    if (!rows.length) { el.innerHTML = "<div class='empty'>Aucune donnée sur cette période.</div>"; return; }
+    const max = Math.max(1, ...rows.map((r) => r.total));
+    el.innerHTML = `<div class="spark-bars">
+      ${rows.map((r) => {
+        const hT = Math.max(3, Math.round(r.total / max * 100));
+        const hU = Math.max(2, Math.round(r.unique / max * 100));
+        return `<div class="spark-col" title="${esc(r.full)} · ${fmt(r.total)} visites · ${fmt(r.unique)} uniques">
+          <span class="spark-tip">${fmt(r.total)} vis. · ${fmt(r.unique)} uniq.</span>
+          <div class="spark-stack">
+            <div class="spark-fill" style="height:${hT}%"></div>
+            <div class="spark-fill uniq" style="height:${hU}%"></div>
+          </div>
+          <span class="spark-x">${esc(r.x)}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  // Pages populaires — normalisées côté serveur (accueil.html/accueil fusionnés,
+  // « ? » → Page inconnue). Top 5 par défaut + bascule vers la liste complète.
+  function renderAnaPages() {
+    const el = $("anaPages");
+    if (!el || !ANA) return;
+    const all = ANA.topPages || [];
+    const total = (ANA.totals && ANA.totals.pagesTotal) || all.reduce((s, i) => s + i.count, 0) || 1;
+    const shown = PAGES_EXPANDED ? all : all.slice(0, 5);
+    const pct = (i) => fmtPct(Math.round(i.count / total * 1000) / 10);
+    el.innerHTML = hbars(shown, (i) => i.page, pct);
+    const toggle = $("anaPagesToggle");
+    if (toggle) {
+      toggle.hidden = all.length <= 5;
+      toggle.textContent = PAGES_EXPANDED ? "← Voir moins" : "Voir toutes les pages (" + all.length + ") →";
+    }
+  }
+  const pagesToggleEl = $("anaPagesToggle");
+  if (pagesToggleEl) pagesToggleEl.onclick = () => { PAGES_EXPANDED = !PAGES_EXPANDED; renderAnaPages(); };
+
+  // Boutiques (profile_clients) — plus de nom de collection dans l'UI, métriques
+  // en français, ligne cliquable → détail (produits, vues) dans une modale.
+  function renderAnaBoutiques() {
+    const el = $("anaBoutiques");
+    if (!el || !ANA) return;
+    const rows = ANA.boutiques || [];
+    el.innerHTML = rows.map((b, idx) => `
+      <div class="bq-row" data-bq="${idx}">
+        ${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="frame" style="width:48px;height:48px;flex:0 0 48px"><div class="noimg" style="font-size:.55rem">—</div></div>`}
         <div class="bq-meta">
           <div class="bq-name">${esc(b.name)}</div>
-          <div class="bq-sub">${esc(b.number || "—")} · ${b.follow} follow</div>
+          <div class="bq-sub">${esc(b.number || "—")}</div>
+          <div class="bq-stats">
+            <span><b>${fmt(b.follow)}</b> abonnés</span>
+            <span><b>${fmt(b.likes)}</b> j'aime</span>
+            <span><b>${fmt(b.views)}</b> visites</span>
+            <span><b>${fmt(b.products)}</b> produits</span>
+          </div>
         </div>
-        <div class="bq-likes">❤ ${b.likes}</div>
+        <span class="bq-chevron">${ic("open")}</span>
       </div>`).join("") || "<div class='empty'>Aucune boutique.</div>";
+
+    el.querySelectorAll("[data-bq]").forEach((row) => row.onclick = () => openBoutiqueDetail(rows[Number(row.getAttribute("data-bq"))]));
+  }
+
+  window.openBoutiqueDetail = function (b) {
+    if (!b) return;
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>${esc(b.name)}</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <div class="bigimg">
+        <div class="frame" id="previewImg">${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="noimg">Aucun logo</div>`}</div>
+      </div>
+      <div class="kpis" style="margin-bottom:18px">
+        ${kpi(fmt(b.follow), "Abonnés")}${kpi(fmt(b.likes), "J'aime")}${kpi(fmt(b.views), "Visites produits")}${kpi(fmt(b.products), "Produits")}
+      </div>
+      <p class="muted" style="margin-bottom:10px">${esc(b.number || "Aucun numéro renseigné")}</p>
+      <h3 style="margin-bottom:10px">Produits</h3>
+      <div class="list">
+        ${(b.productList || []).map((p) => `
+          <div class="row">
+            <div><b>${esc(p.name)}</b> <span class="muted">· ${fmt(p.price)} FCFA</span></div>
+            <div class="muted">${fmt(p.views)} visite(s)</div>
+          </div>`).join("") || "<div class='empty'>Aucun produit rattaché à cette boutique.</div>"}
+      </div>`;
+    $("big").hidden = false;
+    $("btnCancelBig").onclick = () => { $("big").hidden = true; };
   };
+
   if ($("btnReloadAnalytics")) $("btnReloadAnalytics").onclick = loadAnalytics;
 
   // ── Visites ──
   let VIS_GRAN = "daily";
   window.loadVisits = async function () {
     if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>Chargement…</div>";
-    try { if (!ANA) ANA = await api("stats", { action: "analytics" }); renderVisits(); }
+    try { if (!ANA) { ANA = await api("stats", { action: "analytics" }); ANA_AT = Date.now(); } renderVisits(); }
     catch (e) { if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
   };
   window.renderVisits = function () {

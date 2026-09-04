@@ -691,6 +691,27 @@ tr:hover { background: rgba(255, 255, 255, 0.03); }
   transition: all 0.2s;
 }
 .kebab-btn:hover, .kebab.open .kebab-btn { background: var(--raised); border-color: var(--line-2); color: var(--ink); }
+
+/* Bouton icône seule, générique (ex. « Actualiser » discret à côté d'un
+   horodatage, au lieu d'un gros bouton texte aussi visible que le titre). */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--gold-2);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.icon-btn:hover { background: var(--raised); border-color: var(--line-2); }
+.icon-btn .ic { width: 16px; height: 16px; transition: transform 0.3s; }
+.icon-btn:hover .ic { transform: rotate(70deg); } /* discret indice « ça tourne » sur une icône refresh */
+.ana-refresh { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
 .kebab-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -999,7 +1020,7 @@ input:checked + span:before { transform: translateX(22px); background-color: var
 .hbars { display: flex; flex-direction: column; gap: 10px; }
 .hbar {
   display: grid;
-  grid-template-columns: 140px 1fr 48px;
+  grid-template-columns: 120px 1fr 92px;
   align-items: center;
   gap: 12px;
 }
@@ -1017,14 +1038,20 @@ input:checked + span:before { transform: translateX(22px); background-color: var
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
-.bq-row img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; border: 1px solid var(--line); }
+.bq-row:hover { background: var(--raised); }
+.bq-row img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; border: 1px solid var(--line); flex: none; }
 .bq-row .bq-meta { flex: 1; min-width: 0; }
 .bq-row .bq-name { color: var(--ink); font-weight: 600; font-size: 0.95rem; }
 .bq-row .bq-sub { color: var(--muted); font-size: 0.8rem; }
-.bq-row .bq-likes { color: var(--gold-2); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.bq-row .bq-stats { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+.bq-row .bq-stats b { color: var(--gold-2); font-weight: 700; }
+.bq-row .bq-chevron { flex: none; color: var(--muted); }
+.bq-row .bq-chevron .ic { width: 16px; height: 16px; }
 
 /* ── Thème clair ── */
 body.light {
@@ -1212,7 +1239,8 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .kpis { grid-template-columns: 1fr 1fr; }
   .seg { width: 100%; }
   .seg button { flex: 1; padding: 8px 6px; }
-  .hbar { grid-template-columns: 96px 1fr 40px; gap: 8px; }
+  .hbar { grid-template-columns: 82px 1fr 74px; gap: 8px; }
+  .hbar .hbar-n { font-size: 0.72rem; }
   th, td { padding: 12px 14px; }
 }
 /* ── Onglet Parrainage ─────────────────────────────────────── */
@@ -1289,6 +1317,11 @@ textarea:focus-visible,
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
+/* Grille stricte à 2 colonnes (ex. Analytique) — au lieu du remplissage
+   auto-fit du dashboard, qui étalerait 5 cartes sur toute la largeur d'un
+   grand écran. Le dernier stat peut s'étendre sur les 2 colonnes (.span2). */
+.stats.stats-2col { grid-template-columns: 1fr 1fr; }
+.stat.span2 { grid-column: 1 / -1; }
 .stat {
   position: relative;
   background: var(--raised);

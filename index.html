@@ -283,16 +283,40 @@
       </section>
 
       <section id="tab-analytics" class="panel" hidden>
+        <div class="bar">
+          <h3 class="star">Analytique</h3>
+          <span class="ana-refresh">
+            <span id="anaUpdated" class="muted"></span>
+            <button id="btnReloadAnalytics" class="icon-btn" data-icon="refresh" title="Actualiser" aria-label="Actualiser"></button>
+          </span>
+        </div>
+        <p class="muted" style="margin:-12px 0 16px">Vue d'ensemble de votre activité.</p>
+
+        <div class="seg" id="anaPeriodSeg">
+          <button data-period="d7">7 j</button>
+          <button data-period="d30" class="active">30 j</button>
+          <button data-period="d90">90 j</button>
+          <button data-period="all">Tout</button>
+        </div>
+
         <div class="block">
-          <div class="bar"><h3 class="star">Vue analytique</h3>
-            <button id="btnReloadAnalytics" class="btn text" data-icon="refresh">Actualiser</button></div>
-          <div id="anaKpis" class="kpis"></div>
+          <div id="anaKpis" class="stats stats-2col"></div>
+        </div>
 
-          <h3 style="margin:6px 0 10px">Pages les plus consultées</h3>
+        <div class="block">
+          <div class="bar"><h3 style="margin:0">Évolution du trafic</h3></div>
+          <div id="anaChart"></div>
+        </div>
+
+        <div class="block">
+          <div class="bar"><h3 style="margin:0">Pages populaires</h3></div>
           <div id="anaPages" class="hbars"><div class="empty">Chargement…</div></div>
+          <button id="anaPagesToggle" class="btn text" style="margin-top:10px" hidden></button>
+        </div>
 
-          <div class="bar" style="margin:22px 0 10px">
-            <h3 style="margin:0">Boutiques &amp; aimes <span class="muted">(profile_clients)</span></h3>
+        <div class="block">
+          <div class="bar">
+            <h3 style="margin:0">Boutiques</h3>
             <button id="btnAddBoutique" class="btn primary" data-icon="add">Ajouter une boutique</button>
           </div>
           <div id="anaBoutiques" class="list"></div>
