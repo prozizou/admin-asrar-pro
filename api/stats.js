@@ -119,14 +119,23 @@ module.exports = async (req, res) => {
     // ── ANALYTIQUE & VISITES ─────────────────────────────────────────────
     // Sources : analytics/visits/{date}/{uid}={email,last,n}  (agrégé/jour)
     //           activity_feed/{push}={at,email,page,type,uid} (journal d'events)
-    //           profile_clients/{id}={profile_name,img,number,follow, <id>:true/false}
+    //           profile_clients/{id}={profile_name,img,number,follow,email,uid, <id>:true/false}
+    //           det_produits/{key}={produit,Prix,Image,uid,email,...} (pour rattacher des
+    //           produits à une boutique profile_clients — mêmes règles de propriété que
+    //           estProprietaire() côté asrar-main, pages/api/shop.js : uid, sinon email)
+    //           views/product/{key}/{uid} (vues, agrégées par produit)
     if (action === "analytics") {
-      const [visitsSnap, feedSnap, profSnap] = await Promise.all([
+      const [visitsSnap, feedSnap, profSnap, prodSnap, viewsSnap] = await Promise.all([
         db.ref("analytics/visits").once("value"),
         db.ref("activity_feed").limitToLast(5000).once("value"),
-        db.ref("profile_clients").once("value")
+        db.ref("profile_clients").once("value"),
+        db.ref("det_produits").once("value"),
+        db.ref("views/product").once("value")
       ]);
 
+      const now = Date.now();
+      const DAY = 864e5;
+      const dstr = (ms) => new Date(ms).toISOString().slice(0, 10);
       const visits = visitsSnap.val() || {};
 
       // Regroupe les visites par intervalle avec comptage d'uniques EXACT (union d'uids).
@@ -156,7 +165,7 @@ module.exports = async (req, res) => {
       const weekly = bucketize(isoWeek);
       const monthly = bucketize((d) => d.slice(0, 7));
 
-      // Uniques + visites cumulées sur toute la période.
+      // Uniques + visites cumulées sur toute la période (source de vérité pour « Tout »).
       const allUids = new Set();
       let totalVisits = 0;
       for (const users of Object.values(visits)) {
@@ -166,24 +175,122 @@ module.exports = async (req, res) => {
         }
       }
 
-      // Journal d'activité : top pages, flux récent.
+      // Fenêtres 7/30/90 j + comparaison à la période précédente de même durée
+      // (ex. J-14→J-7 pour la fenêtre 7 j) — union d'uids EXACTE par fenêtre,
+      // pas une somme des « uniques du jour » qui compterait deux fois un même
+      // visiteur revenu plusieurs jours dans la période.
+      const WINDOWS = [7, 30, 90];
+      const curSet = { 7: new Set(), 30: new Set(), 90: new Set() };
+      const prevSet = { 7: new Set(), 30: new Set(), 90: new Set() };
+      const curTotal = { 7: 0, 30: 0, 90: 0 }, prevTotal = { 7: 0, 30: 0, 90: 0 };
+      for (const w of WINDOWS) {
+        const curFrom = dstr(now - w * DAY), prevFrom = dstr(now - 2 * w * DAY);
+        for (const [date, users] of Object.entries(visits)) {
+          if (date < prevFrom) continue; // hors des deux fenêtres, inutile d'itérer les uids
+          const isCur = date >= curFrom;
+          const bucket = isCur ? curSet[w] : prevSet[w];
+          for (const [uid, u] of Object.entries(users || {})) {
+            bucket.add(uid);
+            const n = (u && typeof u.n === "number") ? u.n : 0;
+            if (isCur) curTotal[w] += n; else prevTotal[w] += n;
+          }
+        }
+      }
+      const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
+      const periods = { all: { unique: allUids.size, total: totalVisits, deltaUnique: null, deltaTotal: null } };
+      for (const w of WINDOWS) {
+        periods["d" + w] = {
+          unique: curSet[w].size, total: curTotal[w],
+          deltaUnique: pct(curSet[w].size, prevSet[w].size),
+          deltaTotal: pct(curTotal[w], prevTotal[w])
+        };
+      }
+
+      // ── Normalisation des libellés de page — l'app a changé de socle
+      // (site statique .html → Next.js App Router, cf. next.config.mjs LEGACY)
+      // et activity_feed porte encore les deux conventions. Fusionne les
+      // variantes AVANT comptage (pas seulement à l'affichage) pour que
+      // « accueil.html » et « accueil » forment une seule ligne.
+      const PAGE_LABELS = {
+        "/": "Accueil", "index.html": "Accueil", "accueil": "Accueil", "accueil.html": "Accueil",
+        "auth/auth.html": "Accueil", "accueil/accueil.html": "Accueil",
+        "asrar": "Asrar", "asrar.html": "Asrar", "asrar/asrar.html": "Asrar",
+        "marche": "Marché", "marche.html": "Marché", "marche/marche.html": "Marché",
+        "boutique": "Boutique", "boutique.html": "Boutique", "boutique/boutique.html": "Boutique",
+        "bibliotheque": "Bibliothèque", "bibliotheque.html": "Bibliothèque", "bibliotheque/bibliotheque.html": "Bibliothèque",
+        "don": "Don", "don.html": "Don", "don/don.html": "Don",
+        "abajad": "Abajad", "abajad.html": "Abajad", "abajad/abajad.html": "Abajad",
+        "parrainage": "Parrainage", "parrainage.html": "Parrainage", "parrainage/parrainage.html": "Parrainage",
+        "combinaisons": "Combinaisons", "combinaisons.html": "Combinaisons", "combinaisons/combinaisons.html": "Combinaisons",
+        "planete": "Planète", "planete.html": "Planète", "planete/planete.html": "Planète",
+        "rouwhania": "Rouwhanes", "rouwhania/index.html": "Rouwhanes",
+        "geomancie": "Géomancie", "geomancie/tourab.html": "Géomancie", "tourab.html": "Géomancie",
+        "alqalam": "Al-Qalam", "alqalam/index.html": "Al-Qalam",
+        "benefits": "Les 99 Noms", "benefits/index.html": "Les 99 Noms",
+        "menu": "Menu", "zikr": "Zikr", "geomancie/index.html": "Géomancie"
+      };
+      function normalizePage(raw) {
+        const p = String(raw == null ? "" : raw).trim();
+        if (!p || p === "?" || p === "undefined" || p === "null") return "Page inconnue";
+        const hit = PAGE_LABELS[p.toLowerCase()];
+        if (hit) return hit;
+        // Repli : nettoyage générique plutôt qu'une route technique brute.
+        let clean = p.replace(/\.html?$/i, "").replace(/^\/+/, "").split("/")[0].replace(/[-_]+/g, " ").trim();
+        if (!clean) return "Page inconnue";
+        return clean.charAt(0).toUpperCase() + clean.slice(1);
+      }
+
+      // Journal d'activité : top pages (normalisées), flux récent.
       const feed = feedSnap.val() || {};
       const pageCount = {};
       let recent = [];
+      let interactions7 = 0, interactions30 = 0, interactions90 = 0;
       for (const e of Object.values(feed)) {
         if (!e || typeof e !== "object") continue;
-        const p = e.page || "?", t = e.type || "?";
-        pageCount[p] = (pageCount[p] || 0) + 1;
-        recent.push({ at: e.at || 0, email: e.email || "", page: p, type: t });
+        const label = normalizePage(e.page);
+        pageCount[label] = (pageCount[label] || 0) + 1;
+        const t = e.type || "?";
+        recent.push({ at: e.at || 0, email: e.email || "", page: label, type: t });
+        const at = e.at || 0;
+        if (at >= now - 7 * DAY) interactions7++;
+        if (at >= now - 30 * DAY) interactions30++;
+        if (at >= now - 90 * DAY) interactions90++;
       }
       recent.sort((a, b) => b.at - a.at);
       recent = recent.slice(0, 60);
+      const pagesTotal = Object.values(pageCount).reduce((s, n) => s + n, 0);
       const topPages = Object.entries(pageCount).map(([page, count]) => ({ page, count }))
-        .sort((a, b) => b.count - a.count).slice(0, 15);
+        .sort((a, b) => b.count - a.count).slice(0, 50);
+      // Interactions : approximation sur les 5000 dernières entrées du journal
+      // (comme l'ancien total) — exacte pour « Tout » seulement si le journal
+      // compte moins de 5000 événements au total.
+      periods.d7.interactions = interactions7;
+      periods.d30.interactions = interactions30;
+      periods.d90.interactions = interactions90;
+      periods.all.interactions = Object.keys(feed).length;
+
+      // Produits par propriétaire (uid prioritaire, e-mail en repli — même
+      // logique que estProprietaire() côté asrar-main) : pour rattacher un
+      // nombre de produits + un total de vues à chaque boutique profile_clients.
+      const prodVal = prodSnap.val() || {};
+      const viewsVal = viewsSnap.val() || {};
+      const productsByOwner = {};
+      for (const [pk, p] of Object.entries(prodVal)) {
+        if (!p || typeof p !== "object") continue;
+        const ownerKey = p.uid ? "u:" + p.uid : (p.email ? "e:" + String(p.email).toLowerCase() : null);
+        if (!ownerKey) continue;
+        (productsByOwner[ownerKey] = productsByOwner[ownerKey] || []).push({
+          key: pk, name: p.produit || "Produit", price: p.Prix || 0, image: p.Image || "",
+          views: Object.keys(viewsVal[pk] || {}).length
+        });
+      }
+      const ownerProducts = (uid, email) =>
+        (uid && productsByOwner["u:" + uid]) ||
+        (email && productsByOwner["e:" + String(email).toLowerCase()]) || [];
 
       // Boutiques (profile_clients) + total des « aimes » (true).
       const prof = profSnap.val() || {};
-      const RESERVED = new Set(["ID", "key", "img", "imageId", "number", "follow", "profile_name", "email", "createdAt"]);
+      const RESERVED = new Set(["ID", "key", "img", "imageId", "number", "follow", "profile_name", "email", "createdAt", "uid"]);
       const boutiques = Object.entries(prof).map(([id, pc]) => {
         let likes = 0;
         if (pc && typeof pc === "object") {
@@ -192,25 +299,31 @@ module.exports = async (req, res) => {
             if (fv === true || fv === "true") likes++;
           }
         }
+        const products = ownerProducts(pc && pc.uid, pc && pc.email);
         return {
           id,
           name: (pc && pc.profile_name) || id,
           img: (pc && pc.img) || "",
           number: (pc && pc.number) || "",
           follow: pc && pc.follow != null ? (Number(pc.follow) || 0) : 0,
-          likes
+          likes,
+          products: products.length,
+          views: products.reduce((s, p) => s + p.views, 0),
+          productList: products.slice(0, 20)
         };
-      }).sort((a, b) => b.likes - a.likes || b.follow - a.follow);
+      }).sort((a, b) => b.views - a.views || b.likes - a.likes || b.follow - a.follow);
 
       return res.json({
-        daily, weekly, monthly, topPages, recent, boutiques,
+        daily: daily.slice(-90), weekly, monthly, topPages, recent, boutiques,
+        periods,
         totals: {
           uniqueAllTime: allUids.size,
           totalVisits,
           days: daily.length,
           events: Object.keys(feed).length,
           boutiques: boutiques.length,
-          likesTotal: boutiques.reduce((s, b) => s + b.likes, 0)
+          likesTotal: boutiques.reduce((s, b) => s + b.likes, 0),
+          pagesTotal
         }
       });
     }
