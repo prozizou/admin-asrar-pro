@@ -231,6 +231,71 @@
     return Array.from({ length: n }, () => `<div class="row sk">${line("40%")}${line("70%")}</div>`).join("");
   };
 
+  // ── Graphique de barres réutilisable (Dashboard, Analytique, Parrainage) ──
+  // Colonnes à largeur flexible (jamais de scrollbar horizontale), valeur
+  // toujours visible au-dessus de chaque barre, axe Y discret min/0, dates
+  // françaises, étiquettes allégées au-delà de 8 colonnes. Voir .rc-* (admin.css).
+  const MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  window.frDate = function (bucket) {
+    const parts = String(bucket || "").split("-");
+    const d = Number(parts[2]), m = Number(parts[1]);
+    if (!d || !m) return bucket;
+    return d + " " + (MONTHS_FR[m - 1] || "");
+  };
+  // Regroupe une série quotidienne triée en paquets de 7 jours (le plus ancien
+  // paquet peut être incomplet) — évite des dizaines de barres minuscules sur
+  // 30/90 j. sumKeys : champs numériques à additionner par paquet.
+  window.chunkWeekly = function (rows, sumKeys) {
+    const out = [];
+    const rem = rows.length % 7;
+    let i = 0;
+    if (rem) { out.push(rows.slice(0, rem)); i = rem; }
+    for (; i < rows.length; i += 7) out.push(rows.slice(i, i + 7));
+    return out.map((chunk) => {
+      const merged = { bucket: chunk[0].bucket };
+      (sumKeys || []).forEach((k) => { merged[k] = chunk.reduce((s, r) => s + (Number(r[k]) || 0), 0); });
+      return merged;
+    });
+  };
+  // rows : [{bucket, ...champs numériques}]. opts.series : 1 entrée (série
+  // unique) ou 2 (ex. total + uniques, avec cls:"uniq" sur la seconde pour la
+  // couleur bleue). opts.valueKey (défaut series[0].key) pilote la hauteur/
+  // l'étiquette imprimée ; opts.tooltip(row) personnalise l'infobulle ;
+  // opts.xLabel(row) personnalise l'étiquette d'axe (défaut : frDate(bucket) —
+  // utile pour un bucket mensuel « YYYY-MM » que frDate ne sait pas lire).
+  window.barChartHtml = function (rows, opts) {
+    opts = opts || {};
+    const series = opts.series || [];
+    if (!rows.length || !series.length) return `<div class="empty">${esc(opts.emptyText || "Aucune donnée sur cette période.")}</div>`;
+    const valueKey = opts.valueKey || series[0].key;
+    const xLabel = opts.xLabel || ((r) => frDate(r.bucket));
+    const nf = new Intl.NumberFormat("fr-FR");
+    const fmt = (n) => nf.format(Math.round(Number(n) || 0));
+    const max = Math.max(1, ...rows.map((r) => Math.max(...series.map((s) => Number(r[s.key]) || 0))));
+    const labelEvery = rows.length > 8 ? Math.ceil(rows.length / 6) : 1;
+    const legend = series.length > 1
+      ? `<div class="legend">${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join("")}</div>`
+      : "";
+    const bars = `<div class="rc-chart">
+      <span class="rc-axis-max">${fmt(max)}</span><span class="rc-axis-zero">0</span>
+      <div class="rc-bars">
+        ${rows.map((r, idx) => {
+          const showLabel = idx % labelEvery === 0 || idx === rows.length - 1;
+          const tip = opts.tooltip ? opts.tooltip(r) : (xLabel(r) + " · " + fmt(r[valueKey]));
+          return `<div class="rc-col" title="${esc(tip)}">
+            <span class="rc-val">${fmt(r[valueKey])}</span>
+            <div class="rc-bar-track">${series.map((s) => {
+              const h = Math.max(2, Math.round((Number(r[s.key]) || 0) / max * 100));
+              return `<div class="rc-bar${s.cls ? " " + s.cls : ""}" style="height:${h}%"></div>`;
+            }).join("")}</div>
+            <span class="rc-x">${showLabel ? esc(xLabel(r)) : ""}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+    return legend + bars;
+  };
+
   // Appel API centralisé.
   // Le jeton part dans l'en-tête « Authorization: Bearer » (standard, ne traîne
   // pas dans les logs de corps de requête). On le laisse aussi dans le corps par

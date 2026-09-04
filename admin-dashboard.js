@@ -62,31 +62,20 @@
 
       // Sparkline : 7 derniers jours (sur les 14 renvoyés par le serveur) —
       // plus lisible qu'une bande de 14 barres serrées, dates plus espacées.
+      // Rendu via window.barChartHtml (admin-core.js), partagé avec Analytique
+      // et Parrainage — colonnes responsives (jamais de scrollbar), valeurs
+      // visibles au-dessus de chaque barre, dates françaises.
       if (spark) {
         const rows = (d.spark || []).slice(-7);
-        const max = Math.max(1, ...rows.map((r) => r.total));
-        spark.innerHTML = `
-          <div class="bar" style="border:none;padding:0;margin-bottom:10px">
-            <h3 style="margin:0">Fréquentation · 7 derniers jours</h3>
-            <span class="legend" style="margin:0">
-              <span><i style="background:linear-gradient(180deg,var(--gold-2),var(--gold))"></i>Visites</span>
-              <span><i style="background:linear-gradient(180deg,#6fc3e0,#2d7ea8)"></i>Uniques</span>
-            </span>
-          </div>
-          <div class="spark-bars">
-            ${rows.map((r) => {
-              const hT = Math.max(3, Math.round(r.total / max * 100));
-              const hU = Math.max(2, Math.round(r.uniq / max * 100));
-              return `<div class="spark-col" title="${esc(r.d)} · ${r.total} visites · ${r.uniq} uniques">
-                <span class="spark-tip">${fmt(r.total)} vis. · ${fmt(r.uniq)} uniq.</span>
-                <div class="spark-stack">
-                  <div class="spark-fill" style="height:${hT}%"></div>
-                  <div class="spark-fill uniq" style="height:${hU}%"></div>
-                </div>
-                <span class="spark-x">${esc(r.d)}</span>
-              </div>`;
-            }).join("")}
-          </div>`;
+        spark.innerHTML = `<div class="bar" style="border:none;padding:0;margin-bottom:10px"><h3 style="margin:0">Fréquentation · 7 derniers jours</h3></div>` +
+          barChartHtml(rows, {
+            series: [
+              { key: "total", color: "linear-gradient(180deg,var(--gold-2),var(--gold))", label: "Visites" },
+              { key: "unique", cls: "uniq", color: "linear-gradient(180deg,#6fc3e0,#2d7ea8)", label: "Visiteurs uniques" }
+            ],
+            valueKey: "total",
+            tooltip: (r) => frDate(r.bucket) + " · " + fmt(r.total) + " visites · " + fmt(r.unique) + " uniques"
+          });
       }
 
       // Activité récente — lignes denses (avatar + email + page + type + heure).
@@ -115,18 +104,6 @@
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-goto]");
     if (b && typeof showTab === "function") showTab(b.getAttribute("data-goto"));
-  });
-
-  // Sparkline : tap pour afficher l'infobulle — le [title] natif ne se
-  // déclenche pas au tap sur mobile. Un seul barreau actif à la fois.
-  // Délégué sur document (persiste même quand loadDashboard() reconstruit
-  // le HTML des barres à chaque rechargement).
-  document.addEventListener("click", (e) => {
-    const col = e.target.closest(".spark-col");
-    if (!col) return;
-    const wasActive = col.classList.contains("tip-active");
-    document.querySelectorAll(".spark-col.tip-active").forEach((c) => c.classList.remove("tip-active"));
-    if (!wasActive) col.classList.add("tip-active");
   });
 
   // Bouton d'actualisation.

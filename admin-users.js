@@ -139,9 +139,29 @@
   const accSearchEl = $("accSearch");
   if (accSearchEl) accSearchEl.oninput = () => renderAccess();
 
+  // Horodatage relatif court (« il y a 2 h ») — même convention que les
+  // autres onglets (admin-stats.js, admin-referral.js).
+  const relTime = (ms) => {
+    if (!ms) return "";
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 10) return "à l'instant";
+    if (s < 60) return "il y a " + s + " s";
+    const m = Math.round(s / 60);
+    if (m < 60) return "il y a " + m + " min";
+    const h = Math.round(m / 60);
+    if (h < 24) return "il y a " + h + " h";
+    return "il y a " + Math.round(h / 24) + " j";
+  };
+
   window.accessCardHtml = function (r) {
     const sub = levelLabel(r.level) + " · " +
       (r.active ? "Expire le " + fmtDate(r.expiresAt) : "Expiré le " + fmtDate(r.expiresAt));
+    // Dernière navigation connue (journal d'activité, cf. api/users.js
+    // list_access) — absente si l'utilisateur n'a jamais navigué sur le site
+    // depuis l'octroi de son accès (ex. accès accordé avant sa 1ère visite).
+    const nav = r.lastActiveAt
+      ? `<div class="access-sub">${ic("visits")} ${esc(r.lastPage || "Page inconnue")} <span class="muted">· ${esc(relTime(r.lastActiveAt))}</span></div>`
+      : "";
     return `
       <div class="access-card">
         <div class="access-card-main">
@@ -151,12 +171,14 @@
             ${r.source === "referral" ? '<span class="badge gold">🎁 parrainage</span>' : ""}
           </div>
           <div class="access-sub">${esc(sub)}</div>
+          ${nav}
         </div>
         <div class="access-card-acts">
           <button class="btn text" data-acc-edit="${esc(r.email)}">Prolonger</button>
           <div class="kebab">
             <button class="kebab-btn" title="Plus d'actions">${ic("more") || "⋮"}</button>
             <div class="kebab-menu" hidden>
+              <button data-acc-nav="${esc(r.email)}">Voir la navigation</button>
               <button class="danger-text" data-acc-revoke="${esc(r.email)}">Révoquer</button>
             </div>
           </div>
@@ -183,6 +205,28 @@
       catch (e) { showToast(e.message, "err"); }
     });
     root.querySelectorAll("[data-acc-edit]").forEach((b) => b.onclick = () => openGrantAccessModal(b.getAttribute("data-acc-edit")));
+    root.querySelectorAll("[data-acc-nav]").forEach((b) => b.onclick = () => openUserNavModal(b.getAttribute("data-acc-nav")));
+  };
+
+  // ── Navigation d'un utilisateur (journal d'activité filtré sur son e-mail) ──
+  window.openUserNavModal = async function (email) {
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>${esc(email)}</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <h3 style="margin-bottom:10px">Navigation récente</h3>
+      <div class="list" id="userNavList"><div class="empty">Chargement…</div></div>`;
+    $("big").hidden = false;
+    $("btnCancelBig").onclick = () => { $("big").hidden = true; };
+    try {
+      const d = await api("users", { action: "activity_by_email", email });
+      $("userNavList").innerHTML = (d.rows || []).length ? d.rows.map((r) => `
+        <div class="row">
+          <div><b>${esc(r.page)}</b> <span class="muted">· ${esc(r.type)}</span></div>
+          <div class="muted">${when(r.at)}</div>
+        </div>`).join("") : "<div class='empty'>Aucune navigation enregistrée pour cet e-mail.</div>";
+    } catch (e) {
+      $("userNavList").innerHTML = `<div class='empty' style='color:var(--danger)'>${esc(e.message)}</div>`;
+    }
   };
 
   // ── Historique — abonnements expirés/révoqués + crédits de minutes épuisés,

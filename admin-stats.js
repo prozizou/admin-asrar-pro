@@ -16,12 +16,6 @@
       <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(i.count / m * 100)}%"></div></div>
       <div class="hbar-n">${fmt(i.count)}${subFn ? " · " + esc(subFn(i)) : ""}</div></div>`).join("");
   };
-  const shortBucket = (b) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(b)) return b.slice(5);
-    if (/^\d{4}-S\d{2}$/.test(b)) return b.slice(5);
-    if (/^\d{4}-\d{2}$/.test(b)) return b.slice(5) + "/" + b.slice(2, 4);
-    return b;
-  };
   // Horodatage relatif court (« il y a 2 min ») — pour remplacer un gros
   // bouton « Actualiser » par une mention discrète + une icône.
   const relTime = (ms) => {
@@ -86,33 +80,37 @@
     renderAnalytics();
   });
 
-  // Graphique « Évolution du trafic » — barres compactes (même gabarit que la
-  // sparkline du dashboard). 7/30/90 j → daily (dernier N) ; Tout → monthly
-  // (l'historique quotidien complet n'est pas renvoyé par le serveur, borné
-  // à 90 j — inutile pour une vue Tout, où le mois est la bonne résolution).
+  // Graphique « Évolution du trafic » — 7 j → quotidien (déjà lisible) ;
+  // 30/90 j → regroupé par semaine (window.chunkWeekly) au lieu d'aligner
+  // 30-90 barres minuscules dans un conteneur qui débordait horizontalement
+  // (scrollbar disgracieuse, barres quasi invisibles sur mobile) ; Tout →
+  // résolution mensuelle (l'historique quotidien complet n'est pas renvoyé
+  // par le serveur, borné à 90 j — inutile ici). Rendu via window.barChartHtml,
+  // partagé avec Parrainage et le Dashboard (composant .rc-*, admin.css).
   function renderAnaChart() {
     const el = $("anaChart");
     if (!el || !ANA) return;
     const nDays = { d7: 7, d30: 30, d90: 90 }[ANA_PERIOD];
-    const rows = nDays
-      ? (ANA.daily || []).slice(-nDays).map((r) => ({ x: shortBucket(r.bucket), total: r.total, unique: r.unique, full: r.bucket }))
-      : (ANA.monthly || []).map((r) => ({ x: shortBucket(r.bucket), total: r.total, unique: r.unique, full: r.bucket }));
-    if (!rows.length) { el.innerHTML = "<div class='empty'>Aucune donnée sur cette période.</div>"; return; }
-    const max = Math.max(1, ...rows.map((r) => r.total));
-    el.innerHTML = `<div class="spark-bars">
-      ${rows.map((r) => {
-        const hT = Math.max(3, Math.round(r.total / max * 100));
-        const hU = Math.max(2, Math.round(r.unique / max * 100));
-        return `<div class="spark-col" title="${esc(r.full)} · ${fmt(r.total)} visites · ${fmt(r.unique)} uniques">
-          <span class="spark-tip">${fmt(r.total)} vis. · ${fmt(r.unique)} uniq.</span>
-          <div class="spark-stack">
-            <div class="spark-fill" style="height:${hT}%"></div>
-            <div class="spark-fill uniq" style="height:${hU}%"></div>
-          </div>
-          <span class="spark-x">${esc(r.x)}</span>
-        </div>`;
-      }).join("")}
-    </div>`;
+    let rows, xLabel;
+    if (nDays) {
+      const daily = (ANA.daily || []).slice(-nDays).map((r) => ({ bucket: r.bucket, total: r.total, unique: r.unique }));
+      rows = nDays <= 7 ? daily : chunkWeekly(daily, ["total", "unique"]);
+    } else {
+      rows = (ANA.monthly || []).map((r) => ({ bucket: r.bucket, total: r.total, unique: r.unique }));
+      // Bucket mensuel « YYYY-MM » (pas de jour) : frDate ne sait lire que
+      // YYYY-MM-DD, d'où cet étiquetage dédié (« Juil. 2024 »).
+      const MONTHS_FR_LONG = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+      xLabel = (r) => { const m = Number(String(r.bucket).slice(5, 7)); return (MONTHS_FR_LONG[m - 1] || r.bucket) + " " + r.bucket.slice(0, 4); };
+    }
+    el.innerHTML = barChartHtml(rows, {
+      series: [
+        { key: "total", color: "linear-gradient(180deg,var(--gold-2),var(--gold))", label: "Visites" },
+        { key: "unique", cls: "uniq", color: "linear-gradient(180deg,#6fc3e0,#2d7ea8)", label: "Visiteurs uniques" }
+      ],
+      valueKey: "total",
+      xLabel,
+      tooltip: (r) => (xLabel ? xLabel(r) : frDate(r.bucket)) + " · " + fmt(r.total) + " visites · " + fmt(r.unique) + " uniques"
+    });
   }
 
   // Pages populaires — normalisées côté serveur (accueil.html/accueil fusionnés,
