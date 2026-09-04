@@ -18,7 +18,20 @@
   <div id="toast-container"></div>
 
   <div id="login" class="login-wrap">
-    <div class="login-box">
+    <!-- État par défaut au chargement : on ne SAIT PAS encore s'il y a une
+         session Google à restaurer (lecture asynchrone). Le bouton « Se
+         connecter » n'apparaît que si onAuthStateChanged confirme qu'il n'y
+         a personne — jamais pendant la restauration d'une session déjà
+         valide, pour ne plus donner l'impression d'une reconnexion à
+         chaque rafraîchissement. -->
+    <div class="login-box" id="authLoaderBox">
+      <img src="/assets/logo-mark.png" alt="ASRAR PRO" class="login-logo">
+      <p class="login-eyebrow">ASRAR PRO</p>
+      <div class="auth-spinner" aria-hidden="true"></div>
+      <p class="login-sub" id="authLoaderText">Restauration de la session…</p>
+    </div>
+
+    <div class="login-box" id="loginBox" hidden>
       <img src="/assets/logo-mark.png" alt="ASRAR PRO" class="login-logo">
       <p class="login-eyebrow">ASRAR PRO</p>
       <h1>Panneau d'administration</h1>

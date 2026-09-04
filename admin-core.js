@@ -17,6 +17,19 @@
   // Initialisation de Firebase localisé
   firebase.initializeApp(cfg);
   const auth = firebase.auth();
+
+  // Bascule du loader neutre (état par défaut, pendant la restauration
+  // asynchrone d'une éventuelle session) vers le VRAI formulaire de
+  // connexion. N'est appelée que quand on est CERTAIN qu'il n'y a personne
+  // à restaurer (ou que la vérification admin a explicitement échoué) —
+  // jamais pendant le court instant où Firebase relit la session persistée,
+  // ce qui évite l'impression d'une reconnexion à chaque rafraîchissement.
+  function revealLoginForm() {
+    const loader = $("authLoaderBox"), form = $("loginBox");
+    if (loader) loader.hidden = true;
+    if (form) form.hidden = false;
+  }
+
   // Persistance LOCAL (IndexedDB) → survit à un rafraîchissement/fermeture
   // d'onglet. Repli SESSION (sessionStorage) si le navigateur bloque
   // IndexedDB (navigation privée, certains navigateurs in-app) : la session
@@ -27,6 +40,7 @@
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() =>
     auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
   ).catch(() => {
+    revealLoginForm();
     const msg = $("loginMsg");
     if (msg) {
       msg.className = "msg err";
@@ -255,6 +269,7 @@
       return true;
     } catch (e) {
       if (e.status === 401 || e.status === 403) {
+        revealLoginForm();
         $("loginMsg").className = "msg err";
         $("loginMsg").textContent = "Accès administrateur refusé pour ce compte Google.";
         await auth.signOut();
@@ -264,7 +279,11 @@
     }
   }
 
-  // Observateur d'authentification
+  // Observateur d'authentification. Au premier appel (chargement de page),
+  // Firebase relit la session persistée AVANT de savoir s'il y a quelqu'un —
+  // le loader neutre (#authLoaderBox, visible par défaut dans le HTML) reste
+  // affiché pendant ce court instant. Le bouton Google n'apparaît que dans
+  // la branche `else` (personne à restaurer) ou sur un refus explicite.
   auth.onAuthStateChanged(async (user) => {
     if (user) {
       try {
@@ -272,13 +291,11 @@
       } catch (err) {
         USER_TOKEN = null;
       }
-      const msg = $("loginMsg");
-      msg.className = "msg info";
-      msg.textContent = "Vérification des privilèges administrateur…";
+      const loaderText = $("authLoaderText");
+      if (loaderText) loaderText.textContent = "Vérification des privilèges administrateur…";
       // Session déjà ouverte → on laisse passer sans redemander la connexion
       // Google, juste la vérification admin ci-dessus.
       if (!(await verifyAdminOrSignOut())) return; // signOut() redéclenche ce handler avec user=null.
-      msg.textContent = "";
       $("login").hidden = true;
       $("app").hidden = false;
       initDashboard();
@@ -286,6 +303,7 @@
       USER_TOKEN = null;
       $("app").hidden = true;
       $("login").hidden = false;
+      revealLoginForm();
     }
   });
 
