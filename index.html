@@ -59,7 +59,6 @@
         <button data-tab="fonts" data-icon="fonts">Polices</button>
         <button data-tab="referral" data-icon="referral">Parrainage</button>
         <button data-tab="analytics" data-icon="analytics">Analytique</button>
-        <button data-tab="visits" data-icon="visits">Visites</button>
         <button id="themeToggle" class="theme-btn" title="Basculer clair / sombre" aria-label="Basculer le thème">🌙</button>
         <button id="btnLogout" class="btn-out" data-icon="logout">Quitter</button>
       </nav>
@@ -238,47 +237,100 @@
       </section>
 
       <section id="tab-referral" class="panel" hidden>
-        <div class="block">
-          <div class="bar"><h3 class="star">Programme de parrainage</h3>
-            <button id="btnReloadReferral" class="btn text" data-icon="refresh">Actualiser</button></div>
-          <p class="muted" style="margin-bottom:6px">
-            Les utilisateurs partagent le lien <b>/s?r=CODE</b> du hub. Les points sont crédités à
-            l'<b>inscription d'un nouveau compte</b> venu du lien (jamais au simple clic : il serait
-            répétable à l'infini). Au seuil atteint, l'abonnement est activé automatiquement.
-          </p>
-          <div id="refKpis" class="kpis"></div>
+        <div class="bar">
+          <h3 class="star">Parrainage</h3>
+          <span class="ana-refresh">
+            <span id="refUpdated" class="muted"></span>
+            <button id="btnReloadReferral" class="icon-btn" data-icon="refresh" title="Actualiser" aria-label="Actualiser"></button>
+          </span>
+        </div>
+        <p class="muted" style="margin:-12px 0 16px">
+          Les utilisateurs partagent leur lien <b>/s?r=CODE</b> ; les points sont crédités à
+          l'inscription d'un nouveau compte (jamais au simple clic).
+        </p>
+
+        <div class="seg" id="refSeg">
+          <button data-refsub="overview" class="active">Vue d'ensemble</button>
+          <button data-refsub="sponsors">Parrains <span id="refSegCount"></span></button>
+          <button data-refsub="settings">Réglages</button>
         </div>
 
-        <div class="block max-width-sm">
-          <div class="bar"><h3>Réglages du programme</h3></div>
-          <p class="muted" id="refHint" style="margin-bottom:6px"></p>
-          <div class="access-form">
-            <label class="chk-lbl"><input type="checkbox" id="refEnabled"> Programme actif (décoché : plus aucun point n'est crédité)</label>
-            <label class="field-lg"><span>Points par filleul inscrit</span>
-              <input type="number" id="refPpi" min="1" max="1000" step="1"></label>
-            <label class="field-lg"><span>Points requis pour la récompense</span>
-              <input type="number" id="refGoal" min="10" max="1000000" step="10"></label>
-            <label class="field-lg"><span>Durée offerte (jours)</span>
-              <input type="number" id="refDays" min="1" max="3650" step="1"></label>
-            <label class="field-lg"><span>Âge maximal du compte filleul (jours)</span>
-              <input type="number" id="refAge" min="1" max="365" step="1"></label>
-            <button id="btnSaveReferral" class="btn primary" data-icon="check">Enregistrer les réglages</button>
+        <!-- ── Vue d'ensemble ── -->
+        <div id="refsub-overview">
+          <div class="seg" id="refPeriodSeg">
+            <button data-period="d7">7 j</button>
+            <button data-period="d30" class="active">30 j</button>
+            <button data-period="d90">90 j</button>
+            <button data-period="all">Tout</button>
+          </div>
+
+          <div class="block">
+            <div id="refKpis" class="stats stats-2col"></div>
+            <p id="refSecondary" class="muted" style="margin-top:14px"></p>
+          </div>
+
+          <div class="block" id="refFraudBlock">
+            <div class="fraud-summary" id="refFraudSummary">
+              <span class="fraud-title" id="refFraudTitle"></span>
+              <span class="btn text" id="refFraudToggle" hidden>Détails</span>
+            </div>
+            <div id="refFraudList" class="list" style="margin-top:10px" hidden></div>
+          </div>
+
+          <div class="block">
+            <div class="bar"><h3 style="margin:0">Performance</h3></div>
+            <p class="muted" style="margin:-4px 0 10px">Filleuls crédités par jour (90 derniers jours).</p>
+            <div id="refChart"></div>
+          </div>
+        </div>
+
+        <!-- ── Parrains ── -->
+        <div id="refsub-sponsors" hidden>
+          <div class="block">
+            <div class="bar">
+              <h3>Parrains <span id="refCount" class="muted"></span></h3>
+              <input type="text" id="refSearch" placeholder="Rechercher par e-mail ou code…">
+            </div>
+            <div class="chip-group" id="refFilterChips">
+              <button class="chip active" data-filter="all">Tous</button>
+              <button class="chip" data-filter="active">Actifs</button>
+              <button class="chip" data-filter="watch">À surveiller</button>
+              <button class="chip" data-filter="blocked">Suspendus</button>
+            </div>
+            <div id="refList" class="list" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <!-- ── Réglages ── -->
+        <div id="refsub-settings" hidden>
+          <div class="block max-width-sm">
+            <div class="bar"><h3 style="margin:0">Réglages du programme</h3>
+              <button id="btnSaveReferral" class="btn primary" data-icon="check" disabled>Enregistrer</button></div>
+
+            <label class="switch-row">
+              <span class="switch"><input type="checkbox" id="refEnabled"><span></span></span>
+              <span>Programme actif <span class="muted">— désactivé, plus aucun point n'est crédité</span></span>
+            </label>
+
+            <div class="xfield-h" style="margin-top:18px"><span>Récompense</span></div>
+            <p class="muted" id="refHint" style="margin:4px 0 10px"></p>
+            <div class="access-form">
+              <label class="field-lg"><span>Points offerts par filleul inscrit</span>
+                <input type="number" id="refPpi" min="1" max="1000" step="1"></label>
+              <label class="field-lg"><span>Points nécessaires pour la récompense</span>
+                <input type="number" id="refGoal" min="10" max="1000000" step="10"></label>
+              <label class="field-lg"><span>Durée d'abonnement offerte (jours)</span>
+                <input type="number" id="refDays" min="1" max="3650" step="1"></label>
+            </div>
+
+            <div class="xfield-h" style="margin-top:18px"><span>Protection anti-fraude</span></div>
+            <p class="muted" style="margin:4px 0 10px">Un compte filleul créé après ce délai ne crédite plus son parrain.</p>
+            <div class="access-form">
+              <label class="field-lg"><span>Âge maximal du compte filleul (jours)</span>
+                <input type="number" id="refAge" min="1" max="365" step="1"></label>
+            </div>
             <p id="refMsg" class="msg"></p>
           </div>
-        </div>
-
-        <div class="block">
-          <div class="bar"><h3 class="danger-text">⚠ Alertes anti-fraude <span id="refAlertCount" class="muted"></span></h3></div>
-          <div id="refAlerts" class="list"></div>
-        </div>
-
-        <div class="block">
-          <div class="bar">
-            <h3>Parrains <span id="refCount" class="muted"></span></h3>
-            <input type="text" id="refSearch" placeholder="Rechercher par e-mail ou code…">
-          </div>
-          <div id="refList" class="list"></div>
-          <div id="refKids" class="block" hidden style="margin-top:16px"></div>
         </div>
       </section>
 
@@ -320,36 +372,6 @@
             <button id="btnAddBoutique" class="btn primary" data-icon="add">Ajouter une boutique</button>
           </div>
           <div id="anaBoutiques" class="list"></div>
-        </div>
-      </section>
-
-      <section id="tab-visits" class="panel" hidden>
-        <div class="block">
-          <div class="bar"><h3 class="star">Visites</h3>
-            <button id="btnReloadVisits" class="btn text" data-icon="refresh">Actualiser</button></div>
-          <div id="visKpis" class="kpis"></div>
-
-          <div class="seg" id="visSeg">
-            <button data-gran="daily" class="active">Journalier</button>
-            <button data-gran="weekly">Hebdomadaire</button>
-            <button data-gran="monthly">Mensuel</button>
-          </div>
-          <div class="legend">
-            <span><i style="background:linear-gradient(180deg,var(--gold-2),var(--gold))"></i>Visites totales</span>
-            <span><i style="background:var(--info);opacity:.6"></i>Visiteurs uniques</span>
-          </div>
-          <div id="visBars" class="bars"></div>
-
-          <h3 style="margin:22px 0 8px">Détail par période</h3>
-          <div class="tbl-wrap">
-            <table class="a-table">
-              <thead><tr><th>Période</th><th class="num">Visiteurs uniques</th><th class="num">Visites totales</th></tr></thead>
-              <tbody id="visTable"></tbody>
-            </table>
-          </div>
-
-          <h3 style="margin:22px 0 8px">Flux d'activité récent</h3>
-          <div id="visFeed" class="list"></div>
         </div>
       </section>
 

@@ -119,7 +119,39 @@ module.exports = async (req, res) => {
       // Coût implicite : chaque récompense = 3 mois offerts (valeur du plan sub_3m).
       totals.offered = totals.rewards * settings.rewardDays;
 
-      return res.json({ totals, sponsors: sponsors.slice(0, 200), alerts, settings });
+      // ── Périodes (7/30/90 j, Tout) + comparaison à la fenêtre précédente ──
+      // Seules deux métriques ont un vrai horodatage d'événement exploitable :
+      // Parrains (referrals/{uid}.createdAt) et Filleuls (referred/{uid}.at).
+      // Clics/points/récompenses sont des compteurs cumulatifs sans journal
+      // d'événements — impossible de les découper par période honnêtement,
+      // donc pas de delta fabriqué pour eux (Conversion % et Récompenses
+      // restent affichés en cumul total uniquement côté client).
+      const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
+      const sponsorTimes = Object.values(refs).map((v) => v && v.createdAt).filter((t) => typeof t === "number");
+      const kidTimes = Object.values(kids).map((v) => v && v.at).filter((t) => typeof t === "number");
+      const countWindow = (times, from, to) => times.filter((t) => t >= from && t < to).length;
+
+      const WINDOWS = [7, 30, 90];
+      const periods = { all: { sponsors: sponsorTimes.length, invited: kidTimes.length, deltaSponsors: null, deltaInvited: null } };
+      for (const w of WINDOWS) {
+        const curFrom = now - w * DAY_MS, prevFrom = now - 2 * w * DAY_MS;
+        const curSponsors = countWindow(sponsorTimes, curFrom, now), prevSponsors = countWindow(sponsorTimes, prevFrom, curFrom);
+        const curInvited = countWindow(kidTimes, curFrom, now), prevInvited = countWindow(kidTimes, prevFrom, curFrom);
+        periods["d" + w] = {
+          sponsors: curSponsors, invited: curInvited,
+          deltaSponsors: pct(curSponsors, prevSponsors),
+          deltaInvited: pct(curInvited, prevInvited)
+        };
+      }
+
+      // Série quotidienne des filleuls crédités (90 j) — graphique « Performance ».
+      const dstr = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const dayCount = {};
+      for (const t of kidTimes) { if (t >= now - 90 * DAY_MS) { const d = dstr(t); dayCount[d] = (dayCount[d] || 0) + 1; } }
+      const daily = [];
+      for (let i = 89; i >= 0; i--) { const d = dstr(now - i * DAY_MS); daily.push({ bucket: d, invited: dayCount[d] || 0 }); }
+
+      return res.json({ totals, periods, daily, sponsors: sponsors.slice(0, 200), alerts, settings });
     }
 
     // ── Filleuls d'un parrain ──────────────────────────────────

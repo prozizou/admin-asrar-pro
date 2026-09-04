@@ -411,7 +411,7 @@
   // Titre affiché dans l'en-tête (à côté du logo) — reprend le libellé du bouton nav.
   const TAB_TITLES = {
     dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Utilisateurs",
-    fonts: "Polices", referral: "Parrainage", analytics: "Analytique", visits: "Visites"
+    fonts: "Polices", referral: "Parrainage", analytics: "Analytique"
   };
 
   // Affiche un onglet et charge SES données à la demande (lazy) — une seule fois.
@@ -429,7 +429,6 @@
     $("tab-fonts").hidden = target !== "fonts";
     $("tab-referral").hidden = target !== "referral";
     $("tab-analytics").hidden = target !== "analytics";
-    $("tab-visits").hidden = target !== "visits";
 
     // Onglets rechargés à chaque visite (données volatiles).
     if (target === "dashboard") return loadDashboard();
@@ -443,7 +442,6 @@
     if (target === "fonts") loadFonts();
     if (target === "referral") loadReferral();
     if (target === "analytics") loadAnalytics();
-    if (target === "visits") loadVisits();
   };
 
   // ── LIENS PARTAGEABLES DU SITE (/s) ──────────────────────────────────

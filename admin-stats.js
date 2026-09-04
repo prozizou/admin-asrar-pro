@@ -67,7 +67,7 @@
       statTile({ icon: "analytics", val: per.total ?? 0, label: "Visites totales", deltaPct: per.deltaTotal }) +
       statTile({ icon: "sparkle", val: per.interactions ?? 0, label: "Interactions" }) +
       statTile({ icon: "market", val: t.boutiques ?? 0, label: "Boutiques" }) +
-      statTile({ icon: "gift", val: t.likesTotal ?? 0, label: "J'aime cumulés", tone: "gold", span: true });
+      statTile({ icon: "gift", val: t.avisTotal ?? 0, label: "Avis boutiques", tone: "gold", span: true });
 
     renderAnaChart();
     renderAnaPages();
@@ -148,7 +148,7 @@
           <div class="bq-sub">${esc(b.number || "—")}</div>
           <div class="bq-stats">
             <span><b>${fmt(b.follow)}</b> abonnés</span>
-            <span><b>${fmt(b.likes)}</b> j'aime</span>
+            <span><b>${b.ratingsCount ? b.rating.toFixed(1) : "—"}</b> ★ ${b.ratingsCount ? "(" + fmt(b.ratingsCount) + ")" : ""}</span>
             <span><b>${fmt(b.views)}</b> visites</span>
             <span><b>${fmt(b.products)}</b> produits</span>
           </div>
@@ -168,69 +168,74 @@
         <div class="frame" id="previewImg">${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="noimg">Aucun logo</div>`}</div>
       </div>
       <div class="kpis" style="margin-bottom:18px">
-        ${kpi(fmt(b.follow), "Abonnés")}${kpi(fmt(b.likes), "J'aime")}${kpi(fmt(b.views), "Visites produits")}${kpi(fmt(b.products), "Produits")}
+        ${kpi(fmt(b.follow), "Abonnés")}${kpi(b.ratingsCount ? b.rating.toFixed(1) : "—", "Note")}${kpi(fmt(b.comments), "Avis")}${kpi(fmt(b.views), "Visites produits")}${kpi(fmt(b.products), "Produits")}
       </div>
       <p class="muted" style="margin-bottom:10px">${esc(b.number || "Aucun numéro renseigné")}</p>
       <h3 style="margin-bottom:10px">Produits</h3>
-      <div class="list">
+      <div class="list" id="bqProductList">
         ${(b.productList || []).map((p) => `
-          <div class="row">
+          <div class="row" data-prow="${esc(p.key)}">
             <div><b>${esc(p.name)}</b> <span class="muted">· ${fmt(p.price)} FCFA</span></div>
-            <div class="muted">${fmt(p.views)} visite(s)</div>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span class="muted">${fmt(p.views)} visite(s)</span>
+              <button class="btn text" data-prod-edit="${esc(p.key)}">Modifier</button>
+              <button class="btn text danger-text" data-prod-del="${esc(p.key)}">Supprimer</button>
+            </div>
           </div>`).join("") || "<div class='empty'>Aucun produit rattaché à cette boutique.</div>"}
       </div>`;
     $("big").hidden = false;
     $("btnCancelBig").onclick = () => { $("big").hidden = true; };
+
+    $("bqProductList").querySelectorAll("[data-prod-del]").forEach((btn) => btn.onclick = async () => {
+      const key = btn.getAttribute("data-prod-del");
+      if (!(await uiConfirm({ title: "Supprimer le produit", danger: true, icon: "trash", confirmText: "Supprimer",
+        message: "Supprimer ce produit ? Cette action est irréversible." }))) return;
+      try {
+        await api("market", { action: "product_delete", key });
+        showToast("Produit supprimé.");
+        const row = btn.closest("[data-prow]"); if (row) row.remove();
+        ANA = null;
+      } catch (e) { showToast(e.message, "err"); }
+    });
+
+    $("bqProductList").querySelectorAll("[data-prod-edit]").forEach((btn) => btn.onclick = async () => {
+      const key = btn.getAttribute("data-prod-edit");
+      const row = btn.closest("[data-prow]");
+      if (!row) return;
+      row.innerHTML = "<div class='empty'>Chargement…</div>";
+      try {
+        const r = await api("market", { action: "product_get", key });
+        const p = r.value || {};
+        row.innerHTML = `
+          <div style="width:100%; display:flex; flex-direction:column; gap:8px">
+            <label class="field-lg"><span>Nom du produit</span><input type="text" id="peName" value="${esc(p.produit || "")}"></label>
+            <label class="field-lg"><span>Prix (FCFA)</span><input type="number" id="pePrix" value="${esc(p.Prix ?? 0)}"></label>
+            <label class="field-lg"><span>Image (URL)</span><input type="text" id="peImage" value="${esc(p.Image || "")}"></label>
+            <label class="field-lg"><span>Description</span><textarea id="peDesc" rows="3">${esc(p.description || "")}</textarea></label>
+            <div style="display:flex; justify-content:flex-end; gap:8px">
+              <button class="btn text" id="peCancel">Annuler</button>
+              <button class="btn primary" id="peSave">Enregistrer</button>
+            </div>
+          </div>`;
+        $("peCancel").onclick = () => openBoutiqueDetail(b);
+        $("peSave").onclick = async () => {
+          const saveBtn = $("peSave"); saveBtn.disabled = true; saveBtn.textContent = "Enregistrement…";
+          try {
+            await api("market", {
+              action: "product_update", key,
+              produit: $("peName").value, Prix: $("pePrix").value,
+              Image: $("peImage").value, description: $("peDesc").value
+            });
+            showToast("Produit mis à jour.");
+            ANA = null;
+            openBoutiqueDetail(b);
+          } catch (e) { showToast(e.message, "err"); saveBtn.disabled = false; saveBtn.textContent = "Enregistrer"; }
+        };
+      } catch (e) { showToast(e.message, "err"); openBoutiqueDetail(b); }
+    });
   };
 
   if ($("btnReloadAnalytics")) $("btnReloadAnalytics").onclick = loadAnalytics;
-
-  // ── Visites ──
-  let VIS_GRAN = "daily";
-  window.loadVisits = async function () {
-    if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>Chargement…</div>";
-    try { if (!ANA) { ANA = await api("stats", { action: "analytics" }); ANA_AT = Date.now(); } renderVisits(); }
-    catch (e) { if ($("visBars")) $("visBars").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }
-  };
-  window.renderVisits = function () {
-    if (!ANA) return;
-    const rows = ANA[VIS_GRAN] || [];
-    const t = ANA.totals || {};
-    const unit = { daily: "jours", weekly: "semaines", monthly: "mois" }[VIS_GRAN];
-    if ($("visKpis")) $("visKpis").innerHTML =
-      kpi(t.uniqueAllTime ?? 0, "Visiteurs uniques (total)") +
-      kpi(t.totalVisits ?? 0, "Visites cumulées") +
-      kpi(t.days ?? 0, "Jours actifs") +
-      kpi(rows.length, "Périodes (" + unit + ")");
-    const maxTotal = Math.max(1, ...rows.map((r) => r.total));
-    if ($("visBars")) $("visBars").innerHTML = rows.map((r) => {
-      const hT = Math.max(2, Math.round(r.total / maxTotal * 160));
-      const hU = Math.max(2, Math.round(r.unique / maxTotal * 160));
-      return `<div class="bar-col" title="${esc(r.bucket)} : ${r.total} visites · ${r.unique} uniques">
-        <div class="bar-n">${r.total}</div>
-        <div style="display:flex; align-items:flex-end; gap:3px; height:160px">
-          <div class="bar-fill" style="height:${hT}px; width:14px"></div>
-          <div class="bar-fill uniq" style="height:${hU}px; width:14px"></div>
-        </div>
-        <div class="bar-x">${esc(shortBucket(r.bucket))}</div>
-      </div>`;
-    }).join("") || "<div class='empty'>Aucune visite enregistrée.</div>";
-    if ($("visTable")) $("visTable").innerHTML = rows.slice().reverse().map((r) =>
-      `<tr><td>${esc(r.bucket)}</td><td class="num">${r.unique}</td><td class="num">${r.total}</td></tr>`
-    ).join("") || "<tr><td colspan='3' class='muted'>Aucune donnée.</td></tr>";
-    if ($("visFeed")) $("visFeed").innerHTML = (ANA.recent || []).map((e) => `
-      <div class="row">
-        <div><b>${esc(e.email || "—")}</b> <span class="muted">· ${esc(e.page)}</span></div>
-        <div class="muted">${esc(e.type)} · ${when(e.at)}</div>
-      </div>`).join("") || "<div class='empty'>Aucune activité récente.</div>";
-  };
-  document.querySelectorAll("#visSeg [data-gran]").forEach((b) => b.onclick = () => {
-    document.querySelectorAll("#visSeg [data-gran]").forEach((x) => x.classList.remove("active"));
-    b.classList.add("active");
-    VIS_GRAN = b.getAttribute("data-gran");
-    renderVisits();
-  });
-  if ($("btnReloadVisits")) $("btnReloadVisits").onclick = () => { ANA = null; loadVisits(); };
 
   // ── Créateur de BOUTIQUE → profile_clients (img sur Cloudinary) ──
   window.openBoutiqueCreator = function () {

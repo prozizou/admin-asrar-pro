@@ -125,12 +125,14 @@ module.exports = async (req, res) => {
     //           estProprietaire() côté asrar-main, pages/api/shop.js : uid, sinon email)
     //           views/product/{key}/{uid} (vues, agrégées par produit)
     if (action === "analytics") {
-      const [visitsSnap, feedSnap, profSnap, prodSnap, viewsSnap] = await Promise.all([
+      const [visitsSnap, feedSnap, profSnap, prodSnap, viewsSnap, ratingsSnap, commentsSnap] = await Promise.all([
         db.ref("analytics/visits").once("value"),
         db.ref("activity_feed").limitToLast(5000).once("value"),
         db.ref("profile_clients").once("value"),
         db.ref("det_produits").once("value"),
-        db.ref("views/product").once("value")
+        db.ref("views/product").once("value"),
+        db.ref("ratings/vendor").once("value"),
+        db.ref("comments/vendor").once("value")
       ]);
 
       const now = Date.now();
@@ -288,30 +290,43 @@ module.exports = async (req, res) => {
         (uid && productsByOwner["u:" + uid]) ||
         (email && productsByOwner["e:" + String(email).toLowerCase()]) || [];
 
-      // Boutiques (profile_clients) + total des « aimes » (true).
+      // Boutiques (profile_clients). La première version de « J'aime » comptait
+      // les champs booléens écrits DIRECTEMENT sur profile_clients/{id} —
+      // toujours à 0 en pratique, alors que le Marché affiche de vrais avis.
+      // Les avis/notes réels vivent dans ratings/vendor/{clé}/{uid} = note 1-5
+      // (même schéma que ratings/product, cf. pages/api/shop.js « stats ») et
+      // comments/vendor/{clé}/{commentId} ; { clé } = uid vendeur classique OU
+      // id de la fiche profile_clients selon ce que le Marché écrit côté client.
+      // ⚠️ La clé exacte utilisée pour une boutique « profil » (id vs uid une
+      // fois liée) n'a pas pu être revérifiée sur le dépôt asrar-main depuis
+      // cette session — à confirmer avec de vraies données une fois déployé.
+      // Remplace « J'aime » (mécanisme non retrouvé, jamais alimenté) par une
+      // vraie note + un vrai compte d'avis/commentaires.
+      const ratingsVal = ratingsSnap.val() || {};
+      const commentsVal = commentsSnap.val() || {};
+      const vendorEntries = (all, id, uid) => all[id] || (uid && all[uid]) || {};
+
       const prof = profSnap.val() || {};
-      const RESERVED = new Set(["ID", "key", "img", "imageId", "number", "follow", "profile_name", "email", "createdAt", "uid"]);
       const boutiques = Object.entries(prof).map(([id, pc]) => {
-        let likes = 0;
-        if (pc && typeof pc === "object") {
-          for (const [fk, fv] of Object.entries(pc)) {
-            if (RESERVED.has(fk)) continue;
-            if (fv === true || fv === "true") likes++;
-          }
-        }
         const products = ownerProducts(pc && pc.uid, pc && pc.email);
+        const ratings = vendorEntries(ratingsVal, id, pc && pc.uid);
+        const ratingValues = Object.values(ratings).map(Number).filter((n) => n >= 1 && n <= 5);
+        const rating = ratingValues.length
+          ? Math.round((ratingValues.reduce((s, n) => s + n, 0) / ratingValues.length) * 10) / 10
+          : 0;
         return {
           id,
           name: (pc && pc.profile_name) || id,
           img: (pc && pc.img) || "",
           number: (pc && pc.number) || "",
           follow: pc && pc.follow != null ? (Number(pc.follow) || 0) : 0,
-          likes,
+          rating, ratingsCount: ratingValues.length,
+          comments: Object.keys(vendorEntries(commentsVal, id, pc && pc.uid)).length,
           products: products.length,
           views: products.reduce((s, p) => s + p.views, 0),
           productList: products.slice(0, 20)
         };
-      }).sort((a, b) => b.views - a.views || b.likes - a.likes || b.follow - a.follow);
+      }).sort((a, b) => b.views - a.views || b.ratingsCount - a.ratingsCount || b.follow - a.follow);
 
       return res.json({
         daily: daily.slice(-90), weekly, monthly, topPages, recent, boutiques,
@@ -322,7 +337,7 @@ module.exports = async (req, res) => {
           days: daily.length,
           events: Object.keys(feed).length,
           boutiques: boutiques.length,
-          likesTotal: boutiques.reduce((s, b) => s + b.likes, 0),
+          avisTotal: boutiques.reduce((s, b) => s + b.ratingsCount, 0),
           pagesTotal
         }
       });

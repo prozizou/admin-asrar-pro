@@ -85,6 +85,34 @@ module.exports = async (req, res) => {
       await audit(who, "product_delete", from + "/" + key);
       return res.json({ ok: true });
     }
+    if (action === "product_get") {
+      const key = String(body.key || "");
+      if (!key) return res.status(400).json({ error: "Clé produit requise" });
+      const from = body.blocked ? BLOCKED : LIVE;
+      const snap = await db.ref(from + "/" + key).once("value");
+      if (!snap.exists()) return res.status(404).json({ error: "Produit introuvable" });
+      return res.json({ key, value: snap.val() });
+    }
+    if (action === "product_update") {
+      const key = String(body.key || "");
+      if (!key) return res.status(400).json({ error: "Clé produit requise" });
+      const from = body.blocked ? BLOCKED : LIVE;
+      const snap = await db.ref(from + "/" + key).once("value");
+      if (!snap.exists()) return res.status(404).json({ error: "Produit introuvable" });
+      const upd = {};
+      if (typeof body.produit === "string" && body.produit.trim()) upd.produit = body.produit.trim().slice(0, 160);
+      if (body.Prix !== undefined && body.Prix !== "" && !Number.isNaN(Number(body.Prix))) upd.Prix = Number(body.Prix);
+      if (typeof body.description === "string") upd.description = body.description.trim().slice(0, 2000);
+      if (typeof body.Image === "string" && body.Image.trim()) {
+        if (!/^https?:\/\//.test(body.Image.trim())) return res.status(400).json({ error: "Image : lien invalide (doit commencer par http:// ou https://)" });
+        upd.Image = body.Image.trim();
+      }
+      if (!Object.keys(upd).length) return res.status(400).json({ error: "Rien à modifier" });
+      upd.updatedBy = who.email; upd.updatedAt = Date.now();
+      await db.ref(from + "/" + key).update(upd);
+      await audit(who, "product_update", from + "/" + key);
+      return res.json({ ok: true });
+    }
     if (action === "product_block" || action === "product_unblock") {
       const key = String(body.key || "");
       if (!key) return res.status(400).json({ error: "Clé produit requise" });
