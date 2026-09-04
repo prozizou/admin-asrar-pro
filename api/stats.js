@@ -77,7 +77,9 @@ module.exports = async (req, res) => {
       const spark = [];
       for (let i = 13; i >= 0; i--) {
         const d = dstr(now - i * DAY);
-        spark.push({ d: d.slice(5), total: dayTotal[d] || 0, uniq: dayUniq[d] || 0 });
+        // bucket en date complète (pas pré-tronquée) : le client formate
+        // l'affichage (dates françaises, cf. window.frDate, admin-core.js).
+        spark.push({ bucket: d, total: dayTotal[d] || 0, unique: dayUniq[d] || 0 });
       }
 
       // Comptes Auth : total + nouveaux (7 j / 30 j) — mise en cache 30 s (voir _lib/fb).

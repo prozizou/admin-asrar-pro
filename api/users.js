@@ -24,6 +24,24 @@ const subActive = (p) =>
   !!p && (p.expiresAt === "lifetime" ||
           (typeof p.expiresAt === "number" && p.expiresAt > Date.now()));
 
+// Réduit un journal activity_feed brut à la dernière entrée par e-mail (clé en
+// minuscules). Nettoyage minimal du libellé de page — pas la normalisation
+// complète (accueil.html/accueil fusionnés, etc.) de stats.js « analytics » :
+// ici on affiche UNE page pour un utilisateur donné, pas un classement agrégé.
+function lastActivityByEmail(feedVal) {
+  const out = {};
+  for (const e of Object.values(feedVal || {})) {
+    if (!e || typeof e !== "object" || !e.email) continue;
+    const key = String(e.email).trim().toLowerCase();
+    const at = e.at || 0;
+    if (!out[key] || at > out[key].at) {
+      const raw = String(e.page == null ? "" : e.page).trim();
+      out[key] = { at, page: (!raw || raw === "?") ? "Page inconnue" : raw };
+    }
+  }
+  return out;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
   const body = typeof req.body === "object" && req.body ? req.body
@@ -98,19 +116,33 @@ module.exports = async (req, res) => {
     }
 
     if (action === "list_access") {
-      const snap = await db.ref("purchased_user").once("value");
+      const [purchSnap, feedSnap] = await Promise.all([
+        db.ref("purchased_user").once("value"),
+        // Bornée (comme stats.js « analytics ») : juste de quoi retrouver la
+        // dernière page visitée par chaque e-mail, pas un historique complet.
+        db.ref("activity_feed").limitToLast(5000).once("value")
+      ]);
+
+      // Dernière activité connue par e-mail (page + horodatage) — un seul
+      // passage sur le journal plutôt qu'une requête par utilisateur.
+      const lastByEmail = lastActivityByEmail(feedSnap.val());
+
       const items = [];
-      snap.forEach((c) => {
+      purchSnap.forEach((c) => {
         const p = c.val() || {};
+        const email = String(c.key).replace(/,/g, ".");
+        const last = lastByEmail[email.toLowerCase()];
         items.push({
-          email: String(c.key).replace(/,/g, "."),
+          email,
           expiresAt: p.expiresAt ?? null,
           active: subActive(p),
           level: p.level ?? null,
           source: p.source || p.productId || "",
           label: p.label || "",
           grantedBy: p.grantedBy || "",
-          at: p.at || null
+          at: p.at || null,
+          lastPage: last ? last.page : null,
+          lastActiveAt: last ? last.at : null
         });
       });
       // Actifs d'abord, puis par date d'expiration décroissante.
@@ -118,6 +150,22 @@ module.exports = async (req, res) => {
         ((y.expiresAt === "lifetime" ? Infinity : y.expiresAt || 0) -
          (x.expiresAt === "lifetime" ? Infinity : x.expiresAt || 0)));
       return res.json({ items, total: items.length });
+    }
+
+    // ── Navigation d'un utilisateur (fiche détaillée) ────────────────────
+    // Rejoue son passage dans l'app à partir du journal d'activité — même
+    // source que Analytique « Flux d'activité récent », filtrée sur son e-mail.
+    if (action === "activity_by_email") {
+      const em = normEmail(email);
+      if (!em) return res.status(400).json({ error: "Email invalide." });
+      const feedSnap = await db.ref("activity_feed").limitToLast(5000).once("value");
+      const feed = feedSnap.val() || {};
+      const rows = Object.values(feed)
+        .filter((e) => e && typeof e === "object" && String(e.email || "").toLowerCase() === em)
+        .map((e) => ({ at: e.at || 0, page: e.page || "?", type: e.type || "?" }))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 30);
+      return res.json({ email: em, rows });
     }
 
     return res.status(400).json({ error: "Action inconnue" });
