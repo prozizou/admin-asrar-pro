@@ -125,27 +125,65 @@
     if (toggle) toggle.onclick = (e) => { e.stopPropagation(); toggleOpen(); };
   }
 
-  // Graphique « Performance » — filleuls crédités/jour, une seule série
-  // (contrairement à Analytique, aucune notion d'« uniques » ici). La série
-  // ne couvre que les 90 derniers jours (seule donnée renvoyée par le
-  // serveur) : la période « Tout » l'affiche donc en entier plutôt qu'un
-  // historique complet non disponible.
+  // ── Graphique « Filleuls crédités » ─────────────────────────
+  const MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  function frDate(bucket) {
+    const parts = String(bucket || "").split("-");
+    const d = Number(parts[2]), m = Number(parts[1]);
+    if (!d || !m) return bucket;
+    return d + " " + (MONTHS_FR[m - 1] || "");
+  }
+  // Regroupe une série quotidienne en paquets de 7 jours (le plus ancien
+  // paquet peut être incomplet, ex. 30 jours = 4 semaines pleines + 2) —
+  // évite des dizaines de barres minuscules sur 30/90 j (cf. retour UX).
+  function chunkWeekly(rows) {
+    const out = [];
+    const rem = rows.length % 7;
+    let i = 0;
+    if (rem) { out.push(rows.slice(0, rem)); i = rem; }
+    for (; i < rows.length; i += 7) out.push(rows.slice(i, i + 7));
+    return out.map((chunk) => ({ bucket: chunk[0].bucket, invited: chunk.reduce((s, r) => s + r.invited, 0) }));
+  }
+
+  // La série ne couvre que les 90 derniers jours (seule donnée renvoyée par
+  // le serveur) : la période « Tout » l'affiche donc en entier plutôt qu'un
+  // historique complet non disponible. 7 j reste en quotidien (lisible tel
+  // quel) ; 30/90 j et Tout passent en paquets hebdomadaires.
   function renderRefChart() {
     const el = $("refChart");
-    if (!el || !REF) return;
+    const summary = $("refChartSummary");
+    if (!REF) return;
+    const per = (REF.periods && REF.periods[REF_PERIOD]) || {};
+    if (summary) summary.innerHTML =
+      `<b>${fmt(per.invited ?? 0)}</b> au total` +
+      (per.deltaInvited != null
+        ? ` <span class="stat-delta ${per.deltaInvited > 0 ? "up" : per.deltaInvited < 0 ? "down" : ""}">${ic("trend")}${per.deltaInvited > 0 ? "+" : ""}${fmtPct(per.deltaInvited)}</span> vs période précédente`
+        : "");
+
+    if (!el) return;
     const nDays = { d7: 7, d30: 30, d90: 90 }[REF_PERIOD];
-    const rows = (REF.daily || []).slice(nDays ? -nDays : -90);
-    if (!rows.length || !rows.some((r) => r.invited > 0)) { el.innerHTML = "<div class='empty'>Aucun filleul crédité sur cette période.</div>"; return; }
+    const daily = (REF.daily || []).slice(nDays ? -nDays : -90);
+    if (!daily.length || !daily.some((r) => r.invited > 0)) { el.innerHTML = "<div class='empty'>Aucun filleul crédité sur cette période.</div>"; return; }
+    const rows = REF_PERIOD === "d7" ? daily : chunkWeekly(daily);
+
     const max = Math.max(1, ...rows.map((r) => r.invited));
-    el.innerHTML = `<div class="spark-bars">
-      ${rows.map((r) => {
-        const h = Math.max(3, Math.round(r.invited / max * 100));
-        return `<div class="spark-col" title="${esc(r.bucket)} · ${fmt(r.invited)} filleul(s)">
-          <span class="spark-tip">${fmt(r.invited)} filleul(s)</span>
-          <div class="spark-stack"><div class="spark-fill" style="height:${h}%"></div></div>
-          <span class="spark-x">${esc(r.bucket.slice(5))}</span>
-        </div>`;
-      }).join("")}
+    // Au-delà de 8 colonnes, n'étiquette qu'une barre sur N (première/dernière
+    // toujours incluses) — sinon les dates françaises se chevauchent sur
+    // mobile. Chaque barre garde sa valeur au-dessus et son infobulle complète.
+    const labelEvery = rows.length > 8 ? Math.ceil(rows.length / 6) : 1;
+    el.innerHTML = `<div class="rc-chart">
+      <span class="rc-axis-max">${fmt(max)}</span><span class="rc-axis-zero">0</span>
+      <div class="rc-bars">
+        ${rows.map((r, idx) => {
+          const h = Math.max(2, Math.round(r.invited / max * 100));
+          const showLabel = idx % labelEvery === 0 || idx === rows.length - 1;
+          return `<div class="rc-col" title="${esc(frDate(r.bucket))} · ${fmt(r.invited)} filleul(s)">
+            <span class="rc-val">${fmt(r.invited)}</span>
+            <div class="rc-bar-track"><div class="rc-bar" style="height:${h}%"></div></div>
+            <span class="rc-x">${showLabel ? esc(frDate(r.bucket)) : ""}</span>
+          </div>`;
+        }).join("")}
+      </div>
     </div>`;
   }
 
