@@ -367,7 +367,15 @@ textarea { resize: vertical; min-height: 60px; }
   flex-direction: column;
   transition: all 0.2s;
 }
-.menu-item:hover,
+/* :hover réservé aux pointeurs qui survolent réellement (souris) : sur tactile,
+   un navigateur peut laisser :hover « collé » après un tap tant qu'on ne touche
+   pas ailleurs — un item (ex. le dernier bibliothèque ouverte) se retrouvait
+   visuellement « sélectionné » sans l'être, pendant que .active (posé/retiré
+   par le JS au clic — seule source de vérité pour la sélection réelle) restait
+   correct. Même rendu, juste plus de :hover fantôme sur mobile. */
+@media (hover: hover) and (pointer: fine) {
+  .menu-item:hover { background: var(--raised); border-color: var(--line); }
+}
 .menu-item.active {
   background: var(--raised);
   border-color: var(--line);
@@ -998,13 +1006,20 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .panel { padding: 12px 14px; }
   #tab-content { flex-direction: column; }
   #tab-content .sidebar {
+    /* PAS de max-height/overflow ici : sur mobile, sidebar (liste) et
+       main-content (grille) ne sont JAMAIS visibles en même temps
+       (body.is-mobile #tab-content[.show-grid] masque l'un ou l'autre plus
+       bas) — rien ne justifiait de plafonner la liste à 46vh avec son propre
+       scroll interne. Ce plafond coupait net la liste des bibliothèques
+       (ex. « Sirr — Ouverture ») avec, en dessous, le fond de page nu (donc
+       visuellement noir) faute d'un autre bloc pour occuper l'espace restant.
+       Hauteur naturelle + scroll de la page entière, comme le reste du panneau. */
     flex: none;
     width: 100%;
+    height: auto;
     border-right: none;
     border-bottom: 1px solid var(--line);
     border-radius: 20px 20px 0 0;
-    max-height: 46vh;
-    overflow-y: auto;
   }
   #tab-content .main-content {
     width: 100%;
