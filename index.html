@@ -16,7 +16,6 @@
 <body>
 
   <div id="toast-container"></div>
-  <button id="themeToggle" class="theme-btn" title="Basculer clair / sombre" aria-label="Basculer le thème">🌙</button>
 
   <div id="login" class="login-wrap">
     <div class="login-box">
@@ -43,7 +42,10 @@
   <div id="app" hidden>
     <header class="topbar">
       <div class="brand">
-        <img src="/assets/logo-full.png" alt="ASRAR PRO">
+        <div class="brand-row">
+          <img src="/assets/logo-mark.png" alt="ASRAR PRO">
+          <span class="brand-name">ASRAR PRO</span>
+        </div>
         <span id="pageTitle" class="page-title">Vue d'ensemble</span>
       </div>
       <button id="navToggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mainNav">
@@ -58,6 +60,7 @@
         <button data-tab="referral" data-icon="referral">Parrainage</button>
         <button data-tab="analytics" data-icon="analytics">Analytique</button>
         <button data-tab="visits" data-icon="visits">Visites</button>
+        <button id="themeToggle" class="theme-btn" title="Basculer clair / sombre" aria-label="Basculer le thème">🌙</button>
         <button id="btnLogout" class="btn-out" data-icon="logout">Quitter</button>
       </nav>
     </header>
@@ -159,66 +162,44 @@
       </section>
 
       <section id="tab-users" class="panel" hidden>
-        <div class="block">
-          <div class="bar"><h3 class="star">Donner l'accès premium (par e-mail)</h3></div>
-          <p class="muted" style="margin-bottom:6px">
-            Accordez l'accès à un e-mail (même s'il n'a pas encore de compte) jusqu'à une date choisie.
-            Passé cette date, l'utilisateur est automatiquement bloqué jusqu'au prochain abonnement.
-          </p>
-          <div class="access-form">
-            <label class="field-lg"><span>E-mail de l'utilisateur</span>
-              <input type="email" id="accEmail" placeholder="exemple@gmail.com" autocomplete="off"></label>
-            <label class="field-lg" id="accDateWrap"><span>Date d'expiration</span>
-              <input type="date" id="accDate"></label>
-            <div class="quick-durations">
-              <button type="button" class="btn text" data-add-months="1">+1 mois</button>
-              <button type="button" class="btn text" data-add-months="3">+3 mois</button>
-              <button type="button" class="btn text" data-add-months="6">+6 mois</button>
-              <button type="button" class="btn text" data-add-months="12">+1 an</button>
-              <label class="chk-lbl" style="margin-left:auto">
-                <input type="checkbox" id="accLifetime"> Accès à vie</label>
-            </div>
-            <label class="field-lg"><span>Palier (débloque le PDF et les polices Al-Qalam du hub)</span>
-              <select id="accLevel">
-                <option value="">Automatique (selon la durée)</option>
-                <option value="15000">15 000 — équivalent 3 mois</option>
-                <option value="25000">25 000 — équivalent 6 mois</option>
-                <option value="45000">45 000 — équivalent 1 an (PDF + polices)</option>
-                <option value="999999">Illimité</option>
-              </select></label>
-            <button id="btnGrantAccess" class="btn primary" data-icon="check">Valider l'utilisateur</button>
-            <p id="accMsg" class="msg"></p>
-          </div>
+        <div class="bar"><h3 class="star">Gestion des accès</h3></div>
+        <div class="seg" id="usersSeg">
+          <button data-usersub="subs" class="active">Abonnements <span id="subsSegCount"></span></button>
+          <button data-usersub="formations">Formations <span id="fmaSegCount"></span></button>
+          <button data-usersub="history">Historique</button>
+        </div>
 
-          <div class="bar" style="margin-top:28px">
-            <h3>Accès accordés <span id="accCount" class="muted"></span></h3>
-            <input type="text" id="accSearch" placeholder="Filtrer par e-mail…">
+        <!-- ── Abonnements (accès premium par e-mail) ── -->
+        <div id="usersub-subs" class="block">
+          <div class="bar">
+            <h3>Abonnements <span id="accCount" class="muted"></span></h3>
+            <button id="btnOpenGrant" class="btn primary" data-icon="add">Accorder un accès</button>
           </div>
+          <input type="text" id="accSearch" placeholder="Rechercher un utilisateur…">
           <div id="accessList" class="list"></div>
         </div>
 
-        <div class="block">
-          <div class="bar"><h3 class="star">Minutes de visioconférence — Formation mystique</h3></div>
+        <!-- ── Formations (minutes de visioconférence, indépendant de l'abonnement) ── -->
+        <div id="usersub-formations" class="block" hidden>
+          <div class="bar">
+            <h3>Formations — crédits de minutes <span id="fmaCount" class="muted"></span></h3>
+            <button id="btnOpenFormationCredit" class="btn primary" data-icon="add">Créditer des minutes</button>
+          </div>
           <p class="muted" style="margin-bottom:6px">
-            Accès INDÉPENDANT de l'abonnement ci-dessus : chaque formation se paie à la minute
-            (l'utilisateur choisit sa durée et réserve via WhatsApp depuis l'app). Créditez ici les
-            minutes payées, pour UNE formation précise.
+            Accès INDÉPENDANT de l'abonnement : chaque formation se paie à la minute (l'utilisateur
+            réserve via WhatsApp depuis l'app). Ces crédits n'ont aucun effet sur les abonnements ci-dessus.
           </p>
-          <div class="access-form">
-            <label class="field-lg"><span>Formation</span>
-              <select id="fmaFormation"></select></label>
-            <label class="field-lg"><span>E-mail de l'utilisateur</span>
-              <input type="email" id="fmaEmail" placeholder="exemple@gmail.com" autocomplete="off"></label>
-            <label class="field-lg"><span>Minutes créditées</span>
-              <input type="number" id="fmaMinutes" min="1" step="1" value="10"></label>
-            <button id="btnGrantFormationMinutes" class="btn primary" data-icon="check">Créditer les minutes</button>
-            <p id="fmaMsg" class="msg"></p>
-          </div>
-
-          <div class="bar" style="margin-top:28px">
-            <h3>Crédits accordés <span id="fmaCount" class="muted"></span></h3>
-          </div>
           <div id="fmaList" class="list"></div>
+        </div>
+
+        <!-- ── Historique (octrois passés — abonnements expirés/révoqués + crédits épuisés) ── -->
+        <div id="usersub-history" class="block" hidden>
+          <div class="bar"><h3>Historique des octrois</h3></div>
+          <p class="muted" style="margin-bottom:6px">
+            Abonnements expirés ou révoqués, et crédits de minutes épuisés — triés du plus récent au
+            plus ancien. Les accès actifs restent dans leurs onglets respectifs.
+          </p>
+          <div id="historyList" class="list"></div>
         </div>
       </section>
 
