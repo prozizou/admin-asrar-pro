@@ -6,8 +6,10 @@
   --panel: rgba(21, 16, 10, 0.80);
   --panel2: rgba(29, 22, 13, 0.90);
   --raised: rgba(36, 27, 16, 0.5);
-  --line: rgba(201, 162, 39, 0.18);
-  --line-2: rgba(201, 162, 39, 0.40);
+  /* Bordures neutres avec juste une pointe d'or (au lieu d'un contour doré
+     partout) : l'or reste pour les titres, valeurs et actions principales. */
+  --line: rgba(201, 162, 39, 0.11);
+  --line-2: rgba(201, 162, 39, 0.28);
   --gold: #c9a227;
   --gold-2: #e8cd78;
   --ink: #efe6d2;
@@ -541,8 +543,10 @@ select {
 .audit-target { color: var(--info); font-family: monospace; }
 .audit-details { font-size: 0.85rem; }
 
-/* Flux d'activité du dashboard — lignes denses (une par entrée) : plus
-   d'entrées visibles sans défiler qu'avec le gabarit .row générique. */
+/* Flux d'activité du dashboard — événements métier compréhensibles
+   (inscription, achat, abonnement offert), une icône par type plutôt qu'un
+   avatar par e-mail : lignes denses, plus d'entrées visibles sans défiler
+   qu'avec le gabarit .row générique. */
 #dashRecent.list { gap: 6px; max-height: 336px; }
 .feed-row {
   display: flex;
@@ -555,38 +559,25 @@ select {
   transition: border-color 0.2s;
 }
 .feed-row:hover { border-color: var(--line-2); }
-.feed-avatar {
+.feed-ic {
   flex: none;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #15100a;
-  background: hsl(var(--h, 42), 70%, 58%);
-}
-.feed-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
-.feed-email { font-weight: 600; font-size: 0.8rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.feed-page { flex: none; font-size: 0.74rem; color: var(--muted); max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.feed-type {
-  flex: none;
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 20px;
   background: var(--raised);
   border: 1px solid var(--line);
-  color: var(--gold-2);
+  color: var(--muted);
 }
+.feed-ic .ic { width: 14px; height: 14px; }
+.feed-ic.signup { color: var(--info); border-color: rgba(124,201,255,0.3); background: rgba(124,201,255,0.10); }
+.feed-ic.purchase { color: var(--ok); border-color: rgba(102,185,138,0.3); background: rgba(102,185,138,0.10); }
+.feed-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.feed-title { font-weight: 600; font-size: 0.82rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-email { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed-time { flex: none; font-size: 0.7rem; color: var(--muted); min-width: 40px; text-align: right; }
-@media (max-width: 480px) {
-  .feed-page, .feed-type { display: none; }
-}
 
 /* Actions en ligne dans une .row (boutons Activer/Supprimer, etc.) */
 .acts { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
@@ -980,61 +971,6 @@ input:checked + span:before { transform: translateX(22px); background-color: var
 .msg.ok { color: var(--ok); }
 .max-width-sm { max-width: 620px; }
 
-/* ── Bandeaux « réalité asrar-main » ── signalent un écart entre ce panneau
-   et l'état réel de l'app cliente (drapeau serveur, fonctionnalité non câblée…).
-   Repliable (<details>) : une ligne compacte par défaut, pour ne pas éclipser
-   les KPI qui suivent — le détail ne s'affiche qu'à la demande. */
-.reality-notice {
-  margin-bottom: 14px;
-  border: 1px solid rgba(209, 104, 92, 0.35);
-  border-radius: 12px;
-  background: rgba(209, 104, 92, 0.06);
-  color: var(--ink);
-  overflow: hidden;
-}
-.reality-notice summary {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 14px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 0.84rem;
-  line-height: 1.3;
-  user-select: none;
-}
-.reality-notice summary::-webkit-details-marker { display: none; }
-.reality-notice summary .ic { flex: none; font-size: 1rem; line-height: 1; }
-.reality-notice-title { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reality-notice-toggle {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--danger);
-  white-space: nowrap;
-}
-.reality-notice-toggle::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-right: 1.6px solid currentColor;
-  border-bottom: 1.6px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform 0.2s;
-  margin-top: -3px;
-}
-.reality-notice[open] .reality-notice-toggle::after { transform: rotate(-135deg); margin-top: 2px; }
-.reality-notice p {
-  margin: 0 14px 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(209, 104, 92, 0.25);
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-.reality-notice b { color: var(--danger); }
 .user-email { font-weight: 600; }
 .user-email, .user-uid { overflow-wrap: anywhere; word-break: break-word; }
 
@@ -1168,8 +1104,8 @@ body.light {
   --panel: rgba(255, 255, 255, 0.94);
   --panel2: rgba(252, 248, 240, 0.98);
   --raised: rgba(255, 255, 255, 0.92);
-  --line: rgba(160, 120, 20, 0.18);
-  --line-2: rgba(160, 120, 20, 0.35);
+  --line: rgba(160, 120, 20, 0.12);
+  --line-2: rgba(160, 120, 20, 0.26);
   --gold: #a9821b;
   --gold-2: #7a5e10;
   --ink: #2b2213;
@@ -1429,6 +1365,11 @@ textarea:focus-visible,
    grand écran. Le dernier stat peut s'étendre sur les 2 colonnes (.span2). */
 .stats.stats-2col { grid-template-columns: 1fr 1fr; }
 .stat.span2 { grid-column: 1 / -1; }
+/* Les 4 indicateurs clés du dashboard (revenus, ventes, abonnés actifs,
+   utilisateurs) — grille stricte à 4 colonnes, pas d'auto-fill : ce sont les
+   seules cartes « pleines » de la vue d'ensemble, le reste est regroupé dans
+   .stats-secondary juste en dessous. */
+.stats-primary { grid-template-columns: repeat(4, 1fr); }
 .stat {
   position: relative;
   background: var(--raised);
@@ -1451,6 +1392,9 @@ textarea:focus-visible,
 .stat:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: var(--shadow); }
 .stat:hover::after { opacity: 1; }
 .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+/* Neutre par défaut : l'or est réservé aux titres, aux valeurs et aux
+   actions principales — pas à toutes les puces d'icône. .stat-ic.gold
+   marque volontairement les 1-2 cartes les plus importantes de la grille. */
 .stat-ic {
   display: inline-flex;
   align-items: center;
@@ -1458,12 +1402,12 @@ textarea:focus-visible,
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: rgba(201, 162, 39, 0.10);
+  background: var(--raised);
   border: 1px solid var(--line);
-  color: var(--gold-2);
+  color: var(--muted);
 }
 .stat-ic .ic { width: 15px; height: 15px; }
-.stat-ic.gold { background: linear-gradient(135deg, rgba(201,162,39,0.22), rgba(201,162,39,0.06)); }
+.stat-ic.gold { background: linear-gradient(135deg, rgba(201,162,39,0.22), rgba(201,162,39,0.06)); border-color: var(--line-2); color: var(--gold-2); }
 .stat-ic.danger { background: rgba(209,104,92,0.14); color: var(--danger); border-color: rgba(209,104,92,0.3); }
 .stat-delta {
   display: inline-flex;
@@ -1485,7 +1429,31 @@ textarea:focus-visible,
 .stat-lbl { color: var(--muted); font-size: 0.74rem; margin-top: 3px; }
 .stat-sub { color: var(--gold-2); font-size: 0.68rem; margin-top: 5px; opacity: 0.85; }
 
-.spark-wrap { margin-top: 20px; }
+/* Indicateurs secondaires (visiteurs uniques, visites, boutiques, admins/VIP) —
+   regroupés en bande compacte plutôt qu'en cartes pleines : ce sont des
+   chiffres de contexte, pas les 4 indicateurs clés au-dessus. Neutre (pas
+   d'or) pour ne pas rivaliser avec .stats-primary. */
+.stats-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.stat-mini {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 18px;
+  border-right: 1px solid var(--line);
+}
+.stat-mini:last-child { border-right: none; }
+.stat-mini-val { font-family: var(--display); font-size: 1rem; color: var(--ink); }
+.stat-mini-lbl { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+
+.spark-wrap { margin-top: 4px; }
+.bar .seg { margin-bottom: 0; }
 
 .dash-cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; }
 .dash-col { min-width: 0; }
@@ -1521,11 +1489,15 @@ textarea:focus-visible,
 @media (max-width: 820px) {
   .dash-cols { grid-template-columns: 1fr; gap: 20px; }
   .stats { grid-template-columns: 1fr 1fr; }
+  .stats-primary { grid-template-columns: 1fr 1fr; }
   .shortcuts { grid-template-columns: 1fr 1fr; }
+  .stat-mini { padding: 4px 12px; }
 }
 @media (max-width: 420px) {
   .stat { padding: 10px 12px; }
   .stat-val { font-size: 1.2rem; }
+  .stats-primary { grid-template-columns: 1fr 1fr; }
+  .stat-mini { flex: 1 1 45%; border-right: none; padding: 4px 8px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

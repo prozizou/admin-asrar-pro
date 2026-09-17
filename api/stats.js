@@ -36,29 +36,44 @@ module.exports = async (req, res) => {
         return PLAN_PRICES[Number(p.level)] || Number(p.amount) || 0;
       };
 
-      const [purchSnap, visitsSnap, feedSnap, adminsSnap, vipsSnap, profSnap] = await Promise.all([
+      const [purchSnap, visitsSnap, adminsSnap, vipsSnap, profSnap] = await Promise.all([
         db.ref("purchased_user").once("value"),
         db.ref("analytics/visits").once("value"),
-        db.ref("activity_feed").limitToLast(40).once("value"),
         db.ref("admins").once("value"),
         db.ref("vip_users").once("value"),
         db.ref("profile_clients").once("value")
       ]);
 
-      // Abonnements & revenus (purchased_user).
+      // Abonnements & revenus (purchased_user) + événements « achat/abonnement »
+      // pour le flux d'activité récente (cf. plus bas) : un octroi manuel
+      // (productId === "admin_grant") est un abonnement OFFERT, tout autre
+      // productId est un ACHAT réel — même enregistrement, deux libellés.
       const purch = purchSnap.val() || {};
-      let activeSubs = 0, revenueTotal = 0, revenue30 = 0, sales30 = 0, salesTotal = 0;
-      for (const p of Object.values(purch)) {
+      let activeSubs = 0, revenueTotal = 0, revenue30 = 0, revenue7 = 0, sales30 = 0, sales7 = 0, salesTotal = 0;
+      let newSubs7 = 0, newSubs30 = 0;
+      const subEvents = [];
+      for (const [key, p] of Object.entries(purch)) {
         if (!p || typeof p !== "object") continue;
         if (subActive(p)) activeSubs++;
         const amt = subPrice(p);
         if (amt > 0) {
           revenueTotal += amt; salesTotal++;
           if (typeof p.at === "number" && p.at >= now - 30 * DAY) { revenue30 += amt; sales30++; }
+          if (typeof p.at === "number" && p.at >= now - 7 * DAY) { revenue7 += amt; sales7++; }
+        }
+        if (typeof p.at === "number") {
+          if (p.at >= now - 7 * DAY) newSubs7++;
+          if (p.at >= now - 30 * DAY) newSubs30++;
+          subEvents.push({
+            at: p.at,
+            type: p.productId === "admin_grant" ? "grant" : "purchase",
+            email: String(key).replace(/,/g, "."),
+            amount: amt
+          });
         }
       }
 
-      // Visites : aujourd'hui, 30 j, uniques, + sparkline 14 jours.
+      // Visites : aujourd'hui, 30 j, uniques, + graphique (jusqu'à 90 jours).
       const visits = visitsSnap.val() || {};
       const dayTotal = {}, dayUniq = {};
       const uniq30 = new Set(), uniqAll = new Set();
@@ -74,8 +89,10 @@ module.exports = async (req, res) => {
         visitsTotal += dt;
         if (date >= dstr(now - 30 * DAY)) visits30 += dt;
       }
+      // 90 jours (au lieu de 14) : le client choisit 7/30/90 j sans re-requête
+      // (sélecteur de période du graphique, cf. admin-dashboard.js).
       const spark = [];
-      for (let i = 13; i >= 0; i--) {
+      for (let i = 89; i >= 0; i--) {
         const d = dstr(now - i * DAY);
         // bucket en date complète (pas pré-tronquée) : le client formate
         // l'affichage (dates françaises, cf. window.frDate, admin-core.js).
@@ -85,27 +102,29 @@ module.exports = async (req, res) => {
       // Comptes Auth : total + nouveaux (7 j / 30 j) — mise en cache 30 s (voir _lib/fb).
       const authUsers = await listAllAuthUsers(app());
       let usersTotal = 0, new7 = 0, new30 = 0;
+      const signupEvents = [];
       for (const u of authUsers) {
         usersTotal++;
         const c = Date.parse(u.metadata.creationTime || "") || 0;
         if (c >= now - 7 * DAY) new7++;
         if (c >= now - 30 * DAY) new30++;
+        if (c >= now - 30 * DAY) signupEvents.push({ at: c, type: "signup", email: u.email || "" });
       }
 
-      // Activité récente (journal d'événements).
-      const feed = feedSnap.val() || {};
-      const recent = Object.values(feed)
-        .filter((e) => e && typeof e === "object")
-        .map((e) => ({ at: e.at || 0, email: e.email || "", page: e.page || "?", type: e.type || "?" }))
-        .sort((a, b) => b.at - a.at).slice(0, 12);
+      // Activité récente — événements métier compréhensibles (inscription,
+      // achat, abonnement offert) plutôt que le journal brut de navigation
+      // (activity_feed), qui n'était qu'une suite de pages/e-mails répétés.
+      const recent = [...signupEvents, ...subEvents]
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 12);
 
       const admins = adminsSnap.val() || {};
       const adminsCount = Object.values(admins).filter((v) => v === true).length + 1; // +super-admin
 
       return res.json({
         kpis: {
-          revenue30, revenueTotal, sales30, salesTotal,
-          activeSubs,
+          revenue30, revenueTotal, revenue7, sales30, sales7, salesTotal,
+          activeSubs, newSubs7, newSubs30,
           usersTotal, new7, new30,
           uniqueToday: dayUniq[today] || 0, visitsToday: dayTotal[today] || 0,
           unique30: uniq30.size, uniqueAll: uniqAll.size, visits30, visitsTotal,
