@@ -1,8 +1,10 @@
 // admin-dashboard.js — Vue d'ensemble (écran d'accueil du panneau).
 // Agrège les KPIs métier (revenus, ventes, abonnés actifs, utilisateurs) via
 // l'action serveur `stats:overview` : 4 indicateurs clés avec variation
-// 7/30 j, un graphique de trafic (sélecteur 7/30/90 j) et une activité
-// récente faite d'événements compréhensibles (inscription, achat, abonnement).
+// 7/30 j, un graphique de trafic (sélecteur 7/30/90 j), une répartition des
+// utilisateurs par pays (drapeau, nombre, %, classement) et une activité
+// récente faite d'événements compréhensibles (connexion avec pays,
+// inscription, achat, abonnement).
 
 (function () {
   "use strict";
@@ -14,6 +16,15 @@
   // Heure seule (colonne étroite, alignée à droite) — la date complète reste
   // dans le [title] du survol si besoin.
   const shortTime = (t) => t ? new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—";
+
+  // Drapeau à partir d'un code pays ISO 3166-1 alpha-2 — purement algorithmique
+  // (indicateurs régionaux Unicode), aucune table de correspondance à tenir à
+  // jour côté admin : le nom du pays, lui, vient tel quel de user_sessions
+  // (déjà résolu côté serveur par asrar-main, cf. lib/countries.js).
+  const flagEmoji = (code) => {
+    if (!code || code.length !== 2) return "🏳️";
+    return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)));
+  };
 
   // ── Carte KPI principale : icône + valeur + libellé + variation 30 j
   // (puce) + variation 7 j (sous-texte) — même schéma pour les 4 cartes clés.
@@ -40,8 +51,10 @@
     `<button class="shortcut" data-goto="${tab}">${ic(icon)}<span>${esc(label)}</span></button>`;
 
   // ── Activité récente : un événement métier par ligne (pas un avatar par
-  // e-mail) — inscription, achat réel ou abonnement offert par un admin.
+  // e-mail) — connexion (avec pays), inscription, achat réel ou abonnement
+  // offert par un admin.
   const FEED_META = {
+    connection: { icon: "visits", cls: "signup", title: (e) => flagEmoji(e.countryCode) + " Nouvelle connexion" + (e.country ? " · " + e.country : "") },
     signup: { icon: "users", cls: "signup", title: () => "Nouvelle inscription" },
     purchase: { icon: "revenue", cls: "purchase", title: (e) => "Achat abonnement · " + money(e.amount) },
     grant: { icon: "gift", cls: "", title: () => "Abonnement offert (admin)" }
@@ -74,15 +87,19 @@
     if (feed) feed.innerHTML = skeleton("list", 5);
     const spark = $("dashSpark");
     if (spark) spark.innerHTML = "";
+    const countries = $("dashCountries");
+    if (countries) countries.innerHTML = "<div class='empty'>Chargement…</div>";
 
     try {
       DASH = await api("stats", { action: "overview" });
       renderDashStats();
       renderDashChart();
       renderDashFeed();
+      renderDashCountries();
     } catch (e) {
       root.innerHTML = `<div class='empty' style='grid-column:1/-1;color:var(--danger)'>Erreur de chargement : ${esc(e.message)}</div>`;
       if (feed) feed.innerHTML = "";
+      if (countries) countries.innerHTML = "";
     }
   };
 
@@ -133,6 +150,36 @@
     if (!feed || !DASH) return;
     feed.innerHTML = (DASH.recent || []).map(feedRow).join("") ||
       "<div class='empty'>Aucune activité récente.</div>";
+  }
+
+  // Répartition par pays — quels pays utilisent le plus ASRAR PRO : rang,
+  // drapeau, nom, nombre d'utilisateurs et pourcentage. Barre proportionnelle
+  // au plus grand pays du classement — même composant visuel .hbar que
+  // « Pages populaires » (Analytique), son générateur `hbars()` est privé à
+  // admin-stats.js, d'où ce petit gabarit local plutôt qu'un partage inutile.
+  function renderDashCountries() {
+    const el = $("dashCountries");
+    if (!el || !DASH) return;
+    const rows = DASH.countryBreakdown || [];
+    if (!rows.length) {
+      el.innerHTML = "<div class='empty'>Aucune donnée de géolocalisation pour l'instant.</div>";
+      return;
+    }
+    const max = Math.max(1, ...rows.map((c) => c.users));
+    const rankRow = (c, i) => `
+      <div class="hbar">
+        <div class="hbar-lbl" title="${esc(c.country)}">${esc(String(i + 1))}. ${flagEmoji(c.countryCode)} ${esc(c.country)}</div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(c.users / max * 100)}%"></div></div>
+        <div class="hbar-n">${fmt(c.users)} · ${c.pct}%</div>
+      </div>`;
+    const unknown = DASH.unknownCountry && DASH.unknownCountry.users
+      ? `<div class="hbar" style="opacity:.6">
+          <div class="hbar-lbl">🌐 Pays inconnu</div>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(DASH.unknownCountry.users / max * 100)}%"></div></div>
+          <div class="hbar-n">${fmt(DASH.unknownCountry.users)} · ${DASH.unknownCountry.pct}%</div>
+        </div>`
+      : "";
+    el.innerHTML = rows.map(rankRow).join("") + unknown;
   }
 
   // Sélecteur de période du graphique — aucune requête, DASH.spark couvre déjà 90 j.
