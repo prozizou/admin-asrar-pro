@@ -81,24 +81,23 @@
     <main class="main-container">
 
       <section id="tab-dashboard" class="panel">
-        <details class="reality-notice">
-          <summary>
-            <span class="ic">⚠️</span>
-            <span class="reality-notice-title">FREE_FOR_ALL actif — le paywall d'asrar-main est désactivé</span>
-            <span class="reality-notice-toggle">Détails</span>
-          </summary>
-          <p><b>FREE_FOR_ALL actif côté asrar-main.</b> Le drapeau <code>lib/plans.js → FREE_FOR_ALL</code>
-            rend actuellement TOUTE l'application gratuite pour tous les visiteurs, y compris les modules
-            premium — indépendamment des accès accordés ou révoqués ici. Les octrois/révocations restent
-            enregistrés (et s'appliqueront normalement) mais n'ont aucun effet visible tant que ce drapeau
-            n'est pas repassé à <code>false</code> dans le code d'asrar-main.</p>
-        </details>
         <div class="block">
           <div class="bar">
             <h3 class="star">Vue d'ensemble</h3>
             <button id="btnReloadDash" class="btn text" data-icon="refresh">Actualiser</button>
           </div>
-          <div id="dashGrid" class="stats"></div>
+          <div id="dashGrid" class="stats stats-primary"></div>
+          <div id="dashGridSecondary" class="stats-secondary"></div>
+        </div>
+        <div class="block">
+          <div class="bar">
+            <h3>Trafic</h3>
+            <div class="seg" id="dashPeriodSeg">
+              <button data-period="7" class="active">7 j</button>
+              <button data-period="30">30 j</button>
+              <button data-period="90">90 j</button>
+            </div>
+          </div>
           <div id="dashSpark" class="spark-wrap"></div>
         </div>
         <div class="block dash-cols">
