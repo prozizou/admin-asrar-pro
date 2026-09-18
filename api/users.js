@@ -1,11 +1,9 @@
 // api/users.js — Accès premium par e-mail (Admin SDK, admins seulement).
-// Firestore access_purchases/{cléEmail} — même collection que asrar-main
-// (docs/FIRESTORE_SCHEMA.md, migrée depuis purchased_user/{cléEmail}).
 const { app, verifyAdmin, audit, emailToKey, bearer } = require("./_lib/fb");
 const crypto = require("crypto");
 
-// Email valide + normalisé (minuscules) — la clé Firestore doit correspondre à
-// celle que le hub calcule à partir de l'email Google (toujours en minuscules).
+// Email valide + normalisé (minuscules) — la clé RTDB doit correspondre à celle
+// que le hub calcule à partir de l'email Google (toujours en minuscules).
 const normEmail = (v) => {
   const e = String(v || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : "";
@@ -30,9 +28,9 @@ const subActive = (p) =>
 // minuscules). Nettoyage minimal du libellé de page — pas la normalisation
 // complète (accueil.html/accueil fusionnés, etc.) de stats.js « analytics » :
 // ici on affiche UNE page pour un utilisateur donné, pas un classement agrégé.
-function lastActivityByEmail(feedDocs) {
+function lastActivityByEmail(feedVal) {
   const out = {};
-  for (const e of feedDocs) {
+  for (const e of Object.values(feedVal || {})) {
     if (!e || typeof e !== "object" || !e.email) continue;
     const key = String(e.email).trim().toLowerCase();
     const at = e.at || 0;
@@ -54,12 +52,12 @@ module.exports = async (req, res) => {
   try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
-  const firestore = app().firestore();
+  const db = app().database();
 
   try {
     // ── ACCÈS PAR E-MAIL (abonnement manuel) ─────────────────────────────
     // Fonctionne même si l'utilisateur n'a PAS encore de compte : on écrit
-    // directement access_purchases/{cléEmail}. Quand il se connectera avec cet
+    // directement purchased_user/{cléEmail}. Quand il se connectera avec cet
     // email, le hub lira cet accès. Passé expiresAt, le hub le rejette.
     if (action === "grant_access") {
       const em = normEmail(email);
@@ -96,15 +94,15 @@ module.exports = async (req, res) => {
       const asked = Number(body.level);
       const level = LEVELS.includes(asked) ? asked : levelFor(expiresAt);
 
-      const pref = firestore.collection("access_purchases").doc(emailToKey(em));
-      const cur = (await pref.get()).data() || {};
-      await pref.set({
+      const pref = db.ref("purchased_user/" + emailToKey(em));
+      const cur = (await pref.once("value")).val() || {};
+      await pref.update({
         token: cur.token || crypto.randomBytes(16).toString("hex"),
         productId: cur.productId || "admin_grant",
         amount: cur.amount ?? 0,
         level,
         label, grantedBy: who.email, at: Date.now(), expiresAt
-      }, { merge: true });
+      });
       await audit(who, "grant_access", em, label + " · palier " + level);
       return res.json({ ok: true, email: em, expiresAt, level });
     }
@@ -112,27 +110,27 @@ module.exports = async (req, res) => {
     if (action === "revoke_access") {
       const em = normEmail(email);
       if (!em) return res.status(400).json({ error: "Email invalide." });
-      await firestore.collection("access_purchases").doc(emailToKey(em)).delete();
+      await db.ref("purchased_user/" + emailToKey(em)).remove();
       await audit(who, "revoke_access", em);
       return res.json({ ok: true, email: em });
     }
 
     if (action === "list_access") {
       const [purchSnap, feedSnap] = await Promise.all([
-        firestore.collection("access_purchases").get(),
+        db.ref("purchased_user").once("value"),
         // Bornée (comme stats.js « analytics ») : juste de quoi retrouver la
         // dernière page visitée par chaque e-mail, pas un historique complet.
-        firestore.collection("activity_feed").orderBy("at", "desc").limit(5000).get()
+        db.ref("activity_feed").limitToLast(5000).once("value")
       ]);
 
       // Dernière activité connue par e-mail (page + horodatage) — un seul
       // passage sur le journal plutôt qu'une requête par utilisateur.
-      const lastByEmail = lastActivityByEmail(feedSnap.docs.map((d) => d.data()));
+      const lastByEmail = lastActivityByEmail(feedSnap.val());
 
       const items = [];
-      purchSnap.forEach((doc) => {
-        const p = doc.data() || {};
-        const email = String(doc.id).replace(/,/g, ".");
+      purchSnap.forEach((c) => {
+        const p = c.val() || {};
+        const email = String(c.key).replace(/,/g, ".");
         const last = lastByEmail[email.toLowerCase()];
         items.push({
           email,
@@ -160,8 +158,9 @@ module.exports = async (req, res) => {
     if (action === "activity_by_email") {
       const em = normEmail(email);
       if (!em) return res.status(400).json({ error: "Email invalide." });
-      const feedSnap = await firestore.collection("activity_feed").orderBy("at", "desc").limit(5000).get();
-      const rows = feedSnap.docs.map((d) => d.data())
+      const feedSnap = await db.ref("activity_feed").limitToLast(5000).once("value");
+      const feed = feedSnap.val() || {};
+      const rows = Object.values(feed)
         .filter((e) => e && typeof e === "object" && String(e.email || "").toLowerCase() === em)
         .map((e) => ({ at: e.at || 0, page: e.page || "?", type: e.type || "?" }))
         .sort((a, b) => b.at - a.at)

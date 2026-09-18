@@ -1,17 +1,5 @@
 // _lib/fb.js — Init Firebase Admin + vérification ADMIN (cœur sécurité du panneau).
 // Env requis (Vercel) : FIREBASE_SERVICE_ACCOUNT (JSON), FIREBASE_DB_URL.
-//
-// MIGRATION FIRESTORE : asrar-main (l'app cliente) a migré tout son stockage
-// de la Realtime Database vers Firestore (voir son docs/FIRESTORE_SCHEMA.md,
-// Phases 0 à 6 — terminées). Ce panneau lisait/écrivait encore la RTDB, donc
-// une base figée depuis la migration (plus aucune écriture réelle) : les
-// octrois d'accès faits ici ne s'appliquaient plus, le dashboard affichait
-// des données mortes. Ce fichier (et api/stats.js, users.js, market.js,
-// referral.js, content.js) basculent sur Firestore, sur les MÊMES collections
-// que asrar-main, pour que panneau et app lisent/écrivent la même donnée.
-// Seule exception délibérée : api/formation-access.js reste sur la RTDB
-// (formation_access/…), gérée uniquement par ce panneau — voir la note dans
-// le schéma d'asrar-main.
 const admin = require("firebase-admin");
 
 const SUPER_ADMIN = "prozizou298@gmail.com";
@@ -29,8 +17,6 @@ function app() {
 }
 
 // Vérifie le jeton ET le statut admin (checkRevoked → un banni est rejeté immédiatement).
-// access_admins/{cléEmail} (Firestore, existence = admin) — même collection
-// que asrar-main (server/access.js → isAdmin()).
 async function verifyAdmin(idToken) {
   if (!idToken) { const e = new Error("Jeton manquant"); e.statusCode = 401; throw e; }
   const a = app();
@@ -41,17 +27,16 @@ async function verifyAdmin(idToken) {
   if (!email) { const e = new Error("Email requis"); e.statusCode = 403; throw e; }
   const isSuper = email === SUPER_ADMIN;
   if (!isSuper) {
-    const snap = await a.firestore().collection("access_admins").doc(emailToKey(email)).get();
-    if (!snap.exists) { const e = new Error("Accès administrateur refusé"); e.statusCode = 403; throw e; }
+    const snap = await a.database().ref("admins/" + emailToKey(email)).once("value");
+    if (snap.val() !== true) { const e = new Error("Accès administrateur refusé"); e.statusCode = 403; throw e; }
   }
   return { uid: decoded.uid, email, isSuper };
 }
 
-// Journal d'audit : trace chaque action admin. audit_log/{id} (Firestore,
-// id auto) — même collection que asrar-main.
+// Journal d'audit : trace chaque action admin.
 async function audit(by, action, target, details) {
   try {
-    await app().firestore().collection("audit_log").add({
+    await app().database().ref("audit_log").push({
       by: by.email, action, target: target || null,
       details: details || null, at: Date.now()
     });
@@ -84,24 +69,6 @@ async function listAllAuthUsers(a, ttlMs = 30000) {
 // uniquement la RTDB, lue en direct par users.js, donc n'ont pas besoin d'invalider.
 function invalidateUsersCache() { _usersCache = null; }
 
-// Cache mémoire générique très court, même principe que listAllAuthUsers
-// ci-dessus — best-effort (une instance serverless "chaude" seulement, jamais
-// partagé entre fonctions ni garanti d'une invocation à l'autre) mais utile :
-// Firestore facture chaque document lu, contrairement à la RTDB (facturée à la
-// bande passante). Un onglet dashboard/marché rechargé plusieurs fois de suite
-// par un même admin (changement d'onglet, F5) retombe souvent sur la même
-// instance chaude — juste assez pour éviter de refacturer le même balayage de
-// collections à quelques secondes d'intervalle. `key` doit inclure l'action
-// (ex. "stats:overview") pour ne pas mélanger des caches différents.
-const _cache = new Map(); // key → { at, data }
-async function cached(key, ttlMs, fn) {
-  const hit = _cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
-  const data = await fn();
-  _cache.set(key, { at: Date.now(), data });
-  return data;
-}
-
 // Jeton d'accès OAuth du compte de service (pour les appels REST shallow du diagnostic).
 async function accessToken() {
   const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
@@ -116,4 +83,4 @@ function bearer(req) {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
 }
 
-module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer, listAllAuthUsers, invalidateUsersCache, cached };
+module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer, listAllAuthUsers, invalidateUsersCache };

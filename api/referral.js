@@ -1,24 +1,10 @@
 // api/referral.js — Pilotage du PARRAINAGE du hub (Admin SDK, admins seulement).
-// Firestore — mêmes collections que asrar-main (pages/api/referral.js,
-// pages/api/share.js) :
-//   referrals/{uid}            = { code, email, points, clicks, invited, rewards,
-//                                   lastAt?, lastClickAt?, blocked? }
-//   referral_codes/{code}      = { uid }
-//   referred/{uidFilleul}      = { by, at, credited, reason? } — PAS d'e-mail
-//                                 (asrar-main ne l'écrit plus) : toujours résolu
-//                                 via Auth ci-dessous (action="children").
-//   config (doc "referral")    = { enabled, pointsPerInvite, pointsForReward,
-//                                   rewardDays, maxAccountAgeDays } — ⚠️ CE DOC
-//                                 N'EST PLUS LU par asrar-main : les paramètres
-//                                 du programme y sont désormais CODÉS EN DUR
-//                                 (pages/api/referral.js, POINTS_PER_INVITE=10,
-//                                 POINTS_FOR_REWARD=1000, REWARD_DAYS=90,
-//                                 MAX_ACCOUNT_AGE_MS=7 j). settings_get/
-//                                 settings_set restent fonctionnels (lecture/
-//                                 écriture de ce doc) mais SANS AUCUN EFFET sur
-//                                 le programme réel tant qu'asrar-main n'est pas
-//                                 remis à jour pour relire ce doc — à traiter
-//                                 séparément.
+//
+// Le hub écrit :
+//   referrals/{uid}       = { code, email, points, clicks, invited, rewards, blocked? }
+//   referral_codes/{code} = uid
+//   referred/{uidFilleul} = { by, at, credited, email?, reason? }
+//   config/referral       = { enabled, pointsPerInvite, pointsForReward, rewardDays, maxAccountAgeDays }
 //
 // Actions :
 //   overview      → KPIs + classement des parrains + alertes de fraude
@@ -59,22 +45,19 @@ module.exports = async (req, res) => {
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
   const a = app();
-  const firestore = a.firestore();
-  // {[id]: data} — même forme que l'ancien snap.val() RTDB, pour ne pas
-  // changer le reste de la logique (Object.entries/Object.values ci-dessous).
-  const toMap = (snap) => { const m = {}; snap.forEach((d) => { m[d.id] = d.data(); }); return m; };
+  const db = a.database();
 
   try {
     // ── Vue d'ensemble ─────────────────────────────────────────
     if (action === "overview") {
       const [refSnap, kidsSnap, cfgSnap] = await Promise.all([
-        firestore.collection("referrals").get(),
-        firestore.collection("referred").get(),
-        firestore.collection("config").doc("referral").get()
+        db.ref("referrals").once("value"),
+        db.ref("referred").once("value"),
+        db.ref("config/referral").once("value")
       ]);
-      const refs = toMap(refSnap);
-      const kids = toMap(kidsSnap);
-      const settings = withDefaults(cfgSnap.exists ? cfgSnap.data() : null);
+      const refs = refSnap.val() || {};
+      const kids = kidsSnap.val() || {};
+      const settings = withDefaults(cfgSnap.val());
 
       // Filleuls récents par parrain (détection des rafales).
       const now = Date.now();
@@ -174,13 +157,12 @@ module.exports = async (req, res) => {
     // ── Filleuls d'un parrain ──────────────────────────────────
     if (action === "children") {
       if (!uid) return res.status(400).json({ error: "uid requis" });
-      const snap = await firestore.collection("referred").where("by", "==", uid).get();
+      const snap = await db.ref("referred").orderByChild("by").equalTo(uid).once("value");
       const rows = [];
-      snap.forEach((doc) => { const v = doc.data() || {}; rows.push({ uid: doc.id, at: v.at || 0, credited: !!v.credited, reason: v.reason || "", email: v.email || "" }); });
+      snap.forEach((c) => { const v = c.val() || {}; rows.push({ uid: c.key, at: v.at || 0, credited: !!v.credited, reason: v.reason || "", email: v.email || "" }); });
       rows.sort((x, y) => y.at - x.at);
 
-      // Résout les e-mails manquants (asrar-main n'écrit plus d'e-mail sur
-      // `referred` du tout, cf. en-tête — donc systématique ici) — 40 max, appel unitaire.
+      // Résout les e-mails manquants (anciennes entrées) — 40 max, appel unitaire.
       await Promise.all(rows.slice(0, 40).filter((r) => !r.email).map(async (r) => {
         try { const u = await a.auth().getUser(r.uid); r.email = u.email || ""; r.created = u.metadata.creationTime; }
         catch (e) { r.email = "(compte supprimé)"; }
@@ -197,26 +179,20 @@ module.exports = async (req, res) => {
       if (!Number.isFinite(delta) || delta === 0) return res.status(400).json({ error: "Valeur invalide." });
       if (!reason) return res.status(400).json({ error: "Motif obligatoire (tracé dans l'audit)." });
 
-      const ref = firestore.collection("referrals").doc(uid);
-      let newPoints = 0;
-      await firestore.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
-        const cur = snap.exists ? (Number(snap.data().points) || 0) : 0;
-        newPoints = Math.max(0, cur + delta);
-        tx.set(ref, { points: newPoints, adjustedBy: who.email }, { merge: true });
-      });
+      const ref = db.ref("referrals/" + uid + "/points");
+      const tx = await ref.transaction((p) => Math.max(0, (p || 0) + delta));
+      await db.ref("referrals/" + uid + "/adjustedBy").set(who.email);
       await audit(who, "referral_adjust", uid, (delta > 0 ? "+" : "") + delta + " pts — " + reason);
-      return res.json({ ok: true, points: newPoints });
+      return res.json({ ok: true, points: tx.snapshot.val() || 0 });
     }
 
     // ── Suspension d'un parrain ────────────────────────────────
     if (action === "block" || action === "unblock") {
       if (!uid) return res.status(400).json({ error: "uid requis" });
       const on = action === "block";
-      await firestore.collection("referrals").doc(uid).set(
+      await db.ref("referrals/" + uid).update(
         on ? { blocked: true, blockedBy: who.email, blockedAt: Date.now() }
-           : { blocked: null, blockedBy: null, blockedAt: null },
-        { merge: true });
+           : { blocked: null, blockedBy: null, blockedAt: null });
       await audit(who, action === "block" ? "referral_block" : "referral_unblock", uid, String(body.reason || "").slice(0, 200));
       return res.json({ ok: true });
     }
@@ -224,32 +200,24 @@ module.exports = async (req, res) => {
     // ── Régénération du code ───────────────────────────────────
     if (action === "reset_code") {
       if (!uid) return res.status(400).json({ error: "uid requis" });
-      const refDoc = await firestore.collection("referrals").doc(uid).get();
-      const old = refDoc.exists ? (refDoc.data().code || null) : null;
+      const old = (await db.ref("referrals/" + uid + "/code").once("value")).val();
       let code = null;
       for (let i = 0; i < 10 && !code; i++) {
         const c = randomCode(6);
-        const codeRef = firestore.collection("referral_codes").doc(c);
-        let committed = false;
-        await firestore.runTransaction(async (tx) => {
-          const snap = await tx.get(codeRef);
-          if (snap.exists) return;
-          tx.set(codeRef, { uid });
-          committed = true;
-        });
-        if (committed) code = c;
+        const tx = await db.ref("referral_codes/" + c).transaction((cur) => (cur === null ? uid : undefined));
+        if (tx.committed) code = c;
       }
       if (!code) return res.status(500).json({ error: "Génération impossible, réessayez." });
-      if (old) await firestore.collection("referral_codes").doc(old).delete();
-      await firestore.collection("referrals").doc(uid).set({ code }, { merge: true });
+      if (old) await db.ref("referral_codes/" + old).remove();
+      await db.ref("referrals/" + uid + "/code").set(code);
       await audit(who, "referral_reset_code", uid, (old || "—") + " → " + code);
       return res.json({ ok: true, code });
     }
 
-    // ── Paramètres du programme (⚠️ plus lus par asrar-main, voir en-tête) ──
+    // ── Paramètres du programme (lus par le hub) ───────────────
     if (action === "settings_get") {
-      const snap = await firestore.collection("config").doc("referral").get();
-      return res.json({ settings: withDefaults(snap.exists ? snap.data() : null), defaults: DEFAULTS });
+      const snap = await db.ref("config/referral").once("value");
+      return res.json({ settings: withDefaults(snap.val()), defaults: DEFAULTS });
     }
 
     if (action === "settings_set") {
@@ -262,7 +230,7 @@ module.exports = async (req, res) => {
         }
         out[k] = n;
       }
-      await firestore.collection("config").doc("referral").set(out, { merge: true });
+      await db.ref("config/referral").update(out);
       await audit(who, "referral_settings", null, JSON.stringify(out).slice(0, 200));
       return res.json({ ok: true, settings: withDefaults(out) });
     }
