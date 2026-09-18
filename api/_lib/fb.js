@@ -84,6 +84,24 @@ async function listAllAuthUsers(a, ttlMs = 30000) {
 // uniquement la RTDB, lue en direct par users.js, donc n'ont pas besoin d'invalider.
 function invalidateUsersCache() { _usersCache = null; }
 
+// Cache mémoire générique très court, même principe que listAllAuthUsers
+// ci-dessus — best-effort (une instance serverless "chaude" seulement, jamais
+// partagé entre fonctions ni garanti d'une invocation à l'autre) mais utile :
+// Firestore facture chaque document lu, contrairement à la RTDB (facturée à la
+// bande passante). Un onglet dashboard/marché rechargé plusieurs fois de suite
+// par un même admin (changement d'onglet, F5) retombe souvent sur la même
+// instance chaude — juste assez pour éviter de refacturer le même balayage de
+// collections à quelques secondes d'intervalle. `key` doit inclure l'action
+// (ex. "stats:overview") pour ne pas mélanger des caches différents.
+const _cache = new Map(); // key → { at, data }
+async function cached(key, ttlMs, fn) {
+  const hit = _cache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  const data = await fn();
+  _cache.set(key, { at: Date.now(), data });
+  return data;
+}
+
 // Jeton d'accès OAuth du compte de service (pour les appels REST shallow du diagnostic).
 async function accessToken() {
   const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
@@ -98,4 +116,4 @@ function bearer(req) {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
 }
 
-module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer, listAllAuthUsers, invalidateUsersCache };
+module.exports = { app, verifyAdmin, audit, emailToKey, SUPER_ADMIN, accessToken, bearer, listAllAuthUsers, invalidateUsersCache, cached };

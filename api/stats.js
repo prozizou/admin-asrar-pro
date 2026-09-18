@@ -3,7 +3,7 @@
 // access_purchases, analytics_visits, activity_feed, shop_profiles, products,
 // product_views, likes, comments, access_admins, access_vip, user_sessions
 // (nouveau, pays/connexions — voir pages/api/track.js côté asrar-main).
-const { app, verifyAdmin, bearer, listAllAuthUsers } = require("./_lib/fb");
+const { app, verifyAdmin, bearer, listAllAuthUsers, cached } = require("./_lib/fb");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -15,6 +15,13 @@ module.exports = async (req, res) => {
   try { who = await verifyAdmin(bearer(req) || idToken); }
   catch (e) { return res.status(e.statusCode || 401).json({ error: e.message }); }
 
+  // Vérification de session admin (admin-core.js → verifyAdminOrSignOut,
+  // appelée à CHAQUE chargement de page) : verifyAdmin() ci-dessus a déjà
+  // fait tout le travail (1 lecture Firestore sur access_admins, ou 0 pour
+  // le super-admin) — inutile de lancer toute l'agrégation « overview »
+  // (plusieurs balayages de collections) juste pour confirmer un accès.
+  if (action === "ping") return res.json({ ok: true });
+
   const firestore = app().firestore();
 
   try {
@@ -22,6 +29,7 @@ module.exports = async (req, res) => {
     // KPIs synthétiques, tendances 30 j et sparkline — le tout à partir des
     // données réelles (aucune valeur inventée).
     if (action === "overview") {
+      const result = await cached("stats:overview", 20000, async () => {
       const now = Date.now();
       const DAY = 864e5;
       const dstr = (ms) => new Date(ms).toISOString().slice(0, 10); // AAAA-MM-JJ (UTC)
@@ -155,7 +163,7 @@ module.exports = async (req, res) => {
         .sort((a, b) => b.at - a.at)
         .slice(0, 12);
 
-      return res.json({
+      return {
         kpis: {
           revenue30, revenueTotal, revenue7, sales30, sales7, salesTotal,
           activeSubs, newSubs7, newSubs30,
@@ -170,7 +178,9 @@ module.exports = async (req, res) => {
         recent,
         countryBreakdown,
         unknownCountry: unknownCountry ? { users: unknownCountry.users, pct: sessionsTotal ? Math.round((unknownCountry.users / sessionsTotal) * 1000) / 10 : 0 } : null
+      };
       });
+      return res.json(result);
     }
 
     // ── ANALYTIQUE & VISITES ─────────────────────────────────────────────
@@ -184,12 +194,24 @@ module.exports = async (req, res) => {
     //           likes/{cat}:{itemKey}={cat,itemKey,uids:{uid:valeur},count}
     //           comments/{id}={cat,itemKey,uid,text,timestamp,...}
     if (action === "analytics") {
-      const [visitsSnap, feedSnap, profSnap, prodSnap, viewsSnap] = await Promise.all([
+      const result = await cached("stats:analytics", 30000, async () => {
+      const [visitsSnap, feedSnap, profSnap, prodSnap, viewsSnap, likesSnap, vendorCommentsSnap] = await Promise.all([
         firestore.collection("analytics_visits").get(),
         firestore.collection("activity_feed").orderBy("at", "desc").limit(5000).get(),
         firestore.collection("shop_profiles").get(),
         firestore.collection("products").get(),
-        firestore.collection("product_views").get()
+        firestore.collection("product_views").get(),
+        // Les avis/notes boutiques (plus bas) se limitaient jusqu'ici à 2-4
+        // requêtes PAR boutique (jusqu'à 4×N lectures) — une requête par
+        // PRÉFIXE d'ID ("vendor:…", via une plage sur l'ID de document, qui
+        // ne lit QUE les docs vendor — pas tout `likes`, qui contient aussi
+        // les avis produits) ramène ça à 2 lectures de collection au total,
+        // quel que soit le nombre de boutiques.
+        firestore.collection("likes")
+          .where(app().firestore.FieldPath.documentId(), ">=", "vendor:")
+          .where(app().firestore.FieldPath.documentId(), "<", "vendor:")
+          .get(),
+        firestore.collection("comments").where("cat", "==", "vendor").get()
       ]);
 
       const now = Date.now();
@@ -353,44 +375,47 @@ module.exports = async (req, res) => {
       // fois liée) n'a pas pu être revérifiée sur asrar-main depuis cette
       // session — repli id puis uid préservé tel quel (incertitude déjà
       // présente avant la migration Firestore).
-      const likesCol = firestore.collection("likes");
-      const commentsCol = firestore.collection("comments");
-      const profDocs = [];
-      profSnap.forEach((doc) => profDocs.push({ id: doc.id, pc: doc.data() }));
+      // likes/vendor:{clé} → Map(clé → uids{uid:valeur}) ; comments (cat=vendor)
+      // → Map(itemKey → nombre) — regroupés une fois en mémoire, plutôt que
+      // requêtés boutique par boutique (voir la requête groupée ci-dessus).
+      const likesByKey = new Map();
+      likesSnap.forEach((doc) => {
+        const key = doc.id.slice("vendor:".length);
+        likesByKey.set(key, doc.data().uids || {});
+      });
+      const commentCountByKey = new Map();
+      vendorCommentsSnap.forEach((doc) => {
+        const key = doc.data().itemKey;
+        if (key) commentCountByKey.set(key, (commentCountByKey.get(key) || 0) + 1);
+      });
 
-      const boutiques = (await Promise.all(profDocs.map(async ({ id, pc }) => {
+      const boutiques = [];
+      profSnap.forEach((doc) => {
+        const id = doc.id, pc = doc.data();
         const products = ownerProducts(pc && pc.uid, pc && pc.email);
-        const [likesById, likesByUid] = await Promise.all([
-          likesCol.doc("vendor:" + id).get(),
-          (pc && pc.uid) ? likesCol.doc("vendor:" + pc.uid).get() : Promise.resolve({ exists: false })
-        ]);
-        const likesDoc = likesById.exists ? likesById : (likesByUid.exists ? likesByUid : null);
-        const uidsMap = likesDoc ? (likesDoc.data().uids || {}) : {};
+        const uidsMap = likesByKey.get(id) || (pc && pc.uid && likesByKey.get(pc.uid)) || {};
         const ratingValues = Object.values(uidsMap).map(Number).filter((n) => n >= 1 && n <= 5);
         const rating = ratingValues.length
           ? Math.round((ratingValues.reduce((s, n) => s + n, 0) / ratingValues.length) * 10) / 10
           : 0;
+        const comments = commentCountByKey.get(id) || (pc && pc.uid && commentCountByKey.get(pc.uid)) || 0;
 
-        let commentsSnap = await commentsCol.where("cat", "==", "vendor").where("itemKey", "==", id).get();
-        if (commentsSnap.empty && pc && pc.uid) {
-          commentsSnap = await commentsCol.where("cat", "==", "vendor").where("itemKey", "==", pc.uid).get();
-        }
-
-        return {
+        boutiques.push({
           id,
           name: (pc && pc.profile_name) || id,
           img: (pc && pc.img) || "",
           number: (pc && pc.number) || "",
           follow: pc && pc.follow != null ? (Number(pc.follow) || 0) : 0,
           rating, ratingsCount: ratingValues.length,
-          comments: commentsSnap.size,
+          comments,
           products: products.length,
           views: products.reduce((s, p) => s + p.views, 0),
           productList: products.slice(0, 20)
-        };
-      }))).sort((a, b) => b.views - a.views || b.ratingsCount - a.ratingsCount || b.follow - a.follow);
+        });
+      });
+      boutiques.sort((a, b) => b.views - a.views || b.ratingsCount - a.ratingsCount || b.follow - a.follow);
 
-      return res.json({
+      return {
         daily: daily.slice(-90), weekly, monthly, topPages, recent, boutiques,
         periods,
         totals: {
@@ -402,7 +427,9 @@ module.exports = async (req, res) => {
           avisTotal: boutiques.reduce((s, b) => s + b.ratingsCount, 0),
           pagesTotal
         }
+      };
       });
+      return res.json(result);
     }
 
     return res.status(400).json({ error: "Action inconnue" });

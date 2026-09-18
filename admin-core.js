@@ -330,7 +330,10 @@
   // PAS : seul un refus explicite du serveur (401/403) le fait.
   async function verifyAdminOrSignOut() {
     try {
-      await api("stats", { action: "overview" });
+      // "ping" (pas "overview") : une seule lecture Firestore (voire zéro pour
+      // le super-admin) pour confirmer l'accès, au lieu de toute l'agrégation
+      // du dashboard — appelé à chaque chargement de page, ce coût compte.
+      await api("stats", { action: "ping" });
       return true;
     } catch (e) {
       if (e.status === 401 || e.status === 403) {
