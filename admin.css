@@ -72,82 +72,218 @@ body {
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* ── Écran de connexion ── */
-.login-wrap {
+/* ── Écran de connexion — Bottom Sheet premium ──
+   Refonte VISUELLE uniquement (aucun changement Firebase/Google/logique —
+   voir index.html). Palette bleu nuit/accents bleus scoped ici via des
+   variables locales à .login-screen : exception volontaire à la palette
+   obsidienne/or du reste du panneau, demandée pour cet écran précis. */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  --login-navy-deep: #060a14;
+  --login-panel: rgba(12, 20, 38, 0.88);
+  --login-panel-2: rgba(18, 29, 52, 0.94);
+  --login-line: rgba(125, 170, 255, 0.16);
+  --login-line-2: rgba(125, 170, 255, 0.34);
+  --login-accent: #4d8dff;
+  --login-accent-2: #8ab6ff;
+  --login-ink: #eef3ff;
+  --login-muted: #93a3c2;
+}
+.login-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 12%, rgba(35, 60, 110, 0.55), var(--login-navy-deep) 72%);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  animation: loginBackdropIn 0.4s ease both;
+}
+@keyframes loginBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.login-sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(180deg, var(--login-panel-2), var(--login-panel));
+  border: 1px solid var(--login-line);
+  border-bottom: none;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(125, 170, 255, 0.05) inset;
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  padding: 10px 22px calc(26px + env(safe-area-inset-bottom, 0px));
+  animation: loginSheetIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes loginSheetIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.login-sheet-handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 6px auto 18px;
+  border-radius: 999px;
+  background: var(--login-line-2);
+}
+.login-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.login-sheet-glogo {
+  flex: none;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--login-line);
 }
-.login-box {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  backdrop-filter: var(--blur);
-  padding: 48px 40px;
-  max-width: 440px;
-  width: 100%;
-  border-radius: 24px;
-  text-align: center;
-  box-shadow: var(--shadow);
-}
-.login-logo {
-  height: 40px;
-  margin-bottom: 14px;
-}
-.login-eyebrow {
+.login-sheet-heading { min-width: 0; }
+.login-sheet-heading .login-eyebrow {
   font-family: var(--body);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 2.5px;
-  color: var(--gold);
+  color: var(--login-accent-2);
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
-.login-box h1 {
+.login-sheet-heading h1 {
   font-family: var(--display);
-  color: var(--ink);
-  font-size: 1.55rem;
-  margin-bottom: 10px;
-  letter-spacing: 0.3px;
+  font-size: 1.3rem;
+  color: var(--login-ink);
+  letter-spacing: 0.2px;
+  margin: 0;
 }
-.login-sub {
+.login-sheet-sub {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--login-muted);
+  line-height: 1.45;
+}
+.login-loading-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 4px 10px;
+}
+.login-loading-row .login-sub {
+  margin: 0;
   font-size: 0.9rem;
-  color: var(--muted);
-  line-height: 1.5;
-  margin-bottom: 26px;
-}
-.login-fine {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  font-size: 0.74rem;
-  color: var(--muted);
+  color: var(--login-muted);
   line-height: 1.5;
 }
 /* Restauration de session (état par défaut, avant qu'on sache si un compte
    est déjà connecté) — un simple loader neutre, jamais le bouton Google. */
 .auth-spinner {
-  width: 30px; height: 30px; margin: 6px auto 18px;
+  width: 26px; height: 26px;
+  flex: none;
   border-radius: 50%;
-  border: 3px solid var(--line);
-  border-top-color: var(--gold);
+  border: 3px solid var(--login-line);
+  border-top-color: var(--login-accent);
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* ── Bouton Google (contraste maximal — conventions officielles) ── */
-.btn.google {
+/* Carte « compte » — reprend le geste d'un vrai sélecteur de compte natif
+   (avatar + libellé + chevron), même si une seule action existe derrière. */
+.login-account-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--login-line);
+  border-radius: 18px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--body);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+}
+.login-account-card:hover {
+  background: rgba(125, 170, 255, 0.08);
+  border-color: var(--login-line-2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+.login-account-card:active {
+  transform: scale(0.98);
+  background: rgba(125, 170, 255, 0.14);
+}
+.login-account-card:focus-visible {
+  outline: 2px solid var(--login-accent);
+  outline-offset: 2px;
+}
+.login-account-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   background: #fff;
-  color: #3c4043;
-  border: 1px solid #dadce0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
-.btn.google:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
-  filter: none;
-  transform: translateY(-1px);
+.login-account-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--login-ink);
 }
-.btn.google svg { flex: none; }
+.login-account-chevron {
+  flex: none;
+  color: var(--login-muted);
+}
+/* .msg est un composant global (admin-core.js, admin-fonts.js, etc.) — non
+   touché ; juste un espacement scoped pour son rendu dans la sheet. */
+.login-sheet .msg { margin-top: 14px; }
+.login-secure-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--login-line);
+  font-size: 0.72rem;
+  color: var(--login-muted);
+  line-height: 1.5;
+}
+.login-secure-hint svg { flex: none; color: var(--login-accent-2); }
+@media (min-width: 640px) {
+  .login-screen { align-items: center; padding: 24px; }
+  .login-sheet {
+    border-radius: 28px;
+    border-bottom: 1px solid var(--login-line);
+    padding-bottom: 26px;
+    animation: loginSheetInDesktop 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .login-sheet-handle { display: none; }
+}
+@keyframes loginSheetInDesktop {
+  from { transform: translateY(24px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@media (max-width: 374px) {
+  .login-sheet { padding-left: 16px; padding-right: 16px; }
+  .login-sheet-glogo { width: 38px; height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-backdrop, .login-sheet { animation: none; }
+}
 
 /* ── Topbar ── */
 .topbar {
@@ -1229,7 +1365,6 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .block { padding: 18px 16px; }
   .bigwrap { padding: 20px 12px; }
   .bigcard { padding: 22px 18px; }
-  .login-box { padding: 32px 22px; }
   .bar { gap: 10px; }
   .bar h2 { font-size: 1.3rem; }
   .bar h3 { font-size: 1.15rem; }
@@ -1279,8 +1414,6 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .panel { padding: 10px; }
   .block { padding: 14px 12px; border-radius: 16px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-  .login-box { padding: 28px 18px; }
-  .login-box h1 { font-size: 1.6rem; }
   .kpis { grid-template-columns: 1fr 1fr; }
   .seg { width: 100%; }
   .seg button { flex: 1; padding: 8px 6px; }
