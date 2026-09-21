@@ -25,19 +25,17 @@
   var dp = null;
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault(); dp = e;
-    if (localStorage.getItem("adm_installed") === "1") return;
+    try { if (localStorage.getItem("adm_installed") === "1") return; } catch (_) {}
     var b = document.createElement("button");
-    b.textContent = "📲 Installer l'application";
-    b.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;" +
-      "background:linear-gradient(135deg,#e8cd78,#c9a227);color:#231a05;border:none;border-radius:12px;" +
-      "padding:12px 18px;font-weight:700;font-family:system-ui;box-shadow:0 8px 24px rgba(0,0,0,.5);cursor:pointer";
+    b.textContent = "Installer l'application";
+    b.className = "btn primary pwa-install";
     b.onclick = function () {
       dp.prompt(); dp.userChoice.then(function (c) {
-        if (c && c.outcome === "accepted") localStorage.setItem("adm_installed", "1");
+        try { if (c && c.outcome === "accepted") localStorage.setItem("adm_installed", "1"); } catch (_) {}
         b.remove();
       });
     };
     document.body.appendChild(b);
   });
-  window.addEventListener("appinstalled", function () { localStorage.setItem("adm_installed", "1"); });
+  window.addEventListener("appinstalled", function () { try { localStorage.setItem("adm_installed", "1"); } catch (_) {} });
 })();

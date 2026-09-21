@@ -1,11 +1,13 @@
 // sw.js — SW du panneau admin. Cache DYNAMIQUE + mise à jour immédiate.
 // Change SW_VERSION à chaque déploiement → purge de l'ancien cache + reload auto.
-const SW_VERSION = 'admin-v25';
+const SW_VERSION = 'admin-v26';
 const CACHE = 'asrar-admin-' + SW_VERSION;
 const SHELL = ['/', '/index.html', '/admin.css',
+  '/admin-design.css', '/admin-theme.js', '/admin-shell.js',
   '/admin-core.js', '/admin-dashboard.js', '/admin-content.js', '/admin-market.js', '/admin-users.js', '/admin-fonts.js', '/admin-referral.js', '/admin-stats.js', '/admin-formation-access.js',
   '/pwa.js', '/manifest.json',
-  '/assets/logo-mark.png', '/assets/favicon.png', '/assets/icon-192.png'];
+  '/assets/logo-mark.png', '/assets/favicon.png', '/assets/icon-192.png',
+  '/assets/fonts/inter-latin.woff2', '/assets/fonts/inter-latin-ext.woff2'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

@@ -1,5 +1,5 @@
-/* admin.css — ASRAR PRO Admin. Palette : Obsidienne, Or pur & Glassmorphism Épuré */
-@import url('https://fonts.googleapis.com/css2?family=Marcellus&family=Inter:wght@400;500;600;700&display=swap');
+/* admin.css — ASRAR PRO Admin. Composants métier (habillage partagé dans admin-design.css) */
+/* Fonts and theme are defined in admin-design.css. */
 
 :root {
   --obsidian: #080705;
@@ -283,104 +283,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .login-backdrop, .login-sheet { animation: none; }
-}
-
-/* ── Topbar ── */
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 24px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
-  backdrop-filter: var(--blur);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-/* En-tête compact deux lignes : logo + nom sur la première, section en cours
-   (mise à jour par showTab(), admin-core.js) sur la seconde — contexte
-   toujours visible, y compris sur mobile, sans agrandir la barre : le padding
-   vertical réduit ci-dessus compense l'ajout de cette ligne. */
-.brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.brand-row { display: flex; align-items: center; gap: 10px; }
-.brand img { height: 34px; flex: none; }
-.brand-name { font-family: var(--display); color: var(--ink); font-size: 1rem; letter-spacing: 0.3px; white-space: nowrap; }
-.page-title {
-  font-size: 0.74rem;
-  color: var(--gold-2);
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-left: 44px; /* aligne sous le nom, pas sous le logo */
-}
-.nav {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.nav button {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--muted);
-  padding: 10px 22px;
-  border-radius: 10px;
-  font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  letter-spacing: 0.3px;
-}
-.nav button:hover,
-.nav button.active {
-  color: var(--gold-2);
-  background: var(--raised);
-  border-color: var(--line);
-}
-.nav button.btn-out {
-  color: var(--danger);
-}
-.nav button.btn-out:hover {
-  background: rgba(209, 104, 92, 0.12);
-  border-color: rgba(209, 104, 92, 0.25);
-}
-
-/* ── Bouton hamburger (mobile / tablette) ── */
-.nav-toggle {
-  display: none;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  width: 36px;
-  height: 36px;
-  padding: 0 8px;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  cursor: pointer;
-}
-.nav-toggle span {
-  display: block;
-  height: 2px;
-  width: 100%;
-  background: var(--gold-2);
-  border-radius: 2px;
-  transition: transform 0.25s ease, opacity 0.2s ease;
-}
-.nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.nav-toggle.open span:nth-child(2) { opacity: 0; }
-.nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-.nav-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(5, 4, 3, 0.55);
-  backdrop-filter: blur(2px);
 }
 
 /* ── Formulaires ── */
@@ -1279,47 +1181,6 @@ body.light .toast.danger { background: rgba(192, 72, 59, 0.92); color: #fff; }
   .panel { padding: 18px 22px; }
   .block { padding: 24px 24px; }
   #tab-content .sidebar { flex-basis: 240px; }
-}
-
-/* Menu déroulant (hamburger) — tablette + mobile */
-@media (max-width: 1100px) {
-  /* La barre reste au-dessus du voile (scrim) : sans z-index positionné,
-     le voile flouterait et bloquerait les onglets du menu. */
-  .topbar { flex-wrap: wrap; gap: 12px; position: sticky; z-index: 110; }
-  .nav-toggle { display: flex; margin-left: auto; }
-
-  .nav {
-    order: 3;
-    flex-basis: 100%;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: max-height 0.3s ease, opacity 0.2s ease, margin 0.3s ease, padding 0.3s ease;
-  }
-  .nav.open {
-    max-height: 72vh;
-    overflow-y: auto;
-    opacity: 1;
-    pointer-events: auto;
-    margin-top: 8px;
-    padding: 8px;
-    background: var(--panel2);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    box-shadow: var(--shadow);
-  }
-  .nav button {
-    width: 100%;
-    text-align: left;
-    padding: 13px 16px;
-    font-size: 0.95rem;
-    border-color: var(--line);
-    background: var(--raised);
-  }
-  .nav button.btn-out { margin-top: 4px; }
 }
 
 /* Mobile ── */

@@ -17,6 +17,48 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 > écrit dans `allowedUsers`) : les deux restent compatibles côté barrière
 > d'accès (`server/access.js` lit les deux nœuds), mais ne partagent pas de code.
 
+## Interface et vérification
+
+La refonte propose une interface ivoire et vert profond, un thème sombre,
+une navigation latérale sur ordinateur et une barre inférieure sur mobile.
+La recherche `Ctrl/Cmd + K` ouvre les sections et les actions courantes.
+Les URL `#content`, `#users`, etc. conservent la section au rechargement et
+permettent de revenir en arrière avec le navigateur.
+
+Le tableau de bord affiche les données des API existantes : indicateurs,
+trafic sur 7/30/90 jours, pays et activité récente. Les fenêtres de création,
+les listes, les formulaires et les confirmations partagent le même habillage.
+Le clavier reste contenu dans les fenêtres ouvertes ; Échap ferme les menus
+et les éditeurs. Les animations respectent la réduction des mouvements.
+La police Inter est hébergée localement (licence dans `assets/fonts/OFL.txt`).
+
+- `admin-design.css` : palette, navigation, responsive et habillage commun.
+- `admin-shell.js` : recherche, navigation mobile, titres et gestion du focus.
+- `admin-theme.js` : préférence de thème appliquée avant le premier affichage.
+- `admin.css` : composants métier existants, complétés par le nouvel habillage.
+
+### Tests de l'interface
+
+```sh
+npm ci
+npx playwright install chromium
+npm run check
+npm test
+```
+
+Les tests démarrent leur serveur local et simulent Firebase et les API dans
+le navigateur. Ils ne requièrent aucun secret et n'appellent pas la base de
+production. Ils couvrent les sept sections à 360, 390, 768, 1024 et 1440 px,
+les fenêtres d'édition, le focus clavier, la recherche, l'historique de
+navigation, le thème, la déconnexion, les comptes refusés, les données vides,
+le stockage local indisponible et la relance après une erreur serveur.
+`UI_CHROMIUM_PATH` permet de préciser un exécutable Chromium déjà installé.
+`UI_CAPTURE_DIR` active l'enregistrement des captures de vérification.
+
+Les aperçus de `docs/previews/` utilisent uniquement des données de
+démonstration. Le test de la véritable connexion Google et des écritures
+Firebase nécessite un environnement de préproduction configuré.
+
 ## Déploiement (une fois)
 
 1. Créer un **nouveau projet Vercel** et y déposer ce dossier.
@@ -52,14 +94,13 @@ propre au panneau.
 
 ## Fonctionnalités
 
-- **Tableau de bord** : visites journalières & mensuelles (barres survolables),
-  visiteurs uniques, revenus des accès accordés manuellement (30 j / total / nb
-  d'octrois), activité récente. *(asrar-main a retiré le paiement en ligne
-  PayDunya — un utilisateur contacte désormais l'administration par WhatsApp
-  pour activer son abonnement, qui l'accorde ensuite ici, onglet Utilisateurs ;
-  ces revenus reflètent donc les paliers accordés, pas des transactions PayDunya.
-  Voir aussi l'avertissement ⚠️ FREE_FOR_ALL affiché en haut de cet onglet dans
-  le panneau.)*
+- **Tableau de bord** : quatre indicateurs, trafic (courbes et tableau de valeurs),
+  utilisateurs par pays et activité récente. La **valeur des accès** additionne
+  les montants associés aux paliers, y compris les octrois manuels : elle ne
+  constitue pas un relevé de paiements encaissés. Les chiffres sur 30 jours sont
+  des volumes sur cette période, et non des pourcentages de progression.
+  Sur 30/90 jours, le graphique regroupe les jours en tranches de 7 jours et
+  précise que les visiteurs uniques sont cumulés quotidiennement.
 - **Contenus page par page** : liste blanche de nœuds éditables (Noms d'Allah,
   versets, sourates, bibliothèques Sirr, produits, commentaires/notes…).
   Ajouter / éditer (JSON) / supprimer / **exporter en JSON**.
@@ -153,8 +194,8 @@ révocations d'accès (onglet Utilisateurs) sont **bien enregistrés** dans
 aucun effet visible** pour les utilisateurs tant que ce drapeau n'est pas
 repassé à `false` dans le code d'asrar-main — c'est le seul geste nécessaire
 pour réactiver le paywall, tout le reste (achats, grants, code du paywall)
-reste intact. Un bandeau ⚠️ le rappelle en haut de l'onglet **Vue d'ensemble**
-du panneau.
+reste intact. Cette configuration se vérifie dans le dépôt de l'application principale ;
+elle n'est pas affichée comme bannière dans le tableau de bord.
 
 ## Notes de sécurité
 
