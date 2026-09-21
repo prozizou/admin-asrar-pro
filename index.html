@@ -7,15 +7,17 @@
   <title>ASRAR PRO — Administration</title>
   <link rel="icon" type="image/png" href="/assets/favicon.png">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0d0b07">
+  <meta name="theme-color" content="#153f35">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <script src="admin-theme.js"></script>
   <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin-design.css">
 </head>
 <body>
 
-  <div id="toast-container"></div>
+  <a class="skip-link" href="#mainContent">Aller au contenu</a>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
   <!-- Écran de connexion — Bottom Sheet premium (refonte visuelle pure : mêmes
        IDs qu'avant pour admin-core.js — authLoaderBox/loginBox/btnGoogleLogin/
@@ -104,72 +106,82 @@
   </div>
 
   <div id="app" hidden>
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-row">
-          <img src="/assets/logo-mark.png" alt="ASRAR PRO">
-          <span class="brand-name">ASRAR PRO</span>
-        </div>
-        <span id="pageTitle" class="page-title">Vue d'ensemble</span>
+    <aside class="app-sidebar" id="appSidebar" aria-label="Menu principal">
+      <button id="closeNav" class="icon-btn drawer-close" data-icon="close" aria-label="Fermer le menu"></button>
+      <a class="sidebar-brand" href="#dashboard" aria-label="ASRAR PRO — accueil">
+        <img src="/assets/logo-mark.png" alt="">
+        <span>ASRAR <b>PRO</b><small>ADMINISTRATION</small></span>
+      </a>
+      <div class="workspace-label"><span class="workspace-icon" data-icon="overview"></span><span>Espace de travail<small>Administration ASRAR</small></span></div>
+      <p class="nav-label">PILOTAGE</p>
+      <nav class="nav" id="mainNav" aria-label="Sections">
+        <button data-tab="dashboard" class="active" data-icon="overview" aria-current="page">Vue d'ensemble</button>
+        <button data-tab="analytics" data-icon="analytics">Statistiques</button>
+        <span class="nav-label">GESTION</span>
+        <button data-tab="content" data-icon="content">Contenus</button>
+        <button data-tab="users" data-icon="users">Utilisateurs</button>
+        <button data-tab="market" data-icon="market">Marché</button>
+        <button data-tab="referral" data-icon="referral">Parrainage</button>
+        <button data-tab="fonts" data-icon="fonts">Polices Al-Qalam</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <a id="viewSite" class="site-link" target="_blank" rel="noopener" data-icon="open">Voir l'application <span>↗</span></a>
+        <div class="sidebar-account"><span class="account-avatar" id="accountAvatar">A</span><span class="account-details"><b id="accountName">Administrateur</b><small id="accountEmail">Compte connecté</small></span><button id="btnLogout" class="icon-btn" data-icon="logout" title="Se déconnecter" aria-label="Se déconnecter"></button></div>
       </div>
-      <button id="navToggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mainNav">
+    </aside>
+    <header class="topbar">
+      <button id="navToggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="appSidebar">
         <span></span><span></span><span></span>
       </button>
-      <nav class="nav" id="mainNav">
-        <button data-tab="dashboard" class="active" data-icon="overview">Vue d'ensemble</button>
-        <button data-tab="content" data-icon="content">Contenus</button>
-        <button data-tab="market" data-icon="market">Marché</button>
-        <button data-tab="users" data-icon="users">Utilisateurs</button>
-        <button data-tab="fonts" data-icon="fonts">Polices</button>
-        <button data-tab="referral" data-icon="referral">Parrainage</button>
-        <button data-tab="analytics" data-icon="analytics">Analytique</button>
-        <button id="themeToggle" class="theme-btn" title="Basculer clair / sombre" aria-label="Basculer le thème">🌙</button>
-        <button id="btnLogout" class="btn-out" data-icon="logout">Quitter</button>
-      </nav>
+      <div class="breadcrumb"><span>Espace de travail</span><span aria-hidden="true">/</span><b id="pageTitle">Vue d'ensemble</b></div>
+      <div class="topbar-actions">
+        <button id="openSearch" class="search-trigger" data-icon="search" aria-label="Rechercher une section ou une action"><span>Rechercher…</span><kbd>Ctrl K</kbd></button>
+        <span class="connection-state" id="connectionState" role="status" hidden>Hors connexion</span>
+        <button id="themeToggle" class="icon-btn theme-btn" title="Changer de thème" aria-label="Changer de thème"></button>
+        <span class="topbar-avatar" id="topbarAvatar" aria-hidden="true">A</span>
+      </div>
     </header>
     <div id="navScrim" class="nav-scrim" hidden></div>
 
-    <main class="main-container">
+    <main class="main-container" id="mainContent" tabindex="-1">
+      <div class="page-heading">
+        <div><p class="eyebrow" id="pageEyebrow">VOTRE ACTIVITÉ EN UN REGARD</p><h1 id="pageHeading" tabindex="-1">Vue d'ensemble</h1><p id="pageDescription">Gardez le cap sur l'essentiel de votre activité.</p></div>
+        <div class="heading-actions"><span class="today-date" id="todayDate"></span><button id="pagePrimaryAction" class="btn primary" data-icon="add">Créer un contenu</button></div>
+      </div>
 
       <section id="tab-dashboard" class="panel">
-        <div class="block">
+        <div class="dashboard-toolbar"><h2>Les chiffres clés</h2><span class="dashboard-refresh"><span id="dashUpdated" aria-live="polite"></span><button id="btnReloadDash" class="icon-btn" data-icon="refresh" aria-label="Actualiser le tableau de bord" title="Actualiser"></button></span></div>
+        <div id="dashGrid" class="stats stats-primary" aria-label="Indicateurs clés"></div>
+        <div id="dashGridSecondary" class="stats-secondary"></div>
+        <div class="dashboard-grid">
+        <div class="block traffic-block">
           <div class="bar">
-            <h3 class="star">Vue d'ensemble</h3>
-            <button id="btnReloadDash" class="btn text" data-icon="refresh">Actualiser</button>
-          </div>
-          <div id="dashGrid" class="stats stats-primary"></div>
-          <div id="dashGridSecondary" class="stats-secondary"></div>
-        </div>
-        <div class="block">
-          <div class="bar">
-            <h3>Trafic</h3>
-            <div class="seg" id="dashPeriodSeg">
-              <button data-period="7" class="active">7 j</button>
-              <button data-period="30">30 j</button>
-              <button data-period="90">90 j</button>
+            <div><h3>Évolution du trafic</h3><p class="section-caption">La fréquentation de votre application</p></div>
+            <div class="seg" id="dashPeriodSeg" aria-label="Période du trafic">
+              <button data-period="7" class="active" aria-pressed="true">7 j</button>
+              <button data-period="30" aria-pressed="false">30 j</button>
+              <button data-period="90" aria-pressed="false">90 j</button>
             </div>
           </div>
+          <div class="traffic-summary" id="dashTrafficSummary"></div>
           <div id="dashSpark" class="spark-wrap"></div>
         </div>
-        <div class="block">
-          <div class="bar"><h3>Répartition par pays</h3></div>
+        <div class="block countries-block">
+          <div class="bar"><div><h3>Votre communauté</h3><p class="section-caption">Répartition des utilisateurs par pays</p></div><span class="section-icon" data-icon="users"></span></div>
           <div id="dashCountries" class="hbars"></div>
         </div>
-        <div class="block dash-cols">
-          <div class="dash-col">
-            <div class="bar"><h3>Accès rapides</h3></div>
-            <div class="shortcuts">
-              <button class="shortcut" data-goto="content" data-icon="content"><span>Contenus</span></button>
-              <button class="shortcut" data-goto="market" data-icon="market"><span>Marché</span></button>
-              <button class="shortcut" data-goto="users" data-icon="users"><span>Utilisateurs</span></button>
-              <button class="shortcut" data-goto="referral" data-icon="referral"><span>Parrainage</span></button>
-              <button class="shortcut" data-goto="analytics" data-icon="analytics"><span>Analytique</span></button>
-            </div>
-          </div>
-          <div class="dash-col">
-            <div class="bar"><h3>Activité récente</h3></div>
+        <div class="block activity-block">
+            <div class="bar"><div><h3>Activité récente</h3><p class="section-caption">Les derniers mouvements de votre communauté</p></div><span class="section-icon" data-icon="clock"></span></div>
             <div id="dashRecent" class="list"></div>
+        </div>
+        <div class="block quick-block">
+          <span class="eyebrow">PASSER À L'ACTION</span><h3>Faites vivre<br>votre communauté.</h3><p>Vos actions du quotidien, à portée de main.</p>
+          <div class="shortcuts">
+            <button class="shortcut" data-action="create" data-icon="add"><span>Publier un contenu<small>Secrets, documents et formations</small></span><span aria-hidden="true">↗</span></button>
+            <button class="shortcut" data-action="grant" data-icon="users"><span>Accorder un accès<small>Accompagner un nouvel abonné</small></span><span aria-hidden="true">↗</span></button>
+            <button class="shortcut" data-goto="market" data-icon="market"><span>Gérer le marché<small>Boutiques et produits</small></span><span aria-hidden="true">↗</span></button>
           </div>
+        </div>
         </div>
       </section>
 
@@ -202,7 +214,7 @@
             <button id="bulkCancel" class="btn text">Annuler</button>
           </div>
 
-          <div id="cardsGrid" class="grid"></div>
+          <div id="cardsGrid" class="grid"><div class="content-welcome"><span data-icon="content"></span><h3>Vos contenus commencent ici</h3><p>Choisissez une bibliothèque pour consulter et organiser vos publications.</p></div></div>
           <button id="btnMoreItems" class="btn text load-more" hidden>Afficher 50 de plus</button>
         </div>
       </section>
@@ -228,7 +240,6 @@
       </section>
 
       <section id="tab-users" class="panel" hidden>
-        <div class="bar"><h3 class="star">Gestion des accès</h3></div>
         <div class="seg" id="usersSeg">
           <button data-usersub="subs" class="active">Abonnements <span id="subsSegCount"></span></button>
           <button data-usersub="formations">Formations <span id="fmaSegCount"></span></button>
@@ -270,8 +281,6 @@
       </section>
 
       <section id="tab-fonts" class="panel" hidden>
-        <div class="bar"><h3 class="star">Polices Al-Qalam</h3></div>
-        <p class="muted" style="margin:-12px 0 16px">Gérez les polices disponibles dans le Hub.</p>
         <div class="block">
           <div class="bar">
             <h3>Polices <span id="fontCount" class="muted"></span></h3>
@@ -284,7 +293,7 @@
 
       <section id="tab-referral" class="panel" hidden>
         <div class="bar">
-          <h3 class="star">Parrainage</h3>
+          <h3 class="star">Performance du programme</h3>
           <span class="ana-refresh">
             <span id="refUpdated" class="muted"></span>
             <button id="btnReloadReferral" class="icon-btn" data-icon="refresh" title="Actualiser" aria-label="Actualiser"></button>
@@ -382,7 +391,7 @@
 
       <section id="tab-analytics" class="panel" hidden>
         <div class="bar">
-          <h3 class="star">Analytique</h3>
+          <h3 class="star">Vue d'ensemble de la fréquentation</h3>
           <span class="ana-refresh">
             <span id="anaUpdated" class="muted"></span>
             <button id="btnReloadAnalytics" class="icon-btn" data-icon="refresh" title="Actualiser" aria-label="Actualiser"></button>
@@ -422,9 +431,20 @@
       </section>
 
     </main>
+    <nav class="bottom-nav" aria-label="Navigation mobile">
+      <button data-tab="dashboard" class="active" data-icon="overview" aria-current="page"><span>Accueil</span></button>
+      <button data-tab="content" data-icon="content"><span>Contenus</span></button>
+      <button data-tab="users" data-icon="users"><span>Utilisateurs</span></button>
+      <button data-tab="analytics" data-icon="analytics"><span>Stats</span></button>
+      <button id="moreNav" data-icon="more" aria-label="Toutes les sections" aria-expanded="false" aria-controls="appSidebar"><span>Plus</span></button>
+    </nav>
   </div>
 
-  <div id="big" class="bigwrap" hidden>
+  <dialog id="commandPalette" class="command-palette" aria-labelledby="commandTitle">
+    <div class="command-header"><span data-icon="search"></span><label class="sr-only" id="commandTitle" for="commandInput">Rechercher une section ou une action</label><input id="commandInput" type="search" placeholder="Où souhaitez-vous aller ?" autocomplete="off"><button class="icon-btn" id="closeSearch" data-icon="close" aria-label="Fermer la recherche"></button></div>
+    <p class="command-caption">SECTIONS ET ACTIONS RAPIDES</p><div id="commandResults" class="command-results"></div><p class="command-footer">↑ ↓ pour parcourir · Entrée pour ouvrir · Échap pour fermer</p>
+  </dialog>
+  <div id="big" class="bigwrap" role="dialog" aria-modal="true" aria-label="Éditeur" tabindex="-1" hidden>
     <div class="bigcard" id="bigcard"></div>
   </div>
 
@@ -442,6 +462,7 @@
   <script src="admin-fonts.js" defer></script>
   <script src="admin-referral.js" defer></script>
   <script src="admin-stats.js" defer></script>
+  <script src="admin-shell.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
 </html>

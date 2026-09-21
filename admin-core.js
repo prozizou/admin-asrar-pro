@@ -349,7 +349,15 @@
   // le loader neutre (#authLoaderBox, visible par défaut dans le HTML) reste
   // affiché pendant ce court instant. Le bouton Google n'apparaît que dans
   // la branche `else` (personne à restaurer) ou sur un refus explicite.
+  // Firebase can restore a session before all deferred business modules have
+  // executed. Wait for DOMContentLoaded before calling their entry points.
+  const modulesReady = document.readyState === "complete" ? Promise.resolve()
+    : new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
+  let authVersion = 0;
   auth.onAuthStateChanged(async (user) => {
+    const version = ++authVersion;
+    await modulesReady;
+    if (version !== authVersion) return;
     if (user) {
       try {
         USER_TOKEN = await user.getIdToken();
@@ -361,11 +369,21 @@
       // Session déjà ouverte → on laisse passer sans redemander la connexion
       // Google, juste la vérification admin ci-dessus.
       if (!(await verifyAdminOrSignOut())) return; // signOut() redéclenche ce handler avec user=null.
+      if (version !== authVersion) return;
       $("login").hidden = true;
       $("app").hidden = false;
+      const name = user.displayName || (user.email || "Administrateur").split("@")[0];
+      $("accountName").textContent = name;
+      $("accountEmail").textContent = user.email || "Administrateur";
+      const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+      $("accountAvatar").textContent = $("topbarAvatar").textContent = initials;
       initDashboard();
     } else {
       USER_TOKEN = null;
+      if (window.__closeNav) window.__closeNav();
+      if ($("commandPalette").open) $("commandPalette").close();
+      $("big").hidden = true;
+      Object.keys(TAB_LOADED).forEach((key) => delete TAB_LOADED[key]);
       $("app").hidden = true;
       $("login").hidden = false;
       revealLoginForm();
@@ -431,37 +449,21 @@
   (function initTheme() {
     const btn = $("themeToggle");
     const apply = (t) => {
+      document.documentElement.dataset.theme = t;
       document.body.classList.toggle("light", t === "light");
-      if (btn) btn.innerHTML = ic(t === "light" ? "sun" : "moon");
+      if (btn) {
+        btn.innerHTML = ic(t === "light" ? "moon" : "sun");
+        btn.setAttribute("aria-label", t === "light" ? "Activer le thème sombre" : "Activer le thème clair");
+        btn.title = btn.getAttribute("aria-label");
+      }
     };
-    let theme = "dark";
-    try { theme = localStorage.getItem("adm_theme") || "dark"; } catch (e) {}
+    let theme = document.documentElement.dataset.theme || "light";
     apply(theme);
     if (btn) btn.onclick = () => {
       theme = document.body.classList.contains("light") ? "dark" : "light";
       apply(theme);
       try { localStorage.setItem("adm_theme", theme); } catch (e) {}
     };
-  })();
-
-  // Menu mobile (hamburger)
-  (function initNavToggle() {
-    const toggle = $("navToggle");
-    const nav = $("mainNav");
-    const scrim = $("navScrim");
-    if (!toggle || !nav) return;
-    const setOpen = (open) => {
-      nav.classList.toggle("open", open);
-      toggle.classList.toggle("open", open);
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      if (scrim) scrim.hidden = !open;
-    };
-    toggle.onclick = () => setOpen(!nav.classList.contains("open"));
-    if (scrim) scrim.onclick = () => setOpen(false);
-    // Fermer après un choix ou en repassant en grand écran.
-    nav.addEventListener("click", (e) => { if (e.target.closest("button")) setOpen(false); });
-    window.matchMedia("(max-width: 1100px)").addEventListener("change", (e) => { if (!e.matches) setOpen(false); });
-    window.__closeNav = () => setOpen(false);
   })();
 
   // Navigation par onglets
@@ -477,16 +479,26 @@
   // Titre affiché dans l'en-tête (à côté du logo) — reprend le libellé du bouton nav.
   const TAB_TITLES = {
     dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Utilisateurs",
-    fonts: "Polices", referral: "Parrainage", analytics: "Analytique"
+    fonts: "Polices Al-Qalam", referral: "Parrainage", analytics: "Statistiques"
   };
 
   // Affiche un onglet et charge SES données à la demande (lazy) — une seule fois.
   const TAB_LOADED = {};
   window.showTab = function (target, force) {
-    document.querySelectorAll("[data-tab]").forEach((b) =>
-      b.classList.toggle("active", b.getAttribute("data-tab") === target));
+    if (!Object.prototype.hasOwnProperty.call(TAB_TITLES, target)) target = "dashboard";
+    const changed = document.body.dataset.activeTab !== target;
+    document.body.dataset.activeTab = target;
+    document.querySelectorAll("[data-tab]").forEach((b) => {
+      const active = b.getAttribute("data-tab") === target;
+      b.classList.toggle("active", active);
+      if (active) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
+    if (window.__closeNav) window.__closeNav();
+    if (location.hash !== "#" + target) history.pushState(null, "", "#" + target);
     const pt = $("pageTitle");
     if (pt) pt.textContent = TAB_TITLES[target] || "";
+    document.title = TAB_TITLES[target] + " · ASRAR PRO";
 
     $("tab-dashboard").hidden = target !== "dashboard";
     $("tab-content").hidden = target !== "content";
@@ -495,6 +507,11 @@
     $("tab-fonts").hidden = target !== "fonts";
     $("tab-referral").hidden = target !== "referral";
     $("tab-analytics").hidden = target !== "analytics";
+    document.dispatchEvent(new CustomEvent("admin:tabchange", { detail: { target, title: TAB_TITLES[target] } }));
+    if (changed) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      $("pageHeading").focus({ preventScroll: true });
+    }
 
     // Onglets rechargés à chaque visite (données volatiles).
     if (target === "dashboard") return loadDashboard();
@@ -619,7 +636,7 @@
       if (btnShop) btnShop.onclick = openShopCreator;
     }
     // Ouvre sur la Vue d'ensemble ; chaque onglet charge SES données à la demande.
-    showTab("dashboard", true);
+    showTab(location.hash.slice(1) || "dashboard", true);
   };
 
 })();
