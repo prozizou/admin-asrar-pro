@@ -133,7 +133,7 @@ propre au panneau.
   bloqués** malgré un accès valide (une fois `FREE_FOR_ALL` désactivé — voir plus
   bas). Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
 - **Marché (boutiques & produits)** : onglet dédié. Liste des boutiques
-  (`sellers/{uid}`) avec statut (active / expirée), date d'expiration et nombre de
+  (`profile_clients/{id}`) avec statut (active / expirée), date d'expiration et nombre de
   produits. Actions par boutique : **Prolonger** (nouvelle date), **Renommer**,
   **Notifier** le vendeur, **Révoquer** (retire tous ses produits de la vente en
   les déplaçant vers `det_produits_bloques`), **Restaurer**, **Supprimer**

@@ -4,8 +4,9 @@ const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
 
 const LIVE = "det_produits";
 const BLOCKED = "det_produits_bloques";
+const SHOPS_NODE = "profile_clients";
 
-const shopName = (s) => (s && s.shop && s.shop.name) || (s && s.vendeur) || (s && s.name) || "Boutique";
+const shopName = (s) => (s && s.profile_name) || (s && s.shop && s.shop.name) || (s && s.vendeur) || (s && s.name) || "Boutique";
 const isActive = (s) => !!(s && s.shopActive &&
   (s.expiresAt === "lifetime" || (typeof s.expiresAt === "number" && s.expiresAt > Date.now())));
 const isExpired = (s) => !!(s && typeof s.expiresAt === "number" && s.expiresAt <= Date.now());
@@ -41,7 +42,7 @@ module.exports = async (req, res) => {
   try {
     if (action === "list") {
       const [sellersSnap, liveSnap, blockedSnap] = await Promise.all([
-        db.ref("sellers").once("value"),
+        db.ref(SHOPS_NODE).once("value"),
         db.ref(LIVE).once("value"),
         db.ref(BLOCKED).once("value")
       ]);
@@ -126,7 +127,7 @@ module.exports = async (req, res) => {
     }
 
     if (!uid && action !== "shop_create") return res.status(400).json({ error: "uid de la boutique requis" });
-    const sref = uid ? db.ref("sellers/" + uid) : null;
+    const sref = uid ? db.ref(SHOPS_NODE + "/" + uid) : null;
 
     // ── Nouvelle action : création de boutique ──
     if (action === "shop_create") {
@@ -134,25 +135,23 @@ module.exports = async (req, res) => {
       if (!name || !email) return res.status(400).json({ error: "Nom et email requis" });
       const newUid = `shop_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
       const shopData = {
-        shop: {
-          name: name.trim().slice(0, 120),
-          logo: logoUrl || '',
-          meta: meta || {}
-        },
+        profile_name: name.trim().slice(0, 120),
+        img: logoUrl || '',
+        meta: meta || {},
         email: email.trim().toLowerCase(),
         shopActive: true,
         expiresAt: expiresAt === 'lifetime' ? 'lifetime' : (typeof expiresAt === 'number' ? expiresAt : Date.now() + 30 * 864e5),
         createdBy: who.email,
         createdAt: Date.now()
       };
-      await db.ref(`sellers/${newUid}`).set(shopData);
+      await db.ref(`${SHOPS_NODE}/${newUid}`).set(shopData);
       await audit(who, 'shop_create', newUid, `Boutique ${name} créée`);
       return res.json({ ok: true, uid: newUid });
     }
 
     if (action === "shop_update") {
       const upd = {};
-      if (typeof body.name === "string" && body.name.trim()) upd["shop/name"] = body.name.trim().slice(0, 120);
+      if (typeof body.name === "string" && body.name.trim()) upd["profile_name"] = body.name.trim().slice(0, 120);
       if (body.expiresAt === "lifetime" || typeof body.expiresAt === "number") upd["expiresAt"] = body.expiresAt;
       if (typeof body.active === "boolean") upd["shopActive"] = body.active;
       if (!Object.keys(upd).length) return res.status(400).json({ error: "Rien à modifier" });
@@ -194,8 +193,8 @@ module.exports = async (req, res) => {
       ]);
       const updates = {};
       if (s.exists()) {
-        await db.ref("trash").push({ node: "sellers", key: uid, value: s.val(), by: who.email, at: Date.now() });
-        updates["sellers/" + uid] = null;
+        await db.ref("trash").push({ node: SHOPS_NODE, key: uid, value: s.val(), by: who.email, at: Date.now() });
+        updates[SHOPS_NODE + "/" + uid] = null;
       }
       [ [LIVE, liveN], [BLOCKED, blockedN] ].forEach(([nodeName, snap]) => {
         snap.forEach((c) => { const p = c.val(); if (p && p.uid === uid) updates[nodeName + "/" + c.key] = null; });
@@ -206,12 +205,12 @@ module.exports = async (req, res) => {
     }
 
     if (action === "block_expired") {
-      const sellersSnap = await db.ref("sellers").once("value");
+      const sellersSnap = await db.ref(SHOPS_NODE).once("value");
       const targets = [];
       sellersSnap.forEach((c) => { const s = c.val(); if (s && s.shopActive && isExpired(s)) targets.push(c.key); });
       let shopsBlocked = 0, productsBlocked = 0;
       for (const id of targets) {
-        await db.ref("sellers/" + id).update({ shopActive: false, updatedBy: who.email, updatedAt: Date.now() });
+        await db.ref(SHOPS_NODE + "/" + id).update({ shopActive: false, updatedBy: who.email, updatedAt: Date.now() });
         productsBlocked += await moveProducts(db, id, LIVE, BLOCKED);
         shopsBlocked++;
       }
