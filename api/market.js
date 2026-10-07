@@ -1,13 +1,17 @@
 // api/market.js — Gestion du MARCHÉ (boutiques & produits) — admins seulement.
 const crypto = require('crypto');
-const { app, verifyAdmin, audit, bearer } = require("./_lib/fb");
+const { app, verifyAdmin, audit, emailToKey, bearer } = require("./_lib/fb");
 
 const LIVE = "det_produits";
 const BLOCKED = "det_produits_bloques";
 const SHOPS_NODE = "profile_clients";
 
 const shopName = (s) => (s && s.profile_name) || (s && s.shop && s.shop.name) || (s && s.vendeur) || (s && s.name) || "Boutique";
-const isActive = (s) => !!(s && s.shopActive &&
+// L'abonnement d'une boutique n'est PAS dans profile_clients : il vit dans
+// purchased_user/{cléEmail} (même source que l'onglet Utilisateurs/accès).
+const emailOf = (s) => String((s && s.email) || "").trim().toLowerCase();
+const subRef = (db, email) => db.ref("purchased_user/" + emailToKey(email));
+const isActive = (s) => !!(s &&
   (s.expiresAt === "lifetime" || (typeof s.expiresAt === "number" && s.expiresAt > Date.now())));
 const isExpired = (s) => !!(s && typeof s.expiresAt === "number" && s.expiresAt <= Date.now());
 
@@ -41,12 +45,14 @@ module.exports = async (req, res) => {
 
   try {
     if (action === "list") {
-      const [sellersSnap, liveSnap, blockedSnap] = await Promise.all([
+      const [sellersSnap, purchSnap, liveSnap, blockedSnap] = await Promise.all([
         db.ref(SHOPS_NODE).once("value"),
+        db.ref("purchased_user").once("value"),
         db.ref(LIVE).once("value"),
         db.ref(BLOCKED).once("value")
       ]);
       const sellers = sellersSnap.val() || {};
+      const purch = purchSnap.val() || {};
 
       const liveCount = {}, blockedCount = {};
       const products = [];
@@ -63,11 +69,16 @@ module.exports = async (req, res) => {
           devise: p.devise || "FCFA", image: p.Image || "", uid: p.uid || "", vendeur: p.vendeur || "", blocked: true });
       });
 
-      const shops = Object.entries(sellers).map(([id, s]) => ({
-        uid: id, name: shopName(s), email: s.email || "",
-        expiresAt: s.expiresAt ?? null, active: isActive(s), expired: isExpired(s),
-        products: liveCount[id] || 0, blockedProducts: blockedCount[id] || 0
-      }));
+      const shops = Object.entries(sellers).filter(([, s]) => s && typeof s === "object").map(([id, s]) => {
+        const em = emailOf(s);
+        const sub = em ? (purch[emailToKey(em)] || null) : null;
+        const pid = s.uid || id;   // les produits référencent le uid du vendeur
+        return {
+          uid: id, name: shopName(s), email: s.email || "",
+          expiresAt: sub ? (sub.expiresAt ?? null) : null, active: isActive(sub), expired: isExpired(sub),
+          products: liveCount[pid] || liveCount[id] || 0, blockedProducts: blockedCount[pid] || blockedCount[id] || 0
+        };
+      });
       shops.sort((a, b) => (a.expired - b.expired) || a.name.localeCompare(b.name));
 
       return res.json({ shops, products, totalShops: shops.length, totalProducts: products.length });
@@ -128,6 +139,14 @@ module.exports = async (req, res) => {
 
     if (!uid && action !== "shop_create") return res.status(400).json({ error: "uid de la boutique requis" });
     const sref = uid ? db.ref(SHOPS_NODE + "/" + uid) : null;
+    // Boutique ciblée : fiche profile_clients + e-mail (→ abonnement) + uid produits.
+    let shopVal = null, shopEmail = "", prodUid = uid;
+    if (uid && action !== "shop_create") {
+      shopVal = (await sref.once("value")).val();
+      shopEmail = emailOf(shopVal);
+      prodUid = (shopVal && shopVal.uid) || uid;
+    }
+    const needEmail = () => shopEmail ? null : res.status(400).json({ error: "Cette boutique n'a pas d'e-mail : abonnement impossible." });
 
     // ── Nouvelle action : création de boutique ──
     if (action === "shop_create") {
@@ -139,12 +158,18 @@ module.exports = async (req, res) => {
         img: logoUrl || '',
         meta: meta || {},
         email: email.trim().toLowerCase(),
-        shopActive: true,
-        expiresAt: expiresAt === 'lifetime' ? 'lifetime' : (typeof expiresAt === 'number' ? expiresAt : Date.now() + 30 * 864e5),
         createdBy: who.email,
         createdAt: Date.now()
       };
       await db.ref(`${SHOPS_NODE}/${newUid}`).set(shopData);
+      const exp = expiresAt === 'lifetime' ? 'lifetime' : (typeof expiresAt === 'number' ? expiresAt : Date.now() + 30 * 864e5);
+      const pref = subRef(db, shopData.email);
+      const cur = (await pref.once("value")).val() || {};
+      await pref.update({
+        token: cur.token || crypto.randomBytes(16).toString("hex"),
+        productId: cur.productId || "admin_grant", amount: cur.amount ?? 0,
+        label: "Boutique (admin)", grantedBy: who.email, at: Date.now(), expiresAt: exp
+      });
       await audit(who, 'shop_create', newUid, `Boutique ${name} créée`);
       return res.json({ ok: true, uid: newUid });
     }
@@ -152,11 +177,13 @@ module.exports = async (req, res) => {
     if (action === "shop_update") {
       const upd = {};
       if (typeof body.name === "string" && body.name.trim()) upd["profile_name"] = body.name.trim().slice(0, 120);
-      if (body.expiresAt === "lifetime" || typeof body.expiresAt === "number") upd["expiresAt"] = body.expiresAt;
-      if (typeof body.active === "boolean") upd["shopActive"] = body.active;
-      if (!Object.keys(upd).length) return res.status(400).json({ error: "Rien à modifier" });
-      upd["updatedBy"] = who.email; upd["updatedAt"] = Date.now();
-      await sref.update(upd);
+      const hasExp = body.expiresAt === "lifetime" || typeof body.expiresAt === "number";
+      if (!Object.keys(upd).length && !hasExp) return res.status(400).json({ error: "Rien à modifier" });
+      if (hasExp) {
+        if (needEmail()) return;
+        await subRef(db, shopEmail).update({ expiresAt: body.expiresAt, grantedBy: who.email, at: Date.now() });
+      }
+      if (Object.keys(upd).length) { upd["updatedBy"] = who.email; upd["updatedAt"] = Date.now(); await sref.update(upd); }
       await audit(who, "shop_update", uid, JSON.stringify(body).slice(0, 120));
       return res.json({ ok: true });
     }
@@ -170,17 +197,25 @@ module.exports = async (req, res) => {
     }
 
     if (action === "shop_revoke") {
-      await sref.update({ shopActive: false, expiresAt: Date.now() - 1, updatedBy: who.email, updatedAt: Date.now() });
-      const n = await moveProducts(db, uid, LIVE, BLOCKED);
+      if (needEmail()) return;
+      await subRef(db, shopEmail).update({ expiresAt: Date.now() - 1, grantedBy: who.email, at: Date.now() });
+      const n = await moveProducts(db, prodUid, LIVE, BLOCKED);
       await audit(who, "shop_revoke", uid, n + " produit(s) bloqué(s)");
       return res.json({ ok: true, blocked: n });
     }
 
     if (action === "shop_restore") {
-      const upd = { shopActive: true, updatedBy: who.email, updatedAt: Date.now() };
-      if (body.expiresAt === "lifetime" || typeof body.expiresAt === "number") upd.expiresAt = body.expiresAt;
-      await sref.update(upd);
-      const n = await moveProducts(db, uid, BLOCKED, LIVE);
+      if (needEmail()) return;
+      const exp = (body.expiresAt === "lifetime" || typeof body.expiresAt === "number")
+        ? body.expiresAt : Date.now() + 30 * 864e5;
+      const pref = subRef(db, shopEmail);
+      const cur = (await pref.once("value")).val() || {};
+      await pref.update({
+        token: cur.token || crypto.randomBytes(16).toString("hex"),
+        productId: cur.productId || "admin_grant", amount: cur.amount ?? 0,
+        grantedBy: who.email, at: Date.now(), expiresAt: exp
+      });
+      const n = await moveProducts(db, prodUid, BLOCKED, LIVE);
       await audit(who, "shop_restore", uid, n + " produit(s) rétabli(s)");
       return res.json({ ok: true, restored: n });
     }
@@ -197,7 +232,7 @@ module.exports = async (req, res) => {
         updates[SHOPS_NODE + "/" + uid] = null;
       }
       [ [LIVE, liveN], [BLOCKED, blockedN] ].forEach(([nodeName, snap]) => {
-        snap.forEach((c) => { const p = c.val(); if (p && p.uid === uid) updates[nodeName + "/" + c.key] = null; });
+        snap.forEach((c) => { const p = c.val(); if (p && (p.uid === uid || p.uid === prodUid)) updates[nodeName + "/" + c.key] = null; });
       });
       await db.ref().update(updates);
       await audit(who, "shop_delete", uid);
@@ -205,14 +240,16 @@ module.exports = async (req, res) => {
     }
 
     if (action === "block_expired") {
-      const sellersSnap = await db.ref(SHOPS_NODE).once("value");
-      const targets = [];
-      sellersSnap.forEach((c) => { const s = c.val(); if (s && s.shopActive && isExpired(s)) targets.push(c.key); });
+      const [sellersSnap, purchSnap] = await Promise.all([
+        db.ref(SHOPS_NODE).once("value"), db.ref("purchased_user").once("value")
+      ]);
+      const purch = purchSnap.val() || {};
       let shopsBlocked = 0, productsBlocked = 0;
-      for (const id of targets) {
-        await db.ref(SHOPS_NODE + "/" + id).update({ shopActive: false, updatedBy: who.email, updatedAt: Date.now() });
-        productsBlocked += await moveProducts(db, id, LIVE, BLOCKED);
-        shopsBlocked++;
+      for (const [id, s] of Object.entries(sellersSnap.val() || {})) {
+        const em = emailOf(s);
+        if (!em || !isExpired(purch[emailToKey(em)])) continue;
+        const n = await moveProducts(db, (s && s.uid) || id, LIVE, BLOCKED);
+        if (n) { productsBlocked += n; shopsBlocked++; }
       }
       await audit(who, "block_expired", null, shopsBlocked + " boutique(s), " + productsBlocked + " produit(s)");
       return res.json({ ok: true, shopsBlocked, productsBlocked });
