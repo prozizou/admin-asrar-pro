@@ -9,19 +9,27 @@ const SHOPS_NODE = "profile_clients";
 const shopName = (s) => (s && s.profile_name) || (s && s.shop && s.shop.name) || (s && s.vendeur) || (s && s.name) || "Boutique";
 // L'abonnement d'une boutique n'est PAS dans profile_clients : il vit dans
 // purchased_user/{cléEmail} (même source que l'onglet Utilisateurs/accès).
+const shopRef = (id, s) => ({ email: emailOf(s), uids: [id, s && s.uid].filter(Boolean) });
 const emailOf = (s) => String((s && s.email) || "").trim().toLowerCase();
 const subRef = (db, email) => db.ref("purchased_user/" + emailToKey(email));
 const isActive = (s) => !!(s &&
   (s.expiresAt === "lifetime" || (typeof s.expiresAt === "number" && s.expiresAt > Date.now())));
 const isExpired = (s) => !!(s && typeof s.expiresAt === "number" && s.expiresAt <= Date.now());
 
-async function moveProducts(db, uid, fromNode, toNode) {
+// Un produit (det_produits) appartient à une boutique si son e-mail vendeur
+// correspond, ou à défaut si son uid vendeur correspond (un vendeur peut avoir
+// plusieurs uid Firebase ; la clé de la fiche profile_clients n'en est pas un).
+const ownsProduct = (p, shop) => !!p && (
+  (shop.email && String(p.email || "").trim().toLowerCase() === shop.email) ||
+  (p.uid && shop.uids.includes(p.uid)));
+
+async function moveProducts(db, shop, fromNode, toNode) {
   const snap = await db.ref(fromNode).once("value");
   const updates = {};
   let n = 0;
   snap.forEach((c) => {
     const p = c.val();
-    if (p && p.uid === uid) {
+    if (ownsProduct(p, shop)) {
       updates[fromNode + "/" + c.key] = null;
       updates[toNode + "/" + c.key] = p;
       n++;
@@ -54,17 +62,17 @@ module.exports = async (req, res) => {
       const sellers = sellersSnap.val() || {};
       const purch = purchSnap.val() || {};
 
-      const liveCount = {}, blockedCount = {};
+      const livePs = [], blockedPs = [];
       const products = [];
       liveSnap.forEach((c) => {
         const p = c.val() || {};
-        liveCount[p.uid] = (liveCount[p.uid] || 0) + 1;
+        livePs.push(p);
         products.push({ key: c.key, name: p.produit || "Produit", price: p.Prix || 0,
           devise: p.devise || "FCFA", image: p.Image || "", uid: p.uid || "", vendeur: p.vendeur || "", blocked: false });
       });
       blockedSnap.forEach((c) => {
         const p = c.val() || {};
-        blockedCount[p.uid] = (blockedCount[p.uid] || 0) + 1;
+        blockedPs.push(p);
         products.push({ key: c.key, name: p.produit || "Produit", price: p.Prix || 0,
           devise: p.devise || "FCFA", image: p.Image || "", uid: p.uid || "", vendeur: p.vendeur || "", blocked: true });
       });
@@ -72,11 +80,12 @@ module.exports = async (req, res) => {
       const shops = Object.entries(sellers).filter(([, s]) => s && typeof s === "object").map(([id, s]) => {
         const em = emailOf(s);
         const sub = em ? (purch[emailToKey(em)] || null) : null;
-        const pid = s.uid || id;   // les produits référencent le uid du vendeur
+        const shop = shopRef(id, s);
         return {
           uid: id, name: shopName(s), email: s.email || "",
           expiresAt: sub ? (sub.expiresAt ?? null) : null, active: isActive(sub), expired: isExpired(sub),
-          products: liveCount[pid] || liveCount[id] || 0, blockedProducts: blockedCount[pid] || blockedCount[id] || 0
+          products: livePs.filter((p) => ownsProduct(p, shop)).length,
+          blockedProducts: blockedPs.filter((p) => ownsProduct(p, shop)).length
         };
       });
       shops.sort((a, b) => (a.expired - b.expired) || a.name.localeCompare(b.name));
@@ -140,11 +149,11 @@ module.exports = async (req, res) => {
     if (!uid && action !== "shop_create") return res.status(400).json({ error: "uid de la boutique requis" });
     const sref = uid ? db.ref(SHOPS_NODE + "/" + uid) : null;
     // Boutique ciblée : fiche profile_clients + e-mail (→ abonnement) + uid produits.
-    let shopVal = null, shopEmail = "", prodUid = uid;
+    let shopVal = null, shopEmail = "", shop = null;
     if (uid && action !== "shop_create") {
       shopVal = (await sref.once("value")).val();
       shopEmail = emailOf(shopVal);
-      prodUid = (shopVal && shopVal.uid) || uid;
+      shop = shopRef(uid, shopVal);
     }
     const needEmail = () => shopEmail ? null : res.status(400).json({ error: "Cette boutique n'a pas d'e-mail : abonnement impossible." });
 
@@ -199,7 +208,7 @@ module.exports = async (req, res) => {
     if (action === "shop_revoke") {
       if (needEmail()) return;
       await subRef(db, shopEmail).update({ expiresAt: Date.now() - 1, grantedBy: who.email, at: Date.now() });
-      const n = await moveProducts(db, prodUid, LIVE, BLOCKED);
+      const n = await moveProducts(db, shop, LIVE, BLOCKED);
       await audit(who, "shop_revoke", uid, n + " produit(s) bloqué(s)");
       return res.json({ ok: true, blocked: n });
     }
@@ -215,7 +224,7 @@ module.exports = async (req, res) => {
         productId: cur.productId || "admin_grant", amount: cur.amount ?? 0,
         grantedBy: who.email, at: Date.now(), expiresAt: exp
       });
-      const n = await moveProducts(db, prodUid, BLOCKED, LIVE);
+      const n = await moveProducts(db, shop, BLOCKED, LIVE);
       await audit(who, "shop_restore", uid, n + " produit(s) rétabli(s)");
       return res.json({ ok: true, restored: n });
     }
@@ -232,7 +241,7 @@ module.exports = async (req, res) => {
         updates[SHOPS_NODE + "/" + uid] = null;
       }
       [ [LIVE, liveN], [BLOCKED, blockedN] ].forEach(([nodeName, snap]) => {
-        snap.forEach((c) => { const p = c.val(); if (p && (p.uid === uid || p.uid === prodUid)) updates[nodeName + "/" + c.key] = null; });
+        snap.forEach((c) => { const p = c.val(); if (ownsProduct(p, shop)) updates[nodeName + "/" + c.key] = null; });
       });
       await db.ref().update(updates);
       await audit(who, "shop_delete", uid);
@@ -248,7 +257,7 @@ module.exports = async (req, res) => {
       for (const [id, s] of Object.entries(sellersSnap.val() || {})) {
         const em = emailOf(s);
         if (!em || !isExpired(purch[emailToKey(em)])) continue;
-        const n = await moveProducts(db, (s && s.uid) || id, LIVE, BLOCKED);
+        const n = await moveProducts(db, shopRef(id, s), LIVE, BLOCKED);
         if (n) { productsBlocked += n; shopsBlocked++; }
       }
       await audit(who, "block_expired", null, shopsBlocked + " boutique(s), " + productsBlocked + " produit(s)");
