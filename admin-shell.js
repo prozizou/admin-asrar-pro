@@ -5,11 +5,12 @@
   const PAGES = {
     dashboard: ["Vue d'ensemble", "VOTRE ACTIVITÉ EN UN REGARD", "Gardez le cap sur l'essentiel de votre activité.", "Créer un contenu", "create", "overview"],
     content: ["Contenus", "VOTRE BIBLIOTHÈQUE", "Créez, organisez et partagez vos publications.", "Créer un contenu", "create", "content"],
-    users: ["Utilisateurs", "VOTRE COMMUNAUTÉ", "Gérez les abonnements, les formations et les accès.", "Accorder un accès", "grant", "users"],
+    users: ["Abonnements", "VOTRE COMMUNAUTÉ", "L'application est gratuite : un abonnement valide retire les publicités.", "Offrir l'accès sans pub", "grant", "users"],
     market: ["Marché", "VOTRE ESPACE COMMERCIAL", "Accompagnez vos vendeurs et organisez vos produits.", "Ajouter un vendeur", "shop", "market"],
     fonts: ["Polices Al-Qalam", "VOTRE COLLECTION", "Enrichissez les polices disponibles dans l'application.", "Ajouter une police", "font", "fonts"],
     referral: ["Parrainage", "DÉVELOPPER LA COMMUNAUTÉ", "Suivez les invitations et récompensez vos ambassadeurs.", "Voir les parrains", "sponsors", "referral"],
-    analytics: ["Statistiques", "COMPRENDRE VOTRE ACTIVITÉ", "Explorez la fréquentation et les contenus qui intéressent vos utilisateurs.", "Actualiser", "analytics", "analytics"]
+    analytics: ["Statistiques", "COMPRENDRE VOTRE ACTIVITÉ", "Explorez la fréquentation et les contenus qui intéressent vos utilisateurs.", "Actualiser", "analytics", "analytics"],
+    ads: ["Publicités", "VOS REVENUS PUBLICITAIRES", "Mesurez si vos visiteurs laissent les publicités s'afficher.", "Actualiser", "ads", "ads"]
   };
   const primary = $("pagePrimaryAction");
   function updateHeading(target) {
@@ -17,9 +18,9 @@
     $("pageHeading").textContent = page[0];
     $("pageEyebrow").textContent = page[1];
     $("pageDescription").textContent = page[2];
-    primary.innerHTML = ic(page[4] === "analytics" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
+    primary.innerHTML = ic(page[4] === "analytics" || page[4] === "ads" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
     primary.dataset.action = page[4];
-    $("moreNav").classList.toggle("active", ["market", "fonts", "referral"].includes(target));
+    $("moreNav").classList.toggle("active", ["ads", "market", "fonts", "referral"].includes(target));
   }
   document.addEventListener("admin:tabchange", (event) => updateHeading(event.detail.target));
   updateHeading(document.body.dataset.activeTab || "dashboard");
@@ -36,10 +37,10 @@
 
   const actions = {
     create: () => {
-      $("bigcard").innerHTML = `<div class="bighead"><h3>Créer un contenu</h3><button class="btn text" id="closeCreate">Fermer</button></div><p class="muted">Quel contenu souhaitez-vous partager ?</p><div class="create-options"><button class="create-option" data-create="secret">${ic("sparkle")}<span>Secret<small>Une image, un titre et votre contenu détaillé</small></span></button><button class="create-option" data-create="document">${ic("content")}<span>Document<small>Un livre ou un PDF dans la bibliothèque</small></span></button><button class="create-option" data-create="formation">${ic("users")}<span>Formation<small>Une nouvelle session pour votre communauté</small></span></button></div>`;
+      $("bigcard").innerHTML = `<div class="bighead"><h3>Créer un contenu</h3><button class="btn text" id="closeCreate">Fermer</button></div><p class="muted">Quel contenu souhaitez-vous partager ?</p><div class="create-options"><button class="create-option" data-create="secret">${ic("sparkle")}<span>Secret<small>Une image, un titre et votre contenu détaillé</small></span></button><button class="create-option" data-create="document">${ic("content")}<span>Document<small>Un livre ou un PDF dans la bibliothèque</small></span></button></div>`;
       $("big").hidden = false;
       $("closeCreate").onclick = closeBig;
-      const creators = { secret: openSecretCreator, document: openDocumentCreator, formation: openFormationCreator };
+      const creators = { secret: openSecretCreator, document: openDocumentCreator };
       $("bigcard").querySelectorAll("[data-create]").forEach((button) => {
         button.onclick = () => creators[button.dataset.create]();
       });
@@ -48,7 +49,8 @@
     shop: () => openShopCreator(),
     font: () => $("btnOpenAddFont").click(),
     sponsors: () => { showTab("referral"); $("refSeg").querySelector('[data-refsub="sponsors"]').click(); },
-    analytics: () => loadAnalytics()
+    analytics: () => loadAnalytics(),
+    ads: () => loadAds()
   };
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-action]");
@@ -143,7 +145,7 @@
   const palette = $("commandPalette"), query = $("commandInput"), results = $("commandResults");
   const commands = Object.entries(PAGES).map(([tab, page]) => ({ label: page[0], icon: page[5], type: "Section", run: () => showTab(tab) })).concat([
     { label: "Créer un contenu", icon: "add", type: "Action", run: actions.create },
-    { label: "Accorder un accès", icon: "users", type: "Action", run: actions.grant },
+    { label: "Offrir l'accès sans pub", icon: "users", type: "Action", run: actions.grant },
     { label: "Ajouter un vendeur", icon: "market", type: "Action", run: actions.shop }
   ]);
   const normalize = (text) => text.toLocaleLowerCase("fr").normalize("NFD").replace(/[\u0300-\u036f]/g, "");

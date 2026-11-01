@@ -167,6 +167,34 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ── PUBLICITÉS AU CLIC ───────────────────────────────────────────────
+    // Source : analytics/ads/{AAAA-MM-JJ}={opened,quick,closed,open}, écrit par
+    // asrar-main (pages/api/track.js, type « ad_stats ») : onglet de pub fermé
+    // en < 2 s (quick), avant la fin de l'attente de 5 s (closed), ou encore
+    // ouvert (open). Seuls les comptes ayant activé les statistiques comptent.
+    if (action === "ads") {
+      const DAY = 864e5, SPAN = 90;
+      const dstr = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const now = Date.now();
+      const snap = await db.ref("analytics/ads").orderByKey().startAt(dstr(now - (SPAN - 1) * DAY)).once("value");
+      const byDay = snap.val() || {};
+      const n = (v) => Math.max(0, Number(v) || 0);
+      const daily = [];
+      for (let i = SPAN - 1; i >= 0; i--) {
+        const date = dstr(now - i * DAY), d = byDay[date] || {};
+        daily.push({ bucket: date, opened: n(d.opened), quick: n(d.quick), closed: n(d.closed), open: n(d.open) });
+      }
+      const pct = (part, whole) => (whole > 0 ? Math.round(part / whole * 1000) / 10 : null);
+      const periods = {};
+      for (const w of [7, 30, 90]) {
+        const t = daily.slice(-w).reduce((a, r) => ({
+          opened: a.opened + r.opened, quick: a.quick + r.quick, closed: a.closed + r.closed, open: a.open + r.open
+        }), { opened: 0, quick: 0, closed: 0, open: 0 });
+        periods["d" + w] = { ...t, quickRate: pct(t.quick, t.opened), closedRate: pct(t.closed, t.opened), openRate: pct(t.open, t.opened) };
+      }
+      return res.status(200).json({ daily, periods });
+    }
+
     // ── ANALYTIQUE & VISITES ─────────────────────────────────────────────
     // Sources : analytics/visits/{date}/{uid}={email,last,n}  (agrégé/jour)
     //           activity_feed/{push}={at,email,page,type,uid} (journal d'events)

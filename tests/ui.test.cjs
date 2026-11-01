@@ -50,7 +50,7 @@ async function openPage({ width = 1440, signedIn = true, denied = false, fail = 
     if (url.pathname.startsWith('/api/')) {
       const payload = route.request().postDataJSON() || {};
       const endpoint = url.pathname.split('/').pop();
-      if (!['overview', 'analytics', 'list', 'nodes', 'list_access', 'list_minutes'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
+      if (!['overview', 'analytics', 'ads', 'list', 'nodes', 'list_access'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
       if (denied) return route.fulfill({ status: 403, json: { error: 'Forbidden test account' } });
       if (failed && endpoint === 'stats') return route.fulfill({ status: 503, json: { error: 'Service temporairement indisponible.' } });
       if (empty && endpoint === 'stats' && payload.action === 'overview') return route.fulfill({ json: { kpis: {}, spark: [], countryBreakdown: [], recent: [] } });
@@ -95,15 +95,15 @@ test('Desktop: dashboard, exact chart windows, navigation, history, search, them
     assert.match(await page.locator('#dashTrafficSummary').innerText(), /30 jours/);
     await page.locator('.chart-data summary').click();
     assert.equal(await page.locator('.chart-data tbody tr').count(), 5);
-    for (const tab of ['users', 'content', 'market', 'fonts', 'referral', 'analytics']) {
+    for (const tab of ['users', 'content', 'market', 'fonts', 'referral', 'analytics', 'ads']) {
       await page.locator('#mainNav [data-tab="' + tab + '"]').click();
       await page.locator('#tab-' + tab).waitFor({ state: 'visible' });
       await noOverflow(page, 'desktop ' + tab);
     }
     await page.goBack();
-    await page.locator('#tab-referral').waitFor({ state: 'visible' });
+    await page.locator('#tab-analytics').waitFor({ state: 'visible' });
     await page.keyboard.press('Control+k');
-    await page.locator('#commandInput').fill('utilisa');
+    await page.locator('#commandInput').fill('abonnem');
     await page.keyboard.press('Enter');
     await page.locator('#tab-users').waitFor({ state: 'visible' });
     await page.locator('.access-card').first().waitFor();
@@ -144,7 +144,7 @@ test('Mobile and tablet: every section fits, drawer and bottom navigation, conte
       await page.locator('#dashGrid .stat').first().waitFor();
       await noOverflow(page, width + ' dashboard');
       if (width === 390) await capture(page, 'dashboard-mobile', false);
-      for (const tab of ['content', 'users', 'market', 'fonts', 'referral', 'analytics']) {
+      for (const tab of ['content', 'users', 'market', 'fonts', 'referral', 'analytics', 'ads']) {
         if (width <= 820) {
           await page.locator('#moreNav').click();
           assert.equal(await page.locator('#mainContent').evaluate(el => el.inert), true);
@@ -176,6 +176,51 @@ test('Mobile and tablet: every section fits, drawer and bottom navigation, conte
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
+});
+
+test('Navigation par groupes, abonnements sans publicité, formations retirées, onglet Publicités', async () => {
+  const { page, context, errors, writes } = await openPage();
+  try {
+    await page.locator('#dashGrid .stat').first().waitFor();
+    const groups = await page.locator('#mainNav .nav-label').allInnerTexts();
+    assert.deepEqual(groups, ['COMMUNAUTÉ', 'CATALOGUE']);
+    const order = await page.locator('#mainNav [data-tab]').evaluateAll((els) => els.map((el) => el.dataset.tab));
+    assert.deepEqual(order, ['dashboard', 'analytics', 'ads', 'users', 'referral', 'content', 'market', 'fonts']);
+    assert.equal(await page.locator('#mainNav [data-tab="users"]').innerText(), 'Abonnements');
+
+    // Formations : plus d'onglet, de bouton ni de raccourci.
+    await page.locator('#mainNav [data-tab="users"]').click();
+    assert.deepEqual(await page.locator('#usersSeg [data-usersub]').evaluateAll((els) => els.map((el) => el.dataset.usersub)), ['subs', 'history']);
+    assert.equal(await page.locator('#btnOpenFormationCredit').count(), 0);
+    assert.equal(await page.locator('#btnAddFormation').count(), 0);
+    assert.match(await page.locator('#usersub-subs').innerText(), /retire les publicités/);
+    await page.locator('#btnOpenGrant').click();
+    assert.match(await page.locator('#editorTitle').innerText(), /sans publicité/);
+    await page.locator('#btnCancelBig').click();
+    await page.locator('#mainNav [data-tab="dashboard"]').click();
+    await page.locator('#pagePrimaryAction').click();
+    assert.equal(await page.locator('[data-create="formation"]').count(), 0);
+    assert.equal(await page.locator('[data-create]').count(), 2);
+    await page.locator('#closeCreate').click();
+
+    // Publicités : chiffres du serveur, périodes, pas d'erreur.
+    await page.locator('#mainNav [data-tab="ads"]').click();
+    await page.locator('#tab-ads').waitFor({ state: 'visible' });
+    await page.locator('#adsKpis .stat').first().waitFor();
+    assert.equal(await page.locator('#adsKpis .stat').count(), 4);
+    const text = await page.locator('#adsKpis').innerText();
+    assert.match(text, /Publicités mesurées/);
+    assert.match(text, /Sautées tout de suite/);
+    assert.match(text, /25(,0)? %/); // 25 % sautées dans les données de test
+    const d30 = await page.locator('#adsKpis .stat-val').first().innerText();
+    await page.locator('#adsPeriodSeg [data-period="d7"]').click();
+    assert.notEqual(await page.locator('#adsKpis .stat-val').first().innerText(), d30);
+    assert.ok(await page.locator('#adsChart .rc-col').count() > 0);
+    await noOverflow(page, 'desktop ads');
+    await capture(page, 'ads-desktop');
+    assert.deepEqual(errors, []);
+    assert.deepEqual(writes, []);
+  } finally { await context.close(); }
 });
 
 test('Failure and retry, empty data, anonymous and rejected accounts', async () => {
