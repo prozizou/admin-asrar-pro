@@ -15,18 +15,7 @@ const NODES = {
   // PAS "asmaUlHusna" à la racine — sans `path`, ce nœud pointerait vers un
   // emplacement orphelin jamais lu par l'app.
   "asmaUlHusna":              { label: "Noms Divins",            page: "Les 99 Noms",      group: "Coran", path: "data/appData/asmaUlHusna" },
-  "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" },
-  // Schéma réel (server/sources.js → SOURCES.formation, côté asrar-main) :
-  // { titre, description, attentes, duree, prix, pricePerMinute, img, meetLink }
-  // — PAS title/content/images (les champs de l'éditeur générique) : utiliser
-  // le créateur dédié (bouton « Formation », admin-content.js
-  // openFormationCreator) pour écrire les bons noms de champs. L'éditeur
-  // générique préserve les champs existants d'un enregistrement (titre/
-  // description/…) même s'il ne les affiche plus individuellement — voir
-  // openEditor, admin-content.js.
-  // pricePerMinute (FCFA) : tarif du réservateur de minutes de visioconférence
-  // (indépendant de l'abonnement — voir api/formation-access.js, formation_access/…).
-  "formations":               { label: "Formations",             page: "Formation mystique", group: "Formations" }
+  "profile_clients":          { label: "Boutiques (profils)",    page: "Marché",           group: "Boutiques" }
 };
 
 // Chemin RTDB réel d'un nœud : `path` explicite (quand la clé NODES diffère du

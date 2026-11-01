@@ -22,7 +22,7 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 La refonte propose une interface ivoire et vert profond, un thème sombre,
 une navigation latérale sur ordinateur et une barre inférieure sur mobile.
 La recherche `Ctrl/Cmd + K` ouvre les sections et les actions courantes.
-Les URL `#content`, `#users`, etc. conservent la section au rechargement et
+Les URL `#content`, `#users` (Abonnements), `#ads` (Publicités), etc. conservent la section au rechargement et
 permettent de revenir en arrière avec le navigateur.
 
 Le tableau de bord affiche les données des API existantes : indicateurs,
@@ -48,7 +48,7 @@ npm test
 
 Les tests démarrent leur serveur local et simulent Firebase et les API dans
 le navigateur. Ils ne requièrent aucun secret et n'appellent pas la base de
-production. Ils couvrent les sept sections à 360, 390, 768, 1024 et 1440 px,
+production. Ils couvrent les huit sections à 360, 390, 768, 1024 et 1440 px,
 les fenêtres d'édition, le focus clavier, la recherche, l'historique de
 navigation, le thème, la déconnexion, les comptes refusés, les données vides,
 le stockage local indisponible et la relance après une erreur serveur.
@@ -106,16 +106,26 @@ propre au panneau.
   Ajouter / éditer (JSON) / supprimer / **exporter en JSON**.
   Toute suppression passe par **double confirmation** et une copie part dans
   `trash/` (corbeille) avant effacement.
-- **Utilisateurs — accès premium par e-mail (avec date d'expiration)** :
-  saisir un e-mail + une **date d'expiration** (ou boutons rapides +1/+3/+6
-  mois, +1 an, ou « à vie ») pour accorder l'accès — **même à un e-mail
-  qui n'a pas encore de compte**. L'accès est écrit dans `purchased_user/{clé}`
-  avec `expiresAt`. asrar-main laisse alors passer l'utilisateur **jusqu'à cette
-  date** ; passé le délai, il est **automatiquement bloqué** jusqu'à un nouvel
-  accès. La liste « Accès accordés » montre le statut (actif/expiré) et permet de
-  **prolonger** ou **révoquer**. (API `users` : `grant_access`, `revoke_access`,
-  `list_access` — c'est tout ce que cet onglet fait : pas de liste de comptes,
-  pas de bannissement, pas de promotion admin/VIP depuis cette interface.)
+- **Navigation par groupes** : *Pilotage* (Vue d'ensemble, Statistiques,
+  Publicités), *Communauté* (Abonnements, Parrainage) et *Catalogue*
+  (Contenus, Marché, Polices Al-Qalam).
+- **Abonnements — accès sans publicité par e-mail (avec date d'expiration)** :
+  ASRAR PRO est **gratuit avec publicités** ; un abonnement valide **retire les
+  publicités** (le visiteur les retrouve à l'expiration). Le visiteur demande
+  l'abonnement par WhatsApp depuis le bouton « Retirer les publicités » d'asrar-main ;
+  l'administrateur saisit ici l'e-mail + une **date d'expiration** (ou boutons
+  rapides +1/+3/+6 mois, +1 an, ou « à vie »), **même pour un e-mail qui n'a pas
+  encore de compte**. L'accès est écrit dans `purchased_user/{clé}` avec
+  `expiresAt`. La liste montre le statut (actif/expiré) et permet de **prolonger**
+  ou **révoquer**. (API `users` : `grant_access`, `revoke_access`, `list_access` —
+  pas de liste de comptes, pas de bannissement, pas de promotion admin/VIP.)
+- **Publicités** (onglet dédié) : que font les visiteurs de la publicité ouverte à
+  chaque action sur asrar-main ? Pubs mesurées, **sautées tout de suite** (onglet
+  fermé en moins de 2 s), **fermées avant la fin** de l'attente de 5 s, **laissées
+  ouvertes**, sur 7/30/90 jours, avec évolution. Données lues dans
+  `analytics/ads/{AAAA-MM-JJ}` (API `stats`, action `ads`), écrites par asrar-main
+  (`/api/track`, type `ad_stats`). Mesure approximative ; seuls les comptes qui ont
+  activé les statistiques sont comptés. Le revenu réel se lit chez la régie.
 - **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` d'asrar-main) :
   KPIs (parrains, filleuls crédités, clics, taux clic→inscription, points en
   circulation, abonnements gagnés), **classement des parrains**, **alertes
@@ -127,11 +137,10 @@ propre au panneau.
 - **Liens partageables** : bouton **🔗** sur chaque carte de contenu (Sirr,
   Almaqtab) et sur chaque produit du Marché → copie/partage du lien
   `SITE_URL/s?k=…&c=…&i=…` (aperçu Open Graph sur WhatsApp / Facebook / TikTok).
-- **Palier d'abonnement** à l'octroi d'accès : le champ `level` est désormais écrit
-  dans `purchased_user` (automatique selon la durée, ou choisi). Sans lui,
-  asrar-main laisserait l'utilisateur au niveau 0 → **PDF et polices Al-Qalam
-  bloqués** malgré un accès valide (une fois `FREE_FOR_ALL` désactivé — voir plus
-  bas). Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
+- **Formule d'abonnement** à l'octroi : le champ `level` est écrit dans
+  `purchased_user` (automatique selon la durée, ou choisi). Il sert au prix de la
+  formule dans les statistiques (3 mois = 15 000, 6 mois = 25 000, 1 an = 45 000 FCFA).
+  Les accès obtenus par parrainage sont marqués **🎁 parrainage**.
 - **Marché (boutiques & produits)** : onglet dédié. Liste des boutiques
   (`profile_clients/{id}`) avec statut (active / expirée), date d'expiration et nombre de
   produits. Actions par boutique : **Prolonger** (nouvelle date), **Renommer**,
@@ -182,20 +191,21 @@ règle ciblée suffit (écriture serveur uniquement) :
 (`audit_log`, `trash` et `banned` n'apparaissent pas dans les règles → refusés
 par défaut côté client : c'est voulu, ils sont serveur-only.)
 
-## ⚠️ Paywall actuellement désactivé côté asrar-main (`FREE_FOR_ALL`)
+## Modèle d'accès d'asrar-main : gratuit avec publicités
 
-`lib/plans.js` d'asrar-main déclare `export const FREE_FOR_ALL = true;` : tant
-que ce drapeau reste actif, `hasActiveAccess` / `getAccessLevel` /
-`getAccessStatus` (`server/access.js`) court-circuitent leurs lectures RTDB et
-répondent « accès total » à **tout le monde**, y compris pour les modules
-premium (Al Qalam, Géomancie). Conséquence pour ce panneau : les octrois et
-révocations d'accès (onglet Utilisateurs) sont **bien enregistrés** dans
-`purchased_user`/`allowedUsers` (rien n'est cassé ni perdu) mais **n'ont
-aucun effet visible** pour les utilisateurs tant que ce drapeau n'est pas
-repassé à `false` dans le code d'asrar-main — c'est le seul geste nécessaire
-pour réactiver le paywall, tout le reste (achats, grants, code du paywall)
-reste intact. Cette configuration se vérifie dans le dépôt de l'application principale ;
-elle n'est pas affichée comme bannière dans le tableau de bord.
+`lib/plans.js` d'asrar-main déclare `FREE_FOR_ALL = true` : **tous les modules**
+(y compris Al Qalam et Géomancie) sont ouverts à tout compte. Ce que l'abonnement
+change : **les publicités disparaissent** tant qu'il est valable (le serveur lit
+toujours le vrai abonnement, `adFree`, dans `purchased_user` / `allowedUsers`).
+Les octrois et révocations faits dans l'onglet **Abonnements** ont donc un effet
+visible : ils ajoutent ou retirent les publicités pour ce compte. Repasser
+`FREE_FOR_ALL` à `false` dans asrar-main réactive le paywall des modules, sans
+rien changer ici.
+
+La visioconférence (Formations et crédits de minutes) a été **retirée** d'asrar-main
+(ses routes répondent 410) : l'onglet, le créateur de formation et l'API
+`formation-access` ont été supprimés de ce panneau. Les données déjà présentes dans
+`formations` et `formation_access` ne sont pas touchées.
 
 ## Notes de sécurité
 

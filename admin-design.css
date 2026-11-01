@@ -431,3 +431,7 @@ body.has-overlay { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Onglet Publicités : notes d'interprétation lisibles, sans puces collées. */
+.ads-notes { margin: 0; padding-left: 1.15rem; display: grid; gap: 8px; font-size: 0.86rem; line-height: 1.5; }
+.ads-notes b { color: var(--text, inherit); }

@@ -29,18 +29,22 @@ const nodes = {
   db_sirr_protection: { label: 'Sirr — Protection', page: 'Secrets et bienfaits' },
   db_sirr_domptage: { label: 'Sirr — Domptage', page: 'Secrets et bienfaits' },
   db_sirr_ilham: { label: 'Sirr — Ilham', page: 'Secrets et bienfaits' },
-  almaqtab: { label: 'Bibliothèque', page: 'Livres et documents' },
-  formations: { label: 'Formations', page: 'Cours et rencontres' }
+  almaqtab: { label: 'Bibliothèque', page: 'Livres et documents' }
 };
 function response(endpoint, action, payload) {
   if (endpoint === 'stats' && action === 'overview') return overview;
   if (endpoint === 'content' && action === 'nodes') return { nodes };
-  if (endpoint === 'content' && action === 'list') return { value: payload.node === 'formations' ? { course: { titre: 'Initiation à la géomancie' } } : { first: { titre: 'Les bienfaits du dhikr', sirr: 'Découvrez cette publication et les indications associées.' }, second: { titre: 'Ouverture et connaissance', sirr: 'Une nouvelle ressource pour enrichir votre bibliothèque.' }, third: { titre: 'Les noms et leurs bienfaits', sirr: 'Contenu détaillé de la publication.' } } };
+  if (endpoint === 'content' && action === 'list') return { value: { first: { titre: 'Les bienfaits du dhikr', sirr: 'Découvrez cette publication et les indications associées.' }, second: { titre: 'Ouverture et connaissance', sirr: 'Une nouvelle ressource pour enrichir votre bibliothèque.' }, third: { titre: 'Les noms et leurs bienfaits', sirr: 'Contenu détaillé de la publication.' } } };
   if (endpoint === 'users' && action === 'list_access') return { total: 3, items: ['amina', 'moussa', 'fatou'].map((name, i) => ({ email: name + '@example.com', active: true, level: i ? 15000 : 45000, expiresAt: now + 90 * DAY, at: now - DAY, lastActiveAt: now - 3600000, lastPage: 'Chapelet' })) };
-  if (endpoint === 'formation-access') return { total: 0, items: [] };
   if (endpoint === 'market') return { totalShops: 0, totalProducts: 0, shops: [], products: [] };
   if (endpoint === 'fonts') return { fonts: [] };
   if (endpoint === 'referral') return { totals: { sponsors: 12, active: 10, blocked: 2, clicks: 840, conv: 12.5, points: 1400, rewards: 8 }, periods: { d30: { sponsors: 4, invited: 31 } }, daily: daily.map(row => ({ bucket: row.bucket, invited: Math.floor(row.total / 20) })), sponsors: [], alerts: [], settings: { enabled: true, pointsPerInvite: 10, rewardPoints: 100, rewardDays: 30, maxAccountAgeDays: 7 } };
+  if (endpoint === 'stats' && action === 'ads') {
+    const rows = daily.slice(-90).map((row, i) => { const opened = 20 + (i % 7) * 4; const quick = Math.round(opened * 0.25), closed = Math.round(opened * 0.15); return { bucket: row.bucket, opened, quick, closed, open: opened - quick - closed }; });
+    const sum = (list) => list.reduce((a, r) => ({ opened: a.opened + r.opened, quick: a.quick + r.quick, closed: a.closed + r.closed, open: a.open + r.open }), { opened: 0, quick: 0, closed: 0, open: 0 });
+    const period = (n) => { const t = sum(rows.slice(-n)); return { ...t, quickRate: Math.round(t.quick / t.opened * 1000) / 10, closedRate: Math.round(t.closed / t.opened * 1000) / 10, openRate: Math.round(t.open / t.opened * 1000) / 10 }; };
+    return { daily: rows, periods: { d7: period(7), d30: period(30), d90: period(90) } };
+  }
   if (endpoint === 'stats' && action === 'analytics') return { totals: { boutiques: 12, avisTotal: 28, pagesTotal: 2400 }, periods: { d30: { unique: 842, total: 9648, interactions: 2140, deltaUnique: 12, deltaTotal: 18 } }, daily, monthly: [], topPages: [{ page: 'Chapelet', count: 1200 }, { page: 'Bibliothèque', count: 740 }, { page: 'Secrets', count: 460 }], boutiques: [] };
   return {};
 }

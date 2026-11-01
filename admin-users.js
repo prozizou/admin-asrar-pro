@@ -1,7 +1,7 @@
-// admin-users.js — Gestion des accès (onglet Utilisateurs) : Abonnements
-// (accès premium par e-mail), Historique. Formations vit dans
-// admin-formation-access.js, mais partage ce même onglet (sous-navigation
-// .seg) et le composant carte/kebab défini ici.
+// admin-users.js — Abonnements (onglet « Abonnements », #users) : ASRAR PRO est
+// gratuit avec publicités ; un abonnement valide RETIRE les publicités (la
+// facturation se fait via WhatsApp, l'accès est octroyé ici par e-mail).
+// Sous-navigation : Abonnements, Historique.
 
 (function () {
   "use strict";
@@ -10,14 +10,15 @@
     return v === "lifetime" ? "À vie" : (typeof v === "number" ? new Date(v).toLocaleDateString("fr-FR") : "—");
   };
 
-  // Paliers (FCFA) → libellé humain. « Palier » / montants bruts sont un
-  // détail d'implémentation (cf. lib/plans.js côté asrar-main) : l'admin n'a
-  // besoin de voir que le niveau réel.
-  const LEVEL_LABELS = { 15000: "Premium · 3 mois", 25000: "Premium · 6 mois", 45000: "Premium · 1 an", 999999: "Illimité" };
+  // Paliers (FCFA) → libellé humain. Le palier sert au prix de la formule
+  // (valeur des abonnements du tableau de bord) ; tous les modules sont
+  // gratuits (cf. lib/plans.js côté asrar-main, FREE_FOR_ALL), seul
+  // l'absence de publicité dépend de l'abonnement.
+  const LEVEL_LABELS = { 15000: "Sans pub · 3 mois", 25000: "Sans pub · 6 mois", 45000: "Sans pub · 1 an", 999999: "Illimité" };
   window.levelLabel = (level) => LEVEL_LABELS[level] || (level ? "Niveau " + level : "Standard");
 
-  // ── Sous-navigation (Abonnements / Formations / Historique) ──
-  const SUBS = ["subs", "formations", "history"];
+  // ── Sous-navigation (Abonnements / Historique) ──
+  const SUBS = ["subs", "history"];
   window.showUsersSub = function (sub) {
     document.querySelectorAll("#usersSeg [data-usersub]").forEach((b) =>
       b.classList.toggle("active", b.getAttribute("data-usersub") === sub));
@@ -27,19 +28,19 @@
   document.querySelectorAll("#usersSeg [data-usersub]").forEach((b) =>
     b.onclick = () => showUsersSub(b.getAttribute("data-usersub")));
 
-  // ── Modale « Accorder un accès » (aussi utilisée pour « Prolonger ») ──
+  // ── Modale « Offrir l'accès sans publicité » (aussi utilisée pour « Prolonger ») ──
   // Remplace l'ancien formulaire permanent (email + date + 4 boutons de durée
   // + case à cocher + palier + bouton, tous visibles en même temps) par une
   // modale à la demande : la liste reste l'écran principal.
   window.openGrantAccessModal = function (prefillEmail) {
     const isExtend = !!prefillEmail;
     $("bigcard").innerHTML = `
-      <div class="bighead"><h3>${isExtend ? "Prolonger l'accès" : "Accorder un accès"}</h3>
+      <div class="bighead"><h3>${isExtend ? "Prolonger l'abonnement" : "Offrir l'accès sans publicité"}</h3>
         <button id="btnCancelBig" class="btn text">Fermer</button></div>
       <label class="field-lg"><span>Utilisateur</span>
         <input type="email" id="gaEmail" placeholder="exemple@gmail.com" autocomplete="off"
           value="${esc(prefillEmail || "")}" ${isExtend ? "readonly" : ""}></label>
-      <label class="field-lg"><span>Durée de l'accès</span>
+      <label class="field-lg"><span>Durée de l'abonnement</span>
         <div class="chip-group" id="gaChips">
           <button type="button" class="chip" data-months="1">1 mois</button>
           <button type="button" class="chip active" data-months="3">3 mois</button>
@@ -50,19 +51,19 @@
         </div></label>
       <label class="field-lg" id="gaDateWrap"><span>Expiration</span>
         <input type="date" id="gaDate" disabled></label>
-      <label class="field-lg"><span>Niveau d'accès</span>
+      <label class="field-lg"><span>Formule</span>
         <select id="gaLevel">
           <option value="">Automatique (selon la durée)</option>
-          <option value="15000">Premium — 3 mois</option>
-          <option value="25000">Premium — 6 mois</option>
-          <option value="45000">Premium — 1 an (PDF + polices Al-Qalam)</option>
+          <option value="15000">Sans pub — 3 mois (15 000 FCFA)</option>
+          <option value="25000">Sans pub — 6 mois (25 000 FCFA)</option>
+          <option value="45000">Sans pub — 1 an (45 000 FCFA)</option>
           <option value="999999">Illimité</option>
         </select></label>
-      <p class="field-hint">Détermine l'accès au PDF et aux polices Al-Qalam du hub. « Automatique » le déduit de la durée choisie ci-dessus.</p>
+      <p class="field-hint">L'application est gratuite : l'abonnement retire les publicités tant qu'il est valable. La formule sert au prix affiché dans les statistiques ; « Automatique » la déduit de la durée choisie ci-dessus.</p>
       <p id="gaMsg" class="msg"></p>
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:22px">
         <button id="btnCancelGa" class="btn text">Annuler</button>
-        <button id="btnSubmitGa" class="btn primary" data-icon="check">${isExtend ? "Prolonger l'accès" : "Accorder l'accès"}</button>
+        <button id="btnSubmitGa" class="btn primary" data-icon="check">${isExtend ? "Prolonger l'abonnement" : "Offrir l'accès"}</button>
       </div>`;
     $("big").hidden = false;
 
@@ -111,7 +112,7 @@
       try {
         const r = await api("users", payload);
         $("big").hidden = true;
-        showToast("✅ Accès accordé à " + email + " (" + expiresLabel + ")" + (r && r.level ? " · " + levelLabel(r.level) : "") + ".");
+        showToast("✅ Abonnement accordé à " + email + " (" + expiresLabel + ")" + (r && r.level ? " · " + levelLabel(r.level) : "") + ".");
         loadAccess();
       } catch (e) { msg.className = "msg err"; msg.textContent = e.message; btn.disabled = false; }
     };
@@ -192,16 +193,16 @@
     const accessList = $("accessList");
     if (!accessList) return;
     accessList.innerHTML = rows.map((r) => accessCardHtml(r)).join("") ||
-      "<div class='empty'>Aucun accès accordé pour l'instant.</div>";
+      "<div class='empty'>Aucun abonnement pour l'instant.</div>";
     wireAccessActions(accessList);
   };
 
   window.wireAccessActions = function (root) {
     root.querySelectorAll("[data-acc-revoke]").forEach((b) => b.onclick = async () => {
       const em = b.getAttribute("data-acc-revoke");
-      if (!(await uiConfirm({ title: "Révoquer l'accès", danger: true, icon: "block", confirmText: "Révoquer",
-        message: "Révoquer l'accès premium de " + em + " ?" }))) return;
-      try { await api("users", { action: "revoke_access", email: em }); showToast("Accès révoqué."); loadAccess(); }
+      if (!(await uiConfirm({ title: "Révoquer l'abonnement", danger: true, icon: "block", confirmText: "Révoquer",
+        message: "Révoquer l'abonnement de " + em + " ? Les publicités réapparaîtront pour ce compte." }))) return;
+      try { await api("users", { action: "revoke_access", email: em }); showToast("Abonnement révoqué."); loadAccess(); }
       catch (e) { showToast(e.message, "err"); }
     });
     root.querySelectorAll("[data-acc-edit]").forEach((b) => b.onclick = () => openGrantAccessModal(b.getAttribute("data-acc-edit")));
@@ -229,32 +230,19 @@
     }
   };
 
-  // ── Historique — abonnements expirés/révoqués + crédits de minutes épuisés,
-  // fusionnés et triés par date d'octroi décroissante. Pas de journal d'audit
-  // général (retiré du panneau) : seulement ce qui concerne les accès.
+  // ── Historique — abonnements expirés ou révoqués, triés par date d'octroi
+  // décroissante. Pas de journal d'audit général (retiré du panneau).
   window.renderHistory = function () {
     const historyList = $("historyList");
     if (!historyList) return;
-    const past = (ACCESS || []).filter((r) => !r.active);
-    // FMA_LIST est exposé par admin-formation-access.js (même onglet).
-    const exhausted = (window.FMA_LIST || []).filter((r) => !(r.minutes > 0));
-    const rows = [
-      ...past.map((r) => ({ at: r.at || 0, html: accessCardHtml(r) })),
-      ...exhausted.map((r) => ({
-        at: r.grantedAt || 0,
-        html: `<div class="access-card"><div class="access-card-main">
-          <div class="access-card-top">
-            <span class="access-email">${esc(r.email)}</span>
-            <span class="access-status off">Épuisé</span>
-          </div>
-          <div class="access-sub">${esc((window.formationLabel ? formationLabel(r.formationKey) : r.formationKey))} · crédité le ${esc(when(r.grantedAt))}</div>
-        </div></div>`
-      }))
-    ].sort((a, b) => b.at - a.at);
+    const rows = (ACCESS || [])
+      .filter((r) => !r.active)
+      .map((r) => ({ at: r.at || 0, html: accessCardHtml(r) }))
+      .sort((a, b) => b.at - a.at);
 
     historyList.innerHTML = rows.map((r) => r.html).join("") ||
       "<div class='empty'>Aucun octroi passé pour l'instant.</div>";
-    wireAccessActions(historyList); // les cartes d'abonnements expirés restent « Prolonger/Révoquer »-ables
+    wireAccessActions(historyList); // les abonnements expirés restent « Prolonger/Révoquer »-ables
   };
 
 })();

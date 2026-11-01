@@ -128,6 +128,7 @@
     copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
     open: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
     image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+    ads: '<path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>',
     more: '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
     upload: '<path d="M12 16V4"/><path d="M6.5 9.5 12 4l5.5 5.5"/><path d="M4 16.5v2A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5v-2"/>',
     download: '<path d="M12 4v12"/><path d="M6.5 10.5 12 16l5.5-5.5"/><path d="M4 16.5v2A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5v-2"/>'
@@ -478,8 +479,8 @@
 
   // Titre affiché dans l'en-tête (à côté du logo) — reprend le libellé du bouton nav.
   const TAB_TITLES = {
-    dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Utilisateurs",
-    fonts: "Polices Al-Qalam", referral: "Parrainage", analytics: "Statistiques"
+    dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Abonnements",
+    fonts: "Polices Al-Qalam", referral: "Parrainage", analytics: "Statistiques", ads: "Publicités"
   };
 
   // Affiche un onglet et charge SES données à la demande (lazy) — une seule fois.
@@ -507,6 +508,7 @@
     $("tab-fonts").hidden = target !== "fonts";
     $("tab-referral").hidden = target !== "referral";
     $("tab-analytics").hidden = target !== "analytics";
+    $("tab-ads").hidden = target !== "ads";
     document.dispatchEvent(new CustomEvent("admin:tabchange", { detail: { target, title: TAB_TITLES[target] } }));
     if (changed) {
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -521,10 +523,11 @@
     if (!force && TAB_LOADED[target]) return;
     TAB_LOADED[target] = true;
     if (target === "content") loadNodesMenu();
-    if (target === "users") { loadAccess(); loadFormationMinutes(); }
+    if (target === "users") loadAccess();
     if (target === "fonts") loadFonts();
     if (target === "referral") loadReferral();
     if (target === "analytics") loadAnalytics();
+    if (target === "ads") loadAds();
   };
 
   // ── LIENS PARTAGEABLES DU SITE (/s) ──────────────────────────────────

@@ -117,11 +117,13 @@
       <nav class="nav" id="mainNav" aria-label="Sections">
         <button data-tab="dashboard" class="active" data-icon="overview" aria-current="page">Vue d'ensemble</button>
         <button data-tab="analytics" data-icon="analytics">Statistiques</button>
-        <span class="nav-label">GESTION</span>
-        <button data-tab="content" data-icon="content">Contenus</button>
-        <button data-tab="users" data-icon="users">Utilisateurs</button>
-        <button data-tab="market" data-icon="market">Marché</button>
+        <button data-tab="ads" data-icon="ads">Publicités</button>
+        <span class="nav-label">COMMUNAUTÉ</span>
+        <button data-tab="users" data-icon="users">Abonnements</button>
         <button data-tab="referral" data-icon="referral">Parrainage</button>
+        <span class="nav-label">CATALOGUE</span>
+        <button data-tab="content" data-icon="content">Contenus</button>
+        <button data-tab="market" data-icon="market">Marché</button>
         <button data-tab="fonts" data-icon="fonts">Polices Al-Qalam</button>
       </nav>
       <div class="sidebar-bottom">
@@ -177,8 +179,9 @@
         <div class="block quick-block">
           <span class="eyebrow">PASSER À L'ACTION</span><h3>Faites vivre<br>votre communauté.</h3><p>Vos actions du quotidien, à portée de main.</p>
           <div class="shortcuts">
-            <button class="shortcut" data-action="create" data-icon="add"><span>Publier un contenu<small>Secrets, documents et formations</small></span><span aria-hidden="true">↗</span></button>
-            <button class="shortcut" data-action="grant" data-icon="users"><span>Accorder un accès<small>Accompagner un nouvel abonné</small></span><span aria-hidden="true">↗</span></button>
+            <button class="shortcut" data-action="create" data-icon="add"><span>Publier un contenu<small>Secrets et documents</small></span><span aria-hidden="true">↗</span></button>
+            <button class="shortcut" data-action="grant" data-icon="users"><span>Offrir l'accès sans pub<small>Accompagner un nouvel abonné</small></span><span aria-hidden="true">↗</span></button>
+            <button class="shortcut" data-goto="ads" data-icon="ads"><span>Suivre les publicités<small>Pubs sautées ou laissées ouvertes</small></span><span aria-hidden="true">↗</span></button>
             <button class="shortcut" data-goto="market" data-icon="market"><span>Gérer le marché<small>Boutiques et produits</small></span><span aria-hidden="true">↗</span></button>
           </div>
         </div>
@@ -200,7 +203,6 @@
               <button id="btnSelectMode" class="btn text" data-icon="select">Sélection</button>
               <button id="btnAddItem" class="btn primary" data-icon="add">Ajouter</button>
               <button id="btnAddDocument" class="btn primary" hidden data-icon="add">Document (Almaqtab)</button>
-              <button id="btnAddFormation" class="btn primary" hidden data-icon="add">Formation</button>
             </div>
           </div>
           <input type="text" id="itemSearch" class="item-search" hidden placeholder="Rechercher un titre…">
@@ -242,39 +244,30 @@
       <section id="tab-users" class="panel" hidden>
         <div class="seg" id="usersSeg">
           <button data-usersub="subs" class="active">Abonnements <span id="subsSegCount"></span></button>
-          <button data-usersub="formations">Formations <span id="fmaSegCount"></span></button>
           <button data-usersub="history">Historique</button>
         </div>
 
-        <!-- ── Abonnements (accès premium par e-mail) ── -->
+        <!-- ── Abonnements sans publicité (accès par e-mail) ── -->
         <div id="usersub-subs" class="block">
           <div class="bar">
             <h3>Abonnements <span id="accCount" class="muted"></span></h3>
-            <button id="btnOpenGrant" class="btn primary" data-icon="add">Accorder un accès</button>
-          </div>
-          <input type="text" id="accSearch" placeholder="Rechercher un utilisateur…">
-          <div id="accessList" class="list"></div>
-        </div>
-
-        <!-- ── Formations (minutes de visioconférence, indépendant de l'abonnement) ── -->
-        <div id="usersub-formations" class="block" hidden>
-          <div class="bar">
-            <h3>Formations — crédits de minutes <span id="fmaCount" class="muted"></span></h3>
-            <button id="btnOpenFormationCredit" class="btn primary" data-icon="add">Créditer des minutes</button>
+            <button id="btnOpenGrant" class="btn primary" data-icon="add">Offrir l'accès sans pub</button>
           </div>
           <p class="muted" style="margin-bottom:6px">
-            Accès INDÉPENDANT de l'abonnement : chaque formation se paie à la minute (l'utilisateur
-            réserve via WhatsApp depuis l'app). Ces crédits n'ont aucun effet sur les abonnements ci-dessus.
+            ASRAR PRO est gratuit avec publicités. Un abonnement valide retire les publicités ; l'abonné les
+            retrouve à son expiration. La demande arrive par WhatsApp (« Retirer les publicités »), l'accès
+            s'accorde ici avec l'e-mail du compte.
           </p>
-          <div id="fmaList" class="list"></div>
+          <input type="text" id="accSearch" placeholder="Rechercher un utilisateur…">
+          <div id="accessList" class="list"></div>
         </div>
 
         <!-- ── Historique (octrois passés — abonnements expirés/révoqués + crédits épuisés) ── -->
         <div id="usersub-history" class="block" hidden>
           <div class="bar"><h3>Historique des octrois</h3></div>
           <p class="muted" style="margin-bottom:6px">
-            Abonnements expirés ou révoqués, et crédits de minutes épuisés — triés du plus récent au
-            plus ancien. Les accès actifs restent dans leurs onglets respectifs.
+            Abonnements expirés ou révoqués, du plus récent au plus ancien. Les abonnements
+            actifs restent dans l'onglet « Abonnements ».
           </p>
           <div id="historyList" class="list"></div>
         </div>
@@ -389,6 +382,46 @@
         </div>
       </section>
 
+      <section id="tab-ads" class="panel" hidden>
+        <div class="bar">
+          <h3 class="star">Publicités au clic</h3>
+          <span class="ana-refresh">
+            <span id="adsUpdated" class="muted"></span>
+            <button id="btnReloadAds" class="icon-btn" data-icon="refresh" title="Actualiser" aria-label="Actualiser"></button>
+          </span>
+        </div>
+        <p class="muted" style="margin:-12px 0 16px">
+          Chaque action d'un visiteur sans abonnement ouvre une publicité dans un nouvel onglet, suivie d'une attente
+          de 5 s. Voici ce que les visiteurs en font.
+        </p>
+
+        <div class="seg" id="adsPeriodSeg">
+          <button data-period="d7">7 j</button>
+          <button data-period="d30" class="active">30 j</button>
+          <button data-period="d90">90 j</button>
+        </div>
+
+        <div class="block">
+          <div id="adsKpis" class="stats stats-2col"></div>
+        </div>
+
+        <div class="block">
+          <div class="bar"><h3 style="margin:0">Évolution des publicités mesurées</h3></div>
+          <div id="adsChart"></div>
+        </div>
+
+        <div class="block">
+          <div class="bar"><h3 style="margin:0">Comment lire ces chiffres</h3></div>
+          <ul class="muted ads-notes">
+            <li><b>Sautées tout de suite</b> : l'onglet de la publicité a été fermé en moins de 2 secondes, elle n'a probablement pas été comptée par la régie.</li>
+            <li><b>Fermées avant la fin</b> : fermée après 2 secondes mais avant la fin des 5 secondes d'attente.</li>
+            <li><b>Laissées ouvertes</b> : l'onglet était encore ouvert à la fin de l'attente (publicité laissée ou regardée).</li>
+            <li>Mesure approximative : le navigateur ne dit pas si la publicité a chargé. Seuls les comptes qui ont activé les statistiques sont comptés.</li>
+            <li>Le revenu réel se lit dans le tableau de bord de la régie ; comparez ce taux à son nombre d'affichages payés.</li>
+          </ul>
+        </div>
+      </section>
+
       <section id="tab-analytics" class="panel" hidden>
         <div class="bar">
           <h3 class="star">Vue d'ensemble de la fréquentation</h3>
@@ -434,7 +467,7 @@
     <nav class="bottom-nav" aria-label="Navigation mobile">
       <button data-tab="dashboard" class="active" data-icon="overview" aria-current="page"><span>Accueil</span></button>
       <button data-tab="content" data-icon="content"><span>Contenus</span></button>
-      <button data-tab="users" data-icon="users"><span>Utilisateurs</span></button>
+      <button data-tab="users" data-icon="users"><span>Abonnés</span></button>
       <button data-tab="analytics" data-icon="analytics"><span>Stats</span></button>
       <button id="moreNav" data-icon="more" aria-label="Toutes les sections" aria-expanded="false" aria-controls="appSidebar"><span>Plus</span></button>
     </nav>
@@ -458,10 +491,10 @@
   <script src="admin-content.js" defer></script>
   <script src="admin-market.js" defer></script>
   <script src="admin-users.js" defer></script>
-  <script src="admin-formation-access.js" defer></script>
   <script src="admin-fonts.js" defer></script>
   <script src="admin-referral.js" defer></script>
   <script src="admin-stats.js" defer></script>
+  <script src="admin-ads.js" defer></script>
   <script src="admin-shell.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
