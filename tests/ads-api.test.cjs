@@ -7,12 +7,12 @@ const path = require('node:path');
 const DAY = 864e5;
 const day = (offset) => new Date(Date.now() - offset * DAY).toISOString().slice(0, 10);
 
-function load(adsData) {
+function load(adsData, cspData = {}) {
   const fbPath = require.resolve(path.join(__dirname, '..', 'api', '_lib', 'fb.js'));
   const reads = [];
   const database = {
     ref: (p) => ({
-      orderByKey: () => ({ startAt: (from) => ({ once: async () => { reads.push({ p, from }); return { val: () => Object.fromEntries(Object.entries(adsData).filter(([k]) => k >= from)) }; } }) })
+      orderByKey: () => ({ startAt: (from) => ({ once: async () => { reads.push({ p, from }); const src = p === 'analytics/csp' ? cspData : adsData; return { val: () => Object.fromEntries(Object.entries(src).filter(([k]) => k >= from)) }; } }) })
     })
   };
   require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: {
@@ -60,4 +60,17 @@ test('ads : valeurs invalides ignorées (négatives ou non numériques)', async 
   const { handler } = load({ [day(1)]: { opened: -5, quick: 'x', closed: 2, open: null } });
   const { json } = await call(handler, { action: 'ads' });
   assert.deepEqual(json.periods.d7, { opened: 0, quick: 0, closed: 2, open: 0, quickRate: null, closedRate: null, openRate: null });
+});
+
+test('ads : domaines bloqués par la CSP sur 7 jours, agrégés et triés', async () => {
+  const { handler } = load({}, {
+    [day(0)]: { _n: 5, 'script-src-elem': { 'ads,example,net': 3 }, 'connect-src': { 'beacon,example,org': 1 } },
+    [day(2)]: { _n: 2, 'script-src-elem': { 'ads,example,net': 2 } },
+    [day(9)]: { _n: 50, 'script-src-elem': { 'old,example,com': 50 } } // hors 7 jours
+  });
+  const { json } = await call(handler, { action: 'ads' });
+  assert.deepEqual(json.blocked, [
+    { directive: 'script-src-elem', host: 'ads.example.net', count: 5 },
+    { directive: 'connect-src', host: 'beacon.example.org', count: 1 }
+  ]);
 });

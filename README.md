@@ -126,6 +126,11 @@ propre au panneau.
   `analytics/ads/{AAAA-MM-JJ}` (API `stats`, action `ads`), écrites par asrar-main
   (`/api/track`, type `ad_stats`). Mesure approximative ; seuls les comptes qui ont
   activé les statistiques sont comptés. Le revenu réel se lit chez la régie.
+  Le bloc **Domaines bloqués par la sécurité du site (7 j)** liste ce que la politique
+  de sécurité (CSP) d'asrar-main a refusé de charger chez les visiteurs (domaine et
+  type : script, connexion, cadre…), lu dans `analytics/csp/{jour}` (écrit par
+  `pages/api/csp-report.js` d'asrar-main) : il montre quels domaines des régies
+  publicitaires empêchent un format de s'afficher ou d'être compté.
 - **Parrainage** (onglet dédié — se conjugue avec `/api/referral` et `/s` d'asrar-main) :
   KPIs (parrains, filleuls crédités, clics, taux clic→inscription, points en
   circulation, abonnements gagnés), **classement des parrains**, **alertes

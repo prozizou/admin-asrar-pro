@@ -216,6 +216,9 @@ test('Navigation par groupes, abonnements sans publicité, formations retirées,
     await page.locator('#adsPeriodSeg [data-period="d7"]').click();
     assert.notEqual(await page.locator('#adsKpis .stat-val').first().innerText(), d30);
     assert.ok(await page.locator('#adsChart .rc-col').count() > 0);
+    const blockedText = await page.locator('#adsBlocked').innerText();
+    assert.match(blockedText, /ads\.example\.net/);
+    assert.match(blockedText, /Connexion/);
     await noOverflow(page, 'desktop ads');
     await capture(page, 'ads-desktop');
     assert.deepEqual(errors, []);
