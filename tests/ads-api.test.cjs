@@ -74,3 +74,19 @@ test('ads : domaines bloqués par la CSP sur 7 jours, agrégés et triés', asyn
     { directive: 'connect-src', host: 'beacon.example.org', count: 1 }
   ]);
 });
+
+test('analytics : répartition des visiteurs uniques par appareil sur 30 jours', async () => {
+  const visits = {
+    [day(0)]: { u1: { n: 2, platform: 'android_app' }, u2: { n: 1, platform: 'ios' }, u3: { n: 1 } },
+    [day(5)]: { u1: { n: 1, platform: 'android_web' }, u4: { n: 1, platform: 'desktop' } }, // u1 : la plus récente prime
+    [day(60)]: { u5: { n: 1, platform: 'ios' } } // hors 30 jours
+  };
+  const fbPath = require.resolve(path.join(__dirname, '..', 'api', '_lib', 'fb.js'));
+  const snap = (val) => ({ val: () => val, forEach: () => {} });
+  const database = { ref: (p) => ({ once: async () => snap(p === 'analytics/visits' ? visits : p === 'activity_feed' ? {} : {}), limitToLast: () => ({ once: async () => snap({}) }) }) };
+  require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: { app: () => ({ database: () => database }), verifyAdmin: async () => ({ email: 'admin@example.test' }), bearer: () => 'token', listAllAuthUsers: async () => [] } };
+  const statsPath = require.resolve(path.join(__dirname, '..', 'api', 'stats.js'));
+  delete require.cache[statsPath];
+  const { json } = await call(require(statsPath), { action: 'analytics' });
+  assert.deepEqual(json.platforms, { android_app: 1, android_web: 0, ios: 1, desktop: 1, inconnu: 1 }); // u1 : sa visite la plus récente (aujourd'hui) est l'application
+});
