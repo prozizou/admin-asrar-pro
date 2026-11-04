@@ -192,7 +192,26 @@ module.exports = async (req, res) => {
         }), { opened: 0, quick: 0, closed: 0, open: 0 });
         periods["d" + w] = { ...t, quickRate: pct(t.quick, t.opened), closedRate: pct(t.closed, t.opened), openRate: pct(t.open, t.opened) };
       }
-      return res.status(200).json({ daily, periods });
+      // Domaines bloqués par la politique de sécurité du site (CSP) chez les
+      // visiteurs, sur 7 jours : analytics/csp/{jour}/{directive}/{domaine}=n,
+      // écrit par asrar-main (pages/api/csp-report.js ; « . » codé « , »).
+      const cspSnap = await db.ref("analytics/csp").orderByKey().startAt(dstr(now - 6 * DAY)).once("value");
+      const blockedMap = new Map();
+      for (const day of Object.values(cspSnap.val() || {})) {
+        for (const [directive, hosts] of Object.entries(day || {})) {
+          if (directive === "_n" || !hosts || typeof hosts !== "object") continue;
+          for (const [hostKey, count] of Object.entries(hosts)) {
+            const id = directive + "|" + hostKey;
+            blockedMap.set(id, (blockedMap.get(id) || 0) + n(count));
+          }
+        }
+      }
+      const blocked = [...blockedMap]
+        .map(([id, count]) => { const [directive, hostKey] = id.split("|"); return { directive, host: hostKey.replace(/,/g, "."), count }; })
+        .filter((b) => b.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 40);
+      return res.status(200).json({ daily, periods, blocked });
     }
 
     // ── ANALYTIQUE & VISITES ─────────────────────────────────────────────

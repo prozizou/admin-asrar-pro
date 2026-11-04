@@ -47,6 +47,7 @@
       tile({ icon: "clock", val: p.closed, label: "Fermées avant la fin", sub: pct(p.closedRate) }) +
       tile({ icon: "visits", val: p.open, label: "Laissées ouvertes", sub: pct(p.openRate), tone: "gold" });
     renderAdsChart();
+    renderBlocked();
     if ($("adsUpdated")) $("adsUpdated").textContent = ADS_AT ? "Mis à jour " + relTime(ADS_AT) : "";
   };
 
@@ -71,6 +72,33 @@
       tooltip: (r) => frDate(r.bucket) + " · " + fmt(r.opened) + " mesurées · " + fmt(r.quick) + " sautées · " +
         fmt(r.closed) + " fermées avant la fin · " + fmt(r.open) + " laissées ouvertes"
     });
+  }
+
+  // Domaines bloqués par la CSP d'asrar-main (7 jours, indépendant de la période
+  // choisie). Type lisible + catégories qui ne sont pas des domaines.
+  const DIRECTIVE_LABELS = {
+    "script-src": "Script", "script-src-elem": "Script", "script-src-attr": "Script",
+    "connect-src": "Connexion (mesure, données)", "frame-src": "Cadre (iframe)", "child-src": "Cadre (iframe)",
+    "img-src": "Image", "style-src": "Style", "style-src-elem": "Style", "style-src-attr": "Style",
+    "font-src": "Police", "media-src": "Média", "worker-src": "Worker", "form-action": "Formulaire"
+  };
+  const HOST_LABELS = { inline: "Code intégré à la page", eval: "Code généré (eval)", "chrome-extension": "Extension du navigateur", data: "Contenu data:", blob: "Contenu blob:", inconnu: "Inconnu" };
+
+  function renderBlocked() {
+    const el = $("adsBlocked");
+    if (!el || !ADS) return;
+    const rows = ADS.blocked || [];
+    if (!rows.length) {
+      el.innerHTML = "<div class='empty'>Aucun blocage relevé sur les 7 derniers jours.</div>";
+      return;
+    }
+    el.innerHTML = rows.map((b) => `<div class="access-card"><div class="access-card-main">
+        <div class="access-card-top">
+          <span class="access-email">${esc(HOST_LABELS[b.host] || b.host)}</span>
+          <span class="access-status">${fmt(b.count)}</span>
+        </div>
+        <div class="access-sub">${esc(DIRECTIVE_LABELS[b.directive] || b.directive)}</div>
+      </div></div>`).join("");
   }
 
   const seg = $("adsPeriodSeg");
