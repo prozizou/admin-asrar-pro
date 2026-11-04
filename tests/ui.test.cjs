@@ -216,6 +216,13 @@ test('Navigation par groupes, abonnements sans publicité, formations retirées,
     await page.locator('#adsPeriodSeg [data-period="d7"]').click();
     assert.notEqual(await page.locator('#adsKpis .stat-val').first().innerText(), d30);
     assert.ok(await page.locator('#adsChart .rc-col').count() > 0);
+    await page.locator('#mainNav [data-tab="analytics"]').click();
+    await page.locator('#anaPlatforms .hbar').first().waitFor();
+    const platformText = await page.locator('#anaPlatforms').innerText();
+    assert.match(platformText, /Application Android/);
+    assert.match(platformText, /iPhone/);
+    assert.match(platformText, /40 %/); // 120 sur 300 : site sur Android
+    await page.locator('#mainNav [data-tab="ads"]').click();
     const blockedText = await page.locator('#adsBlocked').innerText();
     assert.match(blockedText, /ads\.example\.net/);
     assert.match(blockedText, /Connexion/);

@@ -426,9 +426,24 @@ module.exports = async (req, res) => {
         };
       }).sort((a, b) => b.views - a.views || b.ratingsCount - a.ratingsCount || b.follow - a.follow);
 
+      // Répartition par appareil (visiteurs uniques sur 30 jours) : catégorie
+      // écrite par asrar-main à chaque visite (analytics/visits/{jour}/{uid}/
+      // platform, lib/platform.js) — application Android, site Android, iPhone,
+      // ordinateur. Un visiteur est compté dans sa catégorie la plus récente.
+      // « inconnu » : visites d'avant l'ajout de ce relevé.
+      const PLATFORM_IDS = ["android_app", "android_web", "ios", "desktop"];
+      const latest = new Map();
+      const from30 = dstr(now - 30 * DAY);
+      for (const [date, users] of Object.entries(visits).sort()) {
+        if (date < from30) continue;
+        for (const [uid, u] of Object.entries(users || {})) latest.set(uid, u && u.platform);
+      }
+      const platforms = { android_app: 0, android_web: 0, ios: 0, desktop: 0, inconnu: 0 };
+      for (const p of latest.values()) platforms[PLATFORM_IDS.includes(p) ? p : "inconnu"]++;
+
       return res.json({
         daily: daily.slice(-90), weekly, monthly, topPages, recent, boutiques,
-        periods,
+        periods, platforms,
         totals: {
           uniqueAllTime: allUids.size,
           totalVisits,

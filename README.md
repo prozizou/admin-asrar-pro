@@ -119,6 +119,12 @@ propre au panneau.
   `expiresAt`. La liste montre le statut (actif/expiré) et permet de **prolonger**
   ou **révoquer**. (API `users` : `grant_access`, `revoke_access`, `list_access` —
   pas de liste de comptes, pas de bannissement, pas de promotion admin/VIP.)
+- **Appareils** (onglet Statistiques) : répartition des visiteurs uniques sur 30 jours
+  par appareil — application Android, site sur Android, iPhone / iPad, ordinateur —,
+  lue dans `analytics/visits/{jour}/{uid}/platform` (écrit par asrar-main,
+  `lib/platform.js`, catégorie seulement, jamais le user-agent). Sert à décider d'une
+  version iOS et à suivre la migration vers l'application Android. Comptes ayant activé
+  les statistiques uniquement ; les visiteurs d'avant le relevé sont « Non renseigné ».
 - **Publicités** (onglet dédié) : que font les visiteurs de la publicité ouverte à
   chaque action sur asrar-main ? Pubs mesurées, **sautées tout de suite** (onglet
   fermé en moins de 2 s), **fermées avant la fin** de l'attente de 5 s, **laissées

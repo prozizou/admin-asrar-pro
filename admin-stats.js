@@ -65,6 +65,7 @@
 
     renderAnaChart();
     renderAnaPages();
+    renderAnaPlatforms();
     renderAnaBoutiques();
 
     const upd = $("anaUpdated");
@@ -111,6 +112,22 @@
       xLabel,
       tooltip: (r) => (xLabel ? xLabel(r) : frDate(r.bucket)) + " · " + fmt(r.total) + " visites · " + fmt(r.unique) + " uniques"
     });
+  }
+
+  // Appareils : visiteurs uniques (30 j) par catégorie, avec leur part. Les
+  // visiteurs d'avant l'ajout du relevé sont « Non renseigné ».
+  const PLATFORM_LABELS = {
+    android_app: "Application Android", android_web: "Site sur Android", ios: "iPhone / iPad",
+    desktop: "Ordinateur", inconnu: "Non renseigné (avant le relevé)"
+  };
+  function renderAnaPlatforms() {
+    const el = $("anaPlatforms");
+    if (!el || !ANA) return;
+    const p = ANA.platforms || {};
+    const items = Object.keys(PLATFORM_LABELS).map((id) => ({ id, count: Number(p[id]) || 0 })).filter((i) => i.count > 0);
+    const total = items.reduce((s, i) => s + i.count, 0);
+    el.innerHTML = total ? hbars(items, (i) => PLATFORM_LABELS[i.id], (i) => Math.round(i.count / total * 100) + " %")
+                         : "<div class='empty'>Aucune donnée d'appareil pour l'instant.</div>";
   }
 
   // Pages populaires — normalisées côté serveur (accueil.html/accueil fusionnés,
