@@ -117,3 +117,49 @@ body, button, input, select, textarea { font-family: var(--body); }
 .danger-zone .btn.danger { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .danger-zone .btn.danger:hover { background: var(--danger); color: #fff; }
 @media (max-width: 600px) { .danger-zone .btn.danger { width: 100%; justify-content: center; } }
+
+/* ── Connexion : carte centrée façon Google (et non plus feuille en bas d'écran),
+   aux couleurs de l'application ; suit le thème clair/sombre. ── */
+.login-screen {
+  align-items: center; justify-content: center; padding: 24px 16px;
+  --login-line: var(--line); --login-line-2: var(--line-2);
+  --login-accent: var(--gold); --login-accent-2: var(--gold);
+  --login-ink: var(--ink); --login-muted: var(--muted);
+}
+.login-backdrop { background: var(--obsidian); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.login-screen .login-sheet {
+  max-width: 400px; width: 100%;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow); backdrop-filter: none; -webkit-backdrop-filter: none;
+  padding: 36px 28px 26px; text-align: center;
+  animation: loginCardIn .3s ease both;
+}
+@keyframes loginCardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.login-sheet-handle { display: none; }
+.login-sheet-header { flex-direction: column; align-items: center; gap: 14px; margin-bottom: 26px; }
+.login-sheet-glogo { width: 48px; height: 48px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line); }
+.login-sheet-heading .login-eyebrow { color: var(--gold); letter-spacing: 2px; }
+.login-sheet-heading h1 { font-size: 1.45rem; color: var(--ink); }
+.login-sheet-sub { color: var(--muted); max-width: 30ch; margin: 8px auto 0; }
+.login-loading-row { justify-content: center; }
+
+/* Bouton officiel « Continuer avec Google » : blanc en clair, noir en sombre. */
+.login-account-card {
+  justify-content: center; gap: 12px; min-height: 48px; padding: 10px 20px; margin-top: 0;
+  background: #ffffff; border: 1px solid #747775; border-radius: 999px; box-shadow: none;
+}
+.login-account-card:hover { background: #f8fafd; border-color: #747775; box-shadow: 0 1px 3px rgba(60, 64, 67, .3); }
+.login-account-card:active { transform: none; background: #eef1f6; }
+.login-account-avatar { width: auto; height: auto; background: none; box-shadow: none; border-radius: 0; }
+.login-account-label { flex: none; color: #1f1f1f; font-weight: 600; font-size: .95rem; }
+.login-account-chevron { display: none; }
+:root[data-theme="dark"] .login-account-card { background: #131314; border-color: #8e918f; }
+:root[data-theme="dark"] .login-account-card:hover { background: #1f1f20; }
+:root[data-theme="dark"] .login-account-label { color: #e3e3e3; }
+.login-secure-hint { justify-content: center; text-align: left; color: var(--muted); }
+.login-secure-hint svg { color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .login-sheet { animation: none; } }
+
+/* Chiffres clés : deux indicateurs (abonnements actifs, utilisateurs). */
+#dashGrid.stats-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 24px; }
+.stats-secondary:empty { display: none; }
