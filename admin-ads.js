@@ -66,7 +66,7 @@
     el.innerHTML = barChartHtml(rows, {
       series: [
         { key: "opened", color: "linear-gradient(180deg,var(--gold-2),var(--gold))", label: "Mesurées" },
-        { key: "quick", cls: "uniq", color: "linear-gradient(180deg,#6fc3e0,#2d7ea8)", label: "Sautées tout de suite" }
+        { key: "quick", cls: "uniq", color: "var(--chart-2)", label: "Sautées tout de suite" }
       ],
       valueKey: "opened",
       tooltip: (r) => frDate(r.bucket) + " · " + fmt(r.opened) + " mesurées · " + fmt(r.quick) + " sautées · " +

@@ -215,14 +215,14 @@
       <svg class="traffic-chart" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="trafficTitle trafficDescription">
         <title id="trafficTitle">Évolution du trafic sur ${DASH_PERIOD} jours</title>
         <desc id="trafficDescription">${fmt(total)} visites. Les valeurs détaillées sont disponibles dans le tableau ci-dessous.${DASH_PERIOD > 7 ? " Regroupement par tranches de 7 jours ; les uniques sont cumulés quotidiennement." : ""}</desc>
-        <defs><linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#619c79" stop-opacity=".2"/><stop offset="100%" stop-color="#619c79" stop-opacity=".015"/></linearGradient></defs>
+        <defs><linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--chart-1)" stop-opacity=".2"/><stop offset="100%" style="stop-color:var(--chart-1)" stop-opacity=".015"/></linearGradient></defs>
         ${[0, 1, 2, 3, 4].map((tick) => `<line class="chart-grid" x1="${left}" y1="${y(ceiling * tick / 4)}" x2="${width - right}" y2="${y(ceiling * tick / 4)}"/><text class="chart-label" x="${left - 8}" y="${y(ceiling * tick / 4) + 3}" text-anchor="end">${esc(fmt(ceiling * tick / 4))}</text>`).join("")}
         <path d="${area}" fill="url(#trafficFill)"/>
         <path class="chart-line unique" d="${path("unique")}"/>
         <path class="chart-line" d="${totalPath}"/>
         ${rows.map((row, i) => `<circle class="chart-point" cx="${x(i)}" cy="${y(row.total)}" r="5"><title>${esc(tooltip(row))}</title></circle>${i % labelEvery === 0 || i === rows.length - 1 ? `<text class="chart-label" x="${x(i)}" y="${height - 6}" text-anchor="${i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle"}">${esc(frDate(row.bucket))}</text>` : ""}`).join("")}
       </svg>
-      <div class="legend"><span><i style="background:var(--gold)"></i>Visites</span><span><i style="background:#a69a6b"></i>${DASH_PERIOD > 7 ? "Uniques cumulés par jour" : "Visiteurs uniques"}</span></div>
+      <div class="legend"><span><i style="background:var(--gold)"></i>Visites</span><span><i style="background:var(--chart-2)"></i>${DASH_PERIOD > 7 ? "Uniques cumulés par jour" : "Visiteurs uniques"}</span></div>
       <details class="chart-data"><summary>Voir les valeurs${DASH_PERIOD > 7 ? " par semaine" : " par jour"}</summary><div class="chart-table-wrap"><table><caption class="sr-only">Données du trafic sur ${DASH_PERIOD} jours</caption><thead><tr><th scope="col">${DASH_PERIOD > 7 ? "Début de période" : "Date"}</th><th scope="col">Visites</th><th scope="col">${DASH_PERIOD > 7 ? "Uniques cumulés / jour" : "Uniques"}</th></tr></thead><tbody>${rows.map((row) => `<tr><th scope="row">${esc(frDate(row.bucket))}</th><td>${fmt(row.total)}</td><td>${fmt(row.unique)}</td></tr>`).join("")}</tbody></table></div></details>`;
   }
 
