@@ -25,6 +25,7 @@
     if (!/^[a-z]{2}$/.test(c)) return '<span class="flag flag-none">🌐</span>';
     return `<img class="flag" src="https://flagcdn.com/w40/${c}.png" srcset="https://flagcdn.com/w80/${c}.png 2x" width="24" height="18" alt="" data-code="${c.toUpperCase()}">`;
   };
+  window.flagImg = flagImg;
   document.addEventListener("error", (e) => {
     const img = e.target;
     if (!(img instanceof HTMLImageElement) || !img.classList.contains("flag")) return;
@@ -167,18 +168,10 @@
       else el.innerHTML = [[k.active1, "Actifs (24 h)"], [k.active7, "Actifs (7 j)"], [k.active30, "Actifs (30 j)"]]
         .map(([val, label]) => `<div class="active-user-stat"><strong>${esc(fmt(val))}</strong><span>${esc(label)}</span></div>`).join("");
     }
-    const sessions = Number(k.sessionsTotal) || 0;
-    const optIn = Number(k.analyticsOptIn) || 0;
-    // Avec les compteurs anonymes (asrar-main, tous les comptes), le
-    // graphique n'est plus limité aux comptes ayant accepté la mesure détaillée.
-    const partial = !(DASH && DASH.audienceAnonymous) && sessions > 0 && optIn < sessions;
+    // Depuis asrar-main SW v46.64, chaque utilisateur est suivi sans réglage
+    // préalable : plus de note « mesure limitée aux comptes consentants ».
     const tNote = $("dashTrafficNote");
-    if (tNote) {
-      tNote.hidden = !partial;
-      tNote.textContent = partial
-        ? `Utilisateurs actifs : tous les comptes connectés. Le graphique de visites ne compte que les ${fmt(optIn)} utilisateur${optIn > 1 ? "s" : ""} (sur ${fmt(sessions)}) qui ont autorisé la mesure des visites dans leur page Compte.`
-        : "";
-    }
+    if (tNote) { tNote.hidden = true; tNote.textContent = ""; }
     const cNote = $("dashCountriesNote");
     if (cNote) {
       const unknown = Number(DASH && DASH.unknownCountry && DASH.unknownCountry.users) || 0;
@@ -188,7 +181,7 @@
       cNote.textContent = period
         ? `Utilisateurs distincts par pays en ${monthLabel} (tous les comptes, mesure anonyme).`
         : unknown
-          ? "Le pays n'est enregistré que pour les utilisateurs qui ont autorisé la mesure des visites. Les autres apparaissent en « Pays inconnu »."
+          ? "« Pays inconnu » : connexions dont le pays n'a pas pu être détecté (ou antérieures au suivi des pays)."
           : "";
     }
   }

@@ -45,7 +45,75 @@
   // ── Analytics ──
   let ANA = null, ANA_AT = 0, ANA_PERIOD = "d30", PAGES_EXPANDED = false;
 
+  // ── Activité des utilisateurs : connexions (e-mail, pays, heure) et
+  // journal des actions, envoyés par asrar-main pour chaque utilisateur.
+  const PLATFORM_SHORT = { android_app: "Appli Android", android_web: "Site Android", ios: "iPhone", desktop: "Ordinateur" };
+  const ACTION_TYPES = { visit: "Connexion", page: "Page ouverte", click: "Action", product_view: "Produit vu" };
+  const flag = (code) => (typeof window.flagImg === "function" ? window.flagImg(code) : "");
+  const actionText = (a) => {
+    const kind = ACTION_TYPES[a.type] || a.type || "Action";
+    if (a.type === "click") return kind + " : « " + (a.label || "?") + " »";
+    return kind;
+  };
+  const actionRow = (a, withEmail) => `
+    <div class="row act-row">
+      <div class="act-main">
+        <div class="act-title">${a.countryCode ? flag(a.countryCode) + " " : ""}<b>${esc(actionText(a))}</b>${a.page ? ` <span class="muted">· ${esc(a.page)}</span>` : ""}</div>
+        <div class="muted act-sub">${withEmail ? esc(a.email) + " · " : ""}${esc(a.country || "Pays inconnu")}${a.platform ? " · " + esc(PLATFORM_SHORT[a.platform] || a.platform) : ""}</div>
+      </div>
+      <div class="muted act-time">${esc(when(a.at))}</div>
+    </div>`;
+  let ACT = null;
+  function renderSessions() {
+    const el = $("actSessions");
+    if (!el || !ACT) return;
+    const q = String(($("actSearch") && $("actSearch").value) || "").trim().toLowerCase();
+    const rows = (ACT.sessions || []).filter((u) => !q || u.email.toLowerCase().includes(q) || u.country.toLowerCase().includes(q));
+    el.innerHTML = rows.slice(0, 200).map((u) => `
+      <button type="button" class="row act-row act-user" data-email="${esc(u.email)}">
+        <div class="act-main">
+          <div class="act-title">${flag(u.countryCode)} <b>${esc(u.email)}</b></div>
+          <div class="muted act-sub">${esc(u.country || "Pays inconnu")}${u.platform ? " · " + esc(PLATFORM_SHORT[u.platform] || u.platform) : ""}${u.lastAction || u.lastPage ? " · Dernière action : " + esc(u.lastAction || u.lastPage) : ""}</div>
+        </div>
+        <div class="muted act-time">Connexion ${esc(when(u.loginAt))}${u.activeAt && u.activeAt !== u.loginAt ? `<br>Actif ${esc(relTime(u.activeAt))}` : ""}</div>
+      </button>`).join("") || "<div class='empty'>Aucune connexion enregistrée.</div>";
+  }
+  function renderActionFeed() {
+    const el = $("actFeed");
+    if (!el || !ACT) return;
+    el.innerHTML = (ACT.actions || []).map((a) => actionRow(a, true)).join("") || "<div class='empty'>Aucune action enregistrée.</div>";
+  }
+  window.loadActivity = async function () {
+    try { ACT = await api("stats", { action: "activity" }); renderSessions(); renderActionFeed(); }
+    catch (e) {
+      for (const id of ["actSessions", "actFeed"]) if ($(id)) $(id).innerHTML = "<div class='empty'>" + esc(e.message) + "</div>";
+    }
+  };
+  async function openUserActivity(email) {
+    const big = $("big");
+    if (!big || !$("bigcard")) return;
+    $("bigcard").innerHTML = `
+      <div class="bighead"><h3>${esc(email)}</h3>
+        <button id="btnCancelBig" class="btn text">Fermer</button></div>
+      <h3 style="margin-bottom:10px">Toutes ses actions</h3>
+      <div class="list act-list" id="userActList"><div class="empty">Chargement…</div></div>`;
+    big.hidden = false;
+    $("btnCancelBig").onclick = () => { big.hidden = true; };
+    try {
+      const d = await api("stats", { action: "activity", email });
+      $("userActList").innerHTML = (d.actions || []).map((a) => actionRow(a, false)).join("") || "<div class='empty'>Aucune action enregistrée pour cet utilisateur.</div>";
+    } catch (e) {
+      $("userActList").innerHTML = `<div class='empty' style='color:var(--danger)'>${esc(e.message)}</div>`;
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".act-user");
+    if (b) openUserActivity(b.getAttribute("data-email"));
+  });
+  document.addEventListener("input", (e) => { if (e.target && e.target.id === "actSearch") renderSessions(); });
+
   window.loadAnalytics = async function () {
+    loadActivity();
     if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";
     try { ANA = await api("stats", { action: "analytics" }); ANA_AT = Date.now(); renderAnalytics(); }
     catch (e) { if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>" + esc(e.message) + "</div>"; }

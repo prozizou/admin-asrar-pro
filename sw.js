@@ -1,6 +1,6 @@
 // sw.js — SW du panneau admin. Cache DYNAMIQUE + mise à jour immédiate.
 // Change SW_VERSION à chaque déploiement → purge de l'ancien cache + reload auto.
-const SW_VERSION = 'admin-v30';
+const SW_VERSION = 'admin-v31';
 const CACHE = 'asrar-admin-' + SW_VERSION;
 const SHELL = ['/', '/index.html', '/admin.css',
   '/admin-design.css', '/admin-theme.js', '/admin-shell.js',
