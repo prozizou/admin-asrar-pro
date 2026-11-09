@@ -207,3 +207,30 @@ test('overview : l’activité récente ne montre rien d’antérieur à la remi
   assert.deepEqual(json.recent.map((e) => e.email), ['a@x.test', 'new@x.test']);
   assert.equal(json.kpis.activeSubs, 2); // les chiffres réels restent complets
 });
+
+test('analytics : boutiques calculées comme le Marché de l’application (vendorKey e-mail, j’aime, avis)', async () => {
+  // Empreinte de lib/market.js (asrar-main) : v_ + FNV-1a de l’e-mail en minuscules.
+  const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+  const vk = 'v_' + fnv('vendeur@x.test');
+  const handler = loadWith({
+    profile_clients: { shop1: { profile_name: 'Asrar Pro boutique', email: 'Vendeur@X.test', uid: 'nouvel-uid', number: '+221' } },
+    det_produits: {
+      p1: { produit: 'A', email: 'vendeur@x.test', uid: 'ancien-uid' },
+      p2: { produit: 'B', email: 'VENDEUR@x.test', uid: 'nouvel-uid' },
+      p3: { produit: 'C', email: 'autre@x.test', uid: 'nouvel-uid' }
+    },
+    views: { product: { p1: { u1: 1, u2: 1 }, p2: { u1: 1 } } },
+    ratings: { vendor: { [vk]: { u1: true, u2: true, u3: true }, shop1: { u9: 5 } } },
+    comments: { vendor: { [vk]: { c1: { stars: 5 }, c2: { stars: 4 }, c3: { text: 'sans note' } } } }
+  });
+  const { json } = await call(handler, { action: 'analytics' });
+  assert.equal(json.boutiques.length, 1);
+  const b = json.boutiques[0];
+  assert.equal(b.vendorKey, vk);
+  assert.equal(b.products, 2);       // par e-mail, quel que soit l’uid ; « autre@ » exclu
+  assert.equal(b.likes, 3);          // ratings/vendor = j’aime
+  assert.equal(b.ratingsCount, 2);   // avis = commentaires avec étoiles
+  assert.equal(b.rating, 4.5);
+  assert.equal(b.views, 3);
+  assert.equal(json.totals.avisTotal, 2);
+});
