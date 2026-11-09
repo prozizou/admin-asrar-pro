@@ -47,7 +47,9 @@
 
   // ── Activité des utilisateurs : connexions (e-mail, pays, heure) et
   // journal des actions, envoyés par asrar-main pour chaque utilisateur.
-  const PLATFORM_SHORT = { android_app: "Appli Android", android_web: "Site Android", ios: "iPhone", desktop: "Ordinateur" };
+  // android_app = application APK (WebView Capacitor) ; ios = site ouvert sur
+  // iPhone/iPad (pas d'application iOS) ; desktop = navigateur d'ordinateur.
+  const PLATFORM_SHORT = { android_app: "Application Android (APK)", android_web: "Site sur Android", ios: "Site sur iPhone / iPad", desktop: "Site sur ordinateur" };
   const ACTION_TYPES = { visit: "Connexion", page: "Page ouverte", click: "Action", product_view: "Produit vu" };
   const flag = (code) => (typeof window.flagImg === "function" ? window.flagImg(code) : "");
   const actionText = (a) => {
@@ -174,7 +176,7 @@
     el.innerHTML = barChartHtml(rows, {
       series: [
         { key: "total", color: "linear-gradient(180deg,var(--gold-2),var(--gold))", label: "Visites" },
-        { key: "unique", cls: "uniq", color: "linear-gradient(180deg,#6fc3e0,#2d7ea8)", label: "Visiteurs uniques" }
+        { key: "unique", cls: "uniq", color: "var(--chart-2)", label: "Visiteurs uniques" }
       ],
       valueKey: "total",
       xLabel,
@@ -185,8 +187,8 @@
   // Appareils : visiteurs uniques (30 j) par catégorie, avec leur part. Les
   // visiteurs d'avant l'ajout du relevé sont « Non renseigné ».
   const PLATFORM_LABELS = {
-    android_app: "Application Android", android_web: "Site sur Android", ios: "iPhone / iPad",
-    desktop: "Ordinateur", inconnu: "Non renseigné (avant le relevé)"
+    android_app: "Application Android (APK)", android_web: "Site sur Android", ios: "Site sur iPhone / iPad",
+    desktop: "Site sur ordinateur", inconnu: "Non renseigné (avant le relevé)"
   };
   function renderAnaPlatforms() {
     const el = $("anaPlatforms");

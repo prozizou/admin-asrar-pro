@@ -30,7 +30,7 @@ trafic sur 7/30/90 jours, pays et activité récente. Les fenêtres de création
 les listes, les formulaires et les confirmations partagent le même habillage.
 Le clavier reste contenu dans les fenêtres ouvertes ; Échap ferme les menus
 et les éditeurs. Les animations respectent la réduction des mouvements.
-La police Inter est hébergée localement (licence dans `assets/fonts/OFL.txt`).
+La charte de l'application ASRAR PRO (anthracite et orange, police Calibri/Carlito) est appliquée par `admin-app-theme.css`, chargée en dernier. Carlito est hébergée localement (licence dans `assets/fonts/Carlito-OFL.txt`) ; Inter reste en repli (licence dans `assets/fonts/OFL.txt`).
 
 - `admin-design.css` : palette, navigation, responsive et habillage commun.
 - `admin-shell.js` : recherche, navigation mobile, titres et gestion du focus.

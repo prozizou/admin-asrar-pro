@@ -1,0 +1,109 @@
+/* admin-app-theme.css — Charte de l'application ASRAR PRO appliquée au panneau.
+   Mêmes couleurs, police et rayons que l'application (asrar-main,
+   app/globals.css) : anthracite et accent orange en sombre, blanc/gris clair
+   et orange brûlé en clair, police Calibri (Carlito embarquée, même métrique).
+   Chargée APRÈS admin.css et admin-design.css : elle ne fait que redéfinir
+   leurs variables et les quelques couleurs écrites en dur. */
+
+@font-face { font-family: 'Carlito'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/carlito-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Carlito'; font-style: normal; font-weight: 700; font-display: swap; src: url('/assets/fonts/carlito-latin-700-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Carlito'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/carlito-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Carlito'; font-style: normal; font-weight: 700; font-display: swap; src: url('/assets/fonts/carlito-latin-ext-700-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
+/* ── Mode clair (html[data-theme="light"] de l'application) ── */
+:root, body.light {
+  --obsidian: #f4f4f5;
+  --panel: #ffffff;
+  --panel2: #fafafa;
+  --raised: #f4f4f5;
+  --line: rgba(0, 0, 0, 0.11);
+  --line-2: rgba(0, 0, 0, 0.22);
+  --gold: #c2410c;
+  --gold-2: #9a3412;
+  --ink: #18181b;
+  --muted: #5c5c66;
+  --danger: #b91c1c;
+  --ok: #15803d;
+  --info: #4b4b52;
+  --accent-soft: #fff7ed;
+  --sidebar: #18181b;
+  --sidebar-text: #cfcfd4;
+  --sidebar-muted: #a8a8b0;
+  --brand: #fb923c;
+  --on-accent: #ffffff;
+  --chart-1: #c2410c;
+  --chart-2: #a8a8b0;
+  --scrim: rgba(0, 0, 0, 0.45);
+  --display: Calibri, Carlito, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --body: Calibri, Carlito, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Mode sombre (:root de l'application, son thème par défaut) ── */
+:root[data-theme="dark"] {
+  --obsidian: #121212;
+  --panel: #1e1e20;
+  --panel2: #1c1c1e;
+  --raised: #2a2a2d;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-2: rgba(255, 255, 255, 0.24);
+  --gold: #fb923c;
+  --gold-2: #fdba74;
+  --ink: #f4f4f5;
+  --muted: #a8a8b0;
+  --danger: #f87171;
+  --ok: #4ade80;
+  --info: #cfcfd4;
+  --accent-soft: rgba(251, 146, 60, 0.12);
+  --sidebar: #0b0b0c;
+  --sidebar-text: #cfcfd4;
+  --sidebar-muted: #8c8c95;
+  --brand: #fb923c;
+  --on-accent: #1a1209;
+  --chart-1: #fb923c;
+  --chart-2: #8c8c95;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+body, button, input, select, textarea { font-family: var(--body); }
+::selection { background: rgba(251, 146, 60, 0.3); color: inherit; }
+
+/* Barre latérale : anthracite et orange, comme la barre de l'application. */
+.sidebar-brand b { color: var(--brand); }
+.sidebar-brand small, .workspace-label small, .account-details small { color: var(--sidebar-muted); }
+.workspace-label { border-color: rgba(255, 255, 255, 0.1); }
+.workspace-icon { color: var(--brand); background: rgba(255, 255, 255, 0.05); }
+.nav-label { color: var(--sidebar-muted); }
+.app-sidebar .nav button:hover { background: rgba(255, 255, 255, 0.06); }
+.app-sidebar .nav button.active { color: #1a1209; background: #fb923c; box-shadow: 0 2px 8px rgba(251, 146, 60, 0.25); }
+.app-sidebar :focus-visible { outline-color: #fdba74; }
+.site-link, .sidebar-account .icon-btn { color: var(--sidebar-text); }
+.sidebar-account { border-top-color: rgba(255, 255, 255, 0.12); }
+.account-avatar, .topbar-avatar { background: #fb923c; color: #1a1209; }
+.nav-scrim, .bigwrap, .command-palette::backdrop { background: var(--scrim); }
+
+/* Boutons et sélecteurs : accent orange de l'application. */
+.btn.primary, .btn.primary:hover { background: var(--gold); border-color: var(--gold); color: var(--on-accent); box-shadow: 0 3px 8px rgba(251, 146, 60, 0.18); }
+.btn.primary:hover { filter: brightness(1.08); }
+.seg button.active { color: var(--gold); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.toast.success, body.light .toast.success { background: #15803d; }
+.toast.danger, body.light .toast.danger { background: #b91c1c; }
+
+/* Indicateurs et graphiques. */
+.stat-ic, .stat:nth-child(n) .stat-ic { background: var(--accent-soft); color: var(--gold); }
+.chart-line { stroke: var(--chart-1); }
+.chart-line.unique { stroke: var(--chart-2); }
+.country-track span, .country-row:nth-child(n) .country-track span, .hbar .hbar-fill, .rc-bar { background: var(--chart-1); }
+.country-row:nth-child(n+2) .country-track span { opacity: .8; }
+.rc-bar.uniq { background: var(--chart-2); }
+.card:hover { box-shadow: var(--shadow); }
+
+/* Bloc « Passer à l'action » : carte sombre de l'application. */
+.quick-block { background: var(--sidebar); border-color: var(--sidebar); }
+.quick-block .eyebrow, .quick-block .shortcut:hover { color: #fdba74; }
+.quick-block > p, .quick-block .shortcut > span:last-child, .quick-block .shortcut small { color: #a8a8b0; }
+.quick-block .shortcut { border-top-color: rgba(255, 255, 255, 0.1); }
+.quick-block .shortcut .ic { color: #fb923c; background: rgba(255, 255, 255, 0.06); }
