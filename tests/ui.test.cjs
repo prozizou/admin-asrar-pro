@@ -87,6 +87,11 @@ test('Desktop: dashboard, exact chart windows, navigation, history, search, them
     await page.locator('#dashGrid .stat').first().waitFor();
     assert.equal(await page.locator('#dashGrid .stat').count(), 4);
     assert.match(await page.locator('#dashGrid').innerText(), /Valeur des accès/);
+    assert.equal(await page.locator('#dashActive .active-user-stat').count(), 3);
+    assert.match(await page.locator('#dashActive').innerText(), /214[\s\S]*Actifs \(7 j\)/);
+    assert.match(await page.locator('#dashTrafficNote').innerText(), /842 utilisateurs \(sur 1\s210\)/);
+    assert.match(await page.locator('#dashCountries').innerText(), /Pays inconnu/);
+    assert.equal(await page.locator('#dashCountriesNote').isVisible(), true);
     assert.match(await page.locator('#accountName').innerText(), /Admin Démo/);
     await noOverflow(page, 'desktop dashboard');
     await capture(page, 'dashboard-desktop');

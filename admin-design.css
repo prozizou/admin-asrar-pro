@@ -182,6 +182,12 @@ select { padding-right: 38px; }
 .traffic-block .bar { align-items: flex-start; }
 .traffic-block .seg { flex: none; }
 .traffic-block .seg button { padding: 4px 10px; min-height: 28px; font-size: 10px; white-space: nowrap; }
+.active-users { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 14px; }
+.active-user-stat { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); }
+.active-user-stat strong { font-size: 20px; font-weight: 600; color: var(--ink); letter-spacing: -.5px; }
+.active-user-stat span { font-size: 10px; color: var(--muted); }
+.dash-note { font-size: 10px; line-height: 1.6; color: var(--muted); margin: 4px 0 10px; }
+.dash-note[hidden] { display: none; }
 .traffic-summary { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 10px; min-height: 39px; }
 .traffic-summary strong { font-size: 26px; font-weight: 600; color: var(--ink); letter-spacing: -.8px; }
 .traffic-chart { width: 100%; height: auto; display: block; overflow: visible; }

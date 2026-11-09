@@ -7,7 +7,7 @@ const daily = Array.from({ length: 90 }, (_, index) => ({
   unique: [145, 198, 170, 230, 210, 290, 256][index % 7]
 }));
 const overview = {
-  kpis: { revenueTotal: 2475000, revenue30: 385000, revenue7: 95000, salesTotal: 124, sales30: 18, sales7: 4, activeSubs: 98, newSubs30: 23, newSubs7: 7, usersTotal: 1284, new30: 156, new7: 37, unique30: 842, visits30: 9648, boutiques: 12, admins: 2, vips: 8 },
+  kpis: { revenueTotal: 2475000, revenue30: 385000, revenue7: 95000, salesTotal: 124, sales30: 18, sales7: 4, activeSubs: 98, newSubs30: 23, newSubs7: 7, usersTotal: 1284, new30: 156, new7: 37, unique30: 842, visits30: 9648, boutiques: 12, admins: 2, vips: 8, active1: 63, active7: 214, active30: 587, sessionsTotal: 1210, analyticsOptIn: 842 },
   spark: daily,
   countryBreakdown: [
     { country: 'Sénégal', countryCode: 'SN', users: 742, pct: 57.8 },
@@ -16,6 +16,7 @@ const overview = {
     { country: 'Mali', countryCode: 'ML', users: 96, pct: 7.5 },
     { country: 'Guinée', countryCode: 'GN', users: 74, pct: 5.7 }
   ],
+  unknownCountry: { users: 120, pct: 9.9 },
   recent: [
     { type: 'connection', email: 'amina@example.com', countryCode: 'SN', country: 'Sénégal', at: now - 60000 },
     { type: 'signup', email: 'moussa@example.com', at: now - 360000 },
