@@ -1,5 +1,5 @@
 // api/stats.js — Statistiques & analytique (Admin SDK, admins seulement).
-const { app, verifyAdmin, bearer, listAllAuthUsers } = require("./_lib/fb");
+const { app, verifyAdmin, bearer, listAllAuthUsers, audit } = require("./_lib/fb");
 
 // Compteurs d'audience ANONYMES écrits par asrar-main pour TOUS les comptes
 // (pages/api/track.js, countAudience) : analytics/daily/{jour} =
@@ -8,6 +8,7 @@ const { app, verifyAdmin, bearer, listAllAuthUsers } = require("./_lib/fb");
 // pays inconnu). Le journal détaillé analytics/visits/{jour}/{uid}, lui, ne
 // couvre que les comptes ayant coché la mesure détaillée (décochée par
 // défaut) : c'est pourquoi les statistiques restaient à 0.
+const RESET_WORD = "SUPPRIMER";
 const DAY_MS = 864e5;
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 async function loadAudience(db, now, days) {
@@ -247,6 +248,21 @@ module.exports = async (req, res) => {
         audienceAnonymous: Object.keys(audience).length > 0,
         unknownCountry: unknownCountry ? { users: unknownCountry.users, pct: countryBase ? Math.round((unknownCountry.users / countryBase) * 1000) / 10 : 0 } : null
       });
+    }
+
+    // ── REMISE À ZÉRO DES STATISTIQUES ───────────────────────────────────
+    // Supprime définitivement, dans Firebase, tout ce qui sert aux
+    // statistiques : analytics/* (visites, compteurs du jour et des pays,
+    // publicités, CSP), activity_feed (journal des actions), user_sessions
+    // (connexions : e-mail, pays, heure) et views/product (vues des produits).
+    // Ne touche ni aux comptes, ni aux abonnements, ni aux contenus, ni aux
+    // avis. Exige la saisie exacte de « SUPPRIMER » (body.confirm).
+    if (action === "reset_stats") {
+      if (body.confirm !== RESET_WORD) return res.status(400).json({ error: "Confirmation manquante : saisissez " + RESET_WORD + "." });
+      const paths = { analytics: null, activity_feed: null, user_sessions: null, "views/product": null };
+      await db.ref().update(paths);
+      await audit(who, "reset_stats", null, { paths: Object.keys(paths) });
+      return res.json({ ok: true, cleared: Object.keys(paths) });
     }
 
     // ── ACTIVITÉ DES UTILISATEURS ────────────────────────────────────────

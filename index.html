@@ -180,15 +180,6 @@
             <div class="bar"><div><h3>Activité récente</h3><p class="section-caption">Les derniers mouvements de votre communauté</p></div><span class="section-icon" data-icon="clock"></span></div>
             <div id="dashRecent" class="list"></div>
         </div>
-        <div class="block quick-block">
-          <span class="eyebrow">PASSER À L'ACTION</span><h3>Faites vivre<br>votre communauté.</h3><p>Vos actions du quotidien, à portée de main.</p>
-          <div class="shortcuts">
-            <button class="shortcut" data-action="create" data-icon="add"><span>Publier un contenu<small>Secrets et documents</small></span><span aria-hidden="true">↗</span></button>
-            <button class="shortcut" data-action="grant" data-icon="users"><span>Offrir l'accès sans pub<small>Accompagner un nouvel abonné</small></span><span aria-hidden="true">↗</span></button>
-            <button class="shortcut" data-goto="ads" data-icon="ads"><span>Suivre les publicités<small>Pubs sautées ou laissées ouvertes</small></span><span aria-hidden="true">↗</span></button>
-            <button class="shortcut" data-goto="market" data-icon="market"><span>Gérer le marché<small>Boutiques et produits</small></span><span aria-hidden="true">↗</span></button>
-          </div>
-        </div>
         </div>
       </section>
 
@@ -495,6 +486,12 @@
             <button id="btnAddBoutique" class="btn primary" data-icon="add">Ajouter une boutique</button>
           </div>
           <div id="anaBoutiques" class="list"></div>
+        </div>
+
+        <div class="block danger-zone">
+          <div class="bar"><h3 style="margin:0">Remettre les statistiques à zéro</h3></div>
+          <p class="muted">Supprime définitivement de Firebase toutes les statistiques : visites, compteurs par jour et par pays, connexions des utilisateurs, journal des actions, vues des produits et mesures des publicités. Les comptes, abonnements, contenus et avis ne sont pas touchés.</p>
+          <button id="btnResetStats" class="btn danger" data-icon="trash">Supprimer toutes les statistiques</button>
         </div>
       </section>
 

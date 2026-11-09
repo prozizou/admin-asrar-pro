@@ -227,17 +227,6 @@ img.flag { width: 24px; height: 18px; object-fit: cover; border-radius: 3px; box
 .feed-title { font-size: 11px; font-weight: 500; }
 .feed-email { font-size: 10px; color: var(--muted); }
 .feed-time { font-size: 9px; white-space: nowrap; }
-.quick-block { position: relative; background: var(--sidebar); color: #fff; border-color: var(--sidebar); overflow: hidden; }
-.quick-block::after { content: ''; position: absolute; width: 210px; height: 210px; border: 1px solid #ffffff0b; border-radius: 50%; right: -90px; top: -80px; pointer-events: none; box-shadow: 0 0 0 32px #ffffff04, 0 0 0 64px #ffffff03; }
-.quick-block .eyebrow { color: #c4d4a3; font-size: 9px; }
-.quick-block h3 { font-size: 24px; line-height: 1.25; font-weight: 500; letter-spacing: -.6px; margin: 14px 0 9px; }
-.quick-block > p { font-size: 10px; color: #bfd0c6; }
-.quick-block .shortcuts { display: flex; flex-direction: column; gap: 0; margin-top: 20px; }
-.quick-block .shortcut { background: none; border: 0; border-top: 1px solid #ffffff20; border-radius: 0; box-shadow: none; color: #fff; padding: 13px 0; min-height: 58px; font-size: 11px; font-weight: 500; text-align: left; }
-.quick-block .shortcut:hover { color: #d7e5b4; transform: translateX(2px); }
-.quick-block .shortcut > span:last-child { margin-left: auto; color: #bfcca8; }
-.quick-block .shortcut .ic { width: 31px; height: 31px; padding: 7px; color: #d2dcbe; background: #ffffff0b; border-radius: 8px; }
-.shortcut small { display: block; color: #b7cbbe; font-size: 9px; font-weight: 400; margin-top: 3px; }
 .load-error { grid-column: 1 / -1; text-align: center; padding: 22px; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; }
 .load-error p { margin-bottom: 12px; color: var(--danger); font-size: 12px; }
 
@@ -333,7 +322,6 @@ body.has-overlay { overflow: hidden; }
 @media (max-width: 1050px) and (min-width: 821px) {
   .stats-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid { grid-template-columns: 1fr; }
-  .quick-block { display: none; }
   .countries-block .hbars { display: grid; grid-template-columns: 1fr 1fr; }
   .stat-mini { padding: 0; flex-basis: 44%; }
   .heading-actions .today-date { display: none; }
@@ -399,7 +387,6 @@ body.has-overlay { overflow: hidden; }
 }
 @media (max-width: 640px) {
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .quick-block { order: 3; }
   .page-heading { align-items: flex-start; }
   .heading-actions { display: none; }
   .stats-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 10px; padding: 13px 2px 0; margin-bottom: 25px; }
