@@ -249,6 +249,40 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ── ACTIVITÉ DES UTILISATEURS ────────────────────────────────────────
+    // Écrit par asrar-main (pages/api/track.js) pour CHAQUE utilisateur connecté :
+    //   user_sessions/{uid} = { email, country, countryCode, platform,
+    //     lastLoginAt, lastActivityAt, lastPage, lastAction, lastActionAt }
+    //   activity_feed/{push} = { email, type (visit|page|click|product_view…),
+    //     page, label, country, countryCode, platform, at }
+    // body.email (facultatif) : les actions d'un seul utilisateur.
+    if (action === "activity") {
+      const wanted = String(body.email || "").trim().toLowerCase();
+      const [sessionsSnap, feedSnap] = await Promise.all([
+        db.ref("user_sessions").once("value"),
+        db.ref("activity_feed").limitToLast(wanted ? 5000 : 1000).once("value")
+      ]);
+      const sessions = Object.values(sessionsSnap.val() || {})
+        .filter((s) => s && typeof s === "object" && s.email)
+        .map((s) => ({
+          email: String(s.email), country: s.country || "", countryCode: s.countryCode || "",
+          platform: s.platform || "", loginAt: Number(s.lastLoginAt) || 0,
+          activeAt: Math.max(Number(s.lastActivityAt) || 0, Number(s.lastActionAt) || 0),
+          lastPage: s.lastPage || "", lastAction: s.lastAction || ""
+        }))
+        .sort((a, b) => (b.activeAt || b.loginAt) - (a.activeAt || a.loginAt))
+        .slice(0, 500);
+      const actions = Object.values(feedSnap.val() || {})
+        .filter((e) => e && typeof e === "object" && (!wanted || String(e.email || "").toLowerCase() === wanted))
+        .map((e) => ({
+          at: Number(e.at) || 0, email: e.email || "", type: e.type || "", page: e.page || "",
+          label: e.label || "", country: e.country || "", countryCode: e.countryCode || "", platform: e.platform || ""
+        }))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, wanted ? 300 : 200);
+      return res.json({ sessions, actions, email: wanted || null });
+    }
+
     // ── PUBLICITÉS AU CLIC ───────────────────────────────────────────────
     // Source : analytics/ads/{AAAA-MM-JJ}={opened,quick,closed,open}, écrit par
     // asrar-main (pages/api/track.js, type « ad_stats ») : onglet de pub fermé

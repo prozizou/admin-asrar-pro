@@ -50,7 +50,7 @@ async function openPage({ width = 1440, signedIn = true, denied = false, fail = 
     if (url.pathname.startsWith('/api/')) {
       const payload = route.request().postDataJSON() || {};
       const endpoint = url.pathname.split('/').pop();
-      if (!['overview', 'analytics', 'ads', 'list', 'nodes', 'list_access'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
+      if (!['overview', 'analytics', 'activity', 'ads', 'list', 'nodes', 'list_access'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
       if (denied) return route.fulfill({ status: 403, json: { error: 'Forbidden test account' } });
       if (failed && endpoint === 'stats') return route.fulfill({ status: 503, json: { error: 'Service temporairement indisponible.' } });
       if (empty && endpoint === 'stats' && payload.action === 'overview') return route.fulfill({ json: { kpis: {}, spark: [], countryBreakdown: [], recent: [] } });
@@ -89,7 +89,7 @@ test('Desktop: dashboard, exact chart windows, navigation, history, search, them
     assert.match(await page.locator('#dashGrid').innerText(), /Valeur des accès/);
     assert.equal(await page.locator('#dashActive .active-user-stat').count(), 3);
     assert.match(await page.locator('#dashActive').innerText(), /214[\s\S]*Actifs \(7 j\)/);
-    assert.match(await page.locator('#dashTrafficNote').innerText(), /842 utilisateurs \(sur 1\s210\)/);
+    assert.equal(await page.locator('#dashTrafficNote').isVisible(), false);
     assert.match(await page.locator('#dashCountries').innerText(), /Pays inconnu/);
     assert.equal(await page.locator('#dashCountriesNote').isVisible(), true);
     assert.match(await page.locator('#accountName').innerText(), /Admin Démo/);

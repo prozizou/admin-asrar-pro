@@ -445,3 +445,15 @@ body.has-overlay { overflow: hidden; }
 /* Onglet Publicités : notes d'interprétation lisibles, sans puces collées. */
 .ads-notes { margin: 0; padding-left: 1.15rem; display: grid; gap: 8px; font-size: 0.86rem; line-height: 1.5; }
 .ads-notes b { color: var(--text, inherit); }
+
+/* Activité des utilisateurs (Statistiques) */
+.act-search { width: 100%; max-width: 420px; margin-bottom: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: inherit; font: inherit; }
+.act-list { max-height: 460px; overflow-y: auto; }
+.row.act-row { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 12px; width: 100%; margin-bottom: 8px; padding: 12px 14px; text-align: left; font: inherit; color: inherit; }
+button.act-row { cursor: pointer; }
+button.act-row:hover { border-color: var(--line-2); }
+.act-main { min-width: 0; flex: 1; }
+.act-title { overflow-wrap: anywhere; }
+.act-sub { font-size: 11px; margin-top: 3px; overflow-wrap: anywhere; }
+.act-time { font-size: 11px; text-align: right; white-space: nowrap; line-height: 1.5; }
+@media (max-width: 600px) { .row.act-row { flex-direction: column; gap: 4px; } .act-time { text-align: left; } }

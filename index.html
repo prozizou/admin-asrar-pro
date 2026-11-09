@@ -461,6 +461,19 @@
         </div>
 
         <div class="block">
+          <div class="bar"><h3 style="margin:0">Connexions des utilisateurs</h3></div>
+          <p class="muted" style="margin-bottom:8px">Chaque utilisateur connecté : e-mail, pays, heure de connexion, appareil et dernière action. Touchez une ligne pour voir toutes ses actions.</p>
+          <input id="actSearch" type="search" class="act-search" placeholder="Rechercher un e-mail ou un pays…" aria-label="Rechercher un e-mail ou un pays" autocomplete="off">
+          <div id="actSessions" class="list act-list"><div class="empty">Chargement…</div></div>
+        </div>
+
+        <div class="block">
+          <div class="bar"><h3 style="margin:0">Journal des actions</h3></div>
+          <p class="muted" style="margin-bottom:8px">Les dernières actions dans l'application : connexions, pages ouvertes, boutons et liens touchés.</p>
+          <div id="actFeed" class="list act-list"><div class="empty">Chargement…</div></div>
+        </div>
+
+        <div class="block">
           <div class="bar"><h3 style="margin:0">Appareils (30 j)</h3></div>
           <p class="muted" style="margin-bottom:8px">
             Visiteurs uniques des 30 derniers jours selon leur appareil : application Android, site sur Android,

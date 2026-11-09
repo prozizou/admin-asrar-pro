@@ -46,6 +46,17 @@ function response(endpoint, action, payload) {
     const period = (n) => { const t = sum(rows.slice(-n)); return { ...t, quickRate: Math.round(t.quick / t.opened * 1000) / 10, closedRate: Math.round(t.closed / t.opened * 1000) / 10, openRate: Math.round(t.open / t.opened * 1000) / 10 }; };
     return { daily: rows, periods: { d7: period(7), d30: period(30), d90: period(90) }, blocked: [{ directive: 'script-src-elem', host: 'ads.example.net', count: 42 }, { directive: 'connect-src', host: 'beacon.example.org', count: 17 }] };
   }
+  if (endpoint === 'stats' && action === 'activity') {
+    const actions = [
+      { at: now - 30000, email: 'amina@example.com', type: 'click', page: 'marche', label: 'Ajouter au panier', country: 'Sénégal', countryCode: 'SN', platform: 'android_app' },
+      { at: now - 60000, email: 'amina@example.com', type: 'page', page: 'marche', country: 'Sénégal', countryCode: 'SN', platform: 'android_app' },
+      { at: now - 120000, email: 'ibrahima@example.com', type: 'visit', page: 'accueil', country: 'Côte d’Ivoire', countryCode: 'CI', platform: 'desktop' }
+    ].filter((a) => !payload || !payload.email || a.email === payload.email);
+    return { actions, sessions: [
+      { email: 'amina@example.com', country: 'Sénégal', countryCode: 'SN', platform: 'android_app', loginAt: now - 900000, activeAt: now - 30000, lastPage: 'marche', lastAction: 'Ajouter au panier' },
+      { email: 'ibrahima@example.com', country: 'Côte d’Ivoire', countryCode: 'CI', platform: 'desktop', loginAt: now - 120000, activeAt: now - 120000, lastPage: 'accueil', lastAction: '' }
+    ] };
+  }
   if (endpoint === 'stats' && action === 'analytics') return { platforms: { android_app: 30, android_web: 120, ios: 45, desktop: 25, inconnu: 80 }, totals: { boutiques: 12, avisTotal: 28, pagesTotal: 2400 }, periods: { d30: { unique: 842, total: 9648, interactions: 2140, deltaUnique: 12, deltaTotal: 18 } }, daily, monthly: [], topPages: [{ page: 'Chapelet', count: 1200 }, { page: 'Bibliothèque', count: 740 }, { page: 'Secrets', count: 460 }], boutiques: [] };
   return {};
 }

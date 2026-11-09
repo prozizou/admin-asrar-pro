@@ -149,3 +149,25 @@ test('analytics : les compteurs anonymes alimentent visites, uniques et appareil
   assert.equal(json.daily.at(-1).total, 10);
   assert.deepEqual(json.platforms, { android_app: 5, android_web: 0, ios: 3, desktop: 2, inconnu: 0 });
 });
+
+test('activity : connexions (e-mail, pays, heure) et actions, filtrables par e-mail', async () => {
+  const now = Date.now();
+  const handler = loadWith({
+    user_sessions: {
+      a: { email: 'a@x.test', country: 'Sénégal', countryCode: 'SN', platform: 'ios', lastLoginAt: now - 5000, lastActivityAt: now - 1000, lastAction: 'Ouvrir' },
+      b: { email: 'b@x.test', lastLoginAt: now - 90000 },
+      junk: 'x'
+    },
+    activity_feed: {
+      k1: { email: 'a@x.test', type: 'click', page: 'marche', label: 'Ouvrir', countryCode: 'SN', country: 'Sénégal', at: now - 1000 },
+      k2: { email: 'b@x.test', type: 'visit', page: 'accueil', at: now - 90000 },
+      k3: { email: 'A@x.test', type: 'page', page: 'zikr', at: now - 3000 }
+    }
+  });
+  const all = (await call(handler, { action: 'activity' })).json;
+  assert.deepEqual(all.sessions.map((s) => [s.email, s.countryCode, s.lastAction]), [['a@x.test', 'SN', 'Ouvrir'], ['b@x.test', '', '']]);
+  assert.equal(all.sessions[0].loginAt, now - 5000);
+  assert.deepEqual(all.actions.map((a) => a.page), ['marche', 'zikr', 'accueil']);
+  const one = (await call(handler, { action: 'activity', email: 'a@x.test' })).json;
+  assert.deepEqual(one.actions.map((a) => a.type), ['click', 'page']);
+});
