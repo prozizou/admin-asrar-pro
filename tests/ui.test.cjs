@@ -264,3 +264,52 @@ test('Failure and retry, empty data, anonymous and rejected accounts', async () 
     } finally { await context.close(); }
   }
 });
+
+test('Contenus : l’éditeur lit et réécrit les champs réels de chaque rubrique', async () => {
+  const { page, context, errors } = await openPage({ width: 390, hash: '#content' });
+  const sets = [];
+  page.on('request', (r) => { if (r.url().endsWith('/api/content') && r.method() === 'POST') { const b = r.postDataJSON() || {}; if (b.action === 'set') sets.push(b); } });
+  const open = (node) => page.evaluate(async (n) => { window.selectNode(n, n); await new Promise((r) => setTimeout(r, 50)); await window.openEditor('k1'); }, node);
+
+  // Secret : faida / sirr / img (et non title/content), avec images.
+  await open('db_sirr_ouverture');
+  assert.equal(await page.locator('#editTitle').inputValue(), 'Secret de l’ouverture');
+  assert.equal(await page.locator('#editContent').inputValue(), 'Texte complet du secret.');
+  assert.equal(await page.locator('#imgGalleryWrap .img-thumb').count(), 1);
+  await page.locator('#editContent').fill('Nouveau texte');
+  await page.locator('#btnSaveBig').click();
+  await page.waitForFunction(() => document.getElementById('big').hidden);
+  assert.deepEqual({ faida: sets[0].value.faida, sirr: sets[0].value.sirr, img: sets[0].value.img }, { faida: 'Secret de l’ouverture', sirr: 'Nouveau texte', img: 'https://example.com/s.jpg' });
+  assert.equal(sets[0].value.title, undefined);
+  assert.equal(sets[0].value.content, undefined);
+
+  // Livre : titre + images, pas de contenu détaillé.
+  await open('almaqtab');
+  assert.equal(await page.locator('#editTitle').inputValue(), 'كل ما فيه مجربات');
+  assert.equal(await page.locator('#editContent').count(), 0);
+  await page.locator('#btnCancelBig').click();
+
+  // Thème fondamental et noms divins : titre + description, sans image.
+  await open('theme_fondamental');
+  assert.equal(await page.locator('#imgGalleryWrap').count(), 0);
+  assert.equal(await page.locator('#editContent').inputValue(), 'Grande fortune.');
+  await page.locator('#btnCancelBig').click();
+  await open('asmaUlHusna');
+  assert.equal(await page.locator('#imgGalleryWrap').count(), 0);
+  assert.equal(await page.locator('#editTitle').inputValue(), 'الرَّحْمَنُ');
+  assert.equal(await page.locator('#editContent').inputValue(), 'Invoquer la miséricorde');
+  await page.locator('#btnSaveBig').click();
+  await page.waitForFunction(() => document.getElementById('big').hidden);
+  assert.equal(sets[1].value.name, 'الرَّحْمَنُ');
+  assert.equal(sets[1].value.benefits, 'Invoquer la miséricorde');
+  assert.equal(sets[1].value.translit, 'Ar-Rahman'); // champs non affichés conservés
+  assert.equal(sets[1].value.image, undefined);
+
+  // Versets : uniquement le texte du verset.
+  await open('versetRef');
+  assert.equal(await page.locator('#editTitle').count(), 0);
+  assert.equal(await page.locator('#imgGalleryWrap').count(), 0);
+  assert.equal(await page.locator('#editContent').inputValue(), 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
