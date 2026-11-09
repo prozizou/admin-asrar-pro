@@ -83,10 +83,69 @@ test('analytics : répartition des visiteurs uniques par appareil sur 30 jours',
   };
   const fbPath = require.resolve(path.join(__dirname, '..', 'api', '_lib', 'fb.js'));
   const snap = (val) => ({ val: () => val, forEach: () => {} });
-  const database = { ref: (p) => ({ once: async () => snap(p === 'analytics/visits' ? visits : p === 'activity_feed' ? {} : {}), limitToLast: () => ({ once: async () => snap({}) }) }) };
+  const database = { ref: (p) => ({ once: async () => snap(p === 'analytics/visits' ? visits : p === 'activity_feed' ? {} : {}), limitToLast: () => ({ once: async () => snap({}) }), orderByKey: () => ({ startAt: () => ({ once: async () => snap({}) }) }) }) };
   require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: { app: () => ({ database: () => database }), verifyAdmin: async () => ({ email: 'admin@example.test' }), bearer: () => 'token', listAllAuthUsers: async () => [] } };
   const statsPath = require.resolve(path.join(__dirname, '..', 'api', 'stats.js'));
   delete require.cache[statsPath];
   const { json } = await call(require(statsPath), { action: 'analytics' });
   assert.deepEqual(json.platforms, { android_app: 1, android_web: 0, ios: 1, desktop: 1, inconnu: 1 }); // u1 : sa visite la plus récente (aujourd'hui) est l'application
+});
+
+// Fausse base générique : données par chemin, orderByKey().startAt() filtré.
+function loadWith(data) {
+  const fbPath = require.resolve(path.join(__dirname, '..', 'api', '_lib', 'fb.js'));
+  const snap = (val) => ({ val: () => (val === undefined ? null : val), forEach: () => {} });
+  const at = (p) => p.split('/').reduce((v, k) => (v == null ? undefined : v[k]), data);
+  const database = { ref: (p) => ({
+    once: async () => snap(at(p)),
+    limitToLast: () => ({ once: async () => snap(at(p)) }),
+    orderByKey: () => ({ startAt: (from) => ({ once: async () => snap(Object.fromEntries(Object.entries(at(p) || {}).filter(([k]) => k >= from))) }) })
+  }) };
+  require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: { app: () => ({ database: () => database }), verifyAdmin: async () => ({ email: 'admin@example.test' }), bearer: () => 'token', listAllAuthUsers: async () => [] } };
+  const statsPath = require.resolve(path.join(__dirname, '..', 'api', 'stats.js'));
+  delete require.cache[statsPath];
+  return require(statsPath);
+}
+
+test('overview : compteurs anonymes de tous les comptes (visites, pays avec nom français)', async () => {
+  const month = day(0).slice(0, 7);
+  const handler = loadWith({
+    analytics: {
+      daily: { [day(0)]: { visits: 12, unique: 9 }, [day(1)]: { visits: 5, unique: 4 } },
+      geo: { [month]: { SN: 6, CI: 3, XX: 1 } }
+    },
+    // Ancien relevé (sans pays, compte non consentant) : remplacé par les compteurs anonymes.
+    user_sessions: { a: { lastLoginAt: Date.now() } }
+  });
+  const { json } = await call(handler, { action: 'overview' });
+  assert.equal(json.error, undefined);
+  assert.equal(json.kpis.visitsToday, 12);
+  assert.equal(json.kpis.uniqueToday, 9);
+  assert.equal(json.kpis.visits30, 17);
+  assert.equal(json.spark.at(-1).total, 12);
+  assert.equal(json.audienceAnonymous, true);
+  assert.equal(json.countryPeriod, month);
+  assert.deepEqual(json.countryBreakdown.map((c) => [c.countryCode, c.users, c.pct]), [['SN', 6, 60], ['CI', 3, 30]]);
+  assert.equal(json.countryBreakdown[0].country, 'Sénégal');
+  assert.deepEqual(json.unknownCountry, { users: 1, pct: 10 });
+});
+
+test('overview : sans compteurs anonymes, repli sur les pays des sessions', async () => {
+  const handler = loadWith({ user_sessions: { a: { country: 'Mali', countryCode: 'ML', lastLoginAt: Date.now() }, b: { lastLoginAt: Date.now() } } });
+  const { json } = await call(handler, { action: 'overview' });
+  assert.equal(json.countryPeriod, null);
+  assert.deepEqual(json.countryBreakdown.map((c) => c.countryCode), ['ML']);
+  assert.equal(json.unknownCountry.users, 1);
+});
+
+test('analytics : les compteurs anonymes alimentent visites, uniques et appareils', async () => {
+  const handler = loadWith({ analytics: { daily: {
+    [day(0)]: { visits: 10, unique: 7, platforms: { android_app: 5, desktop: 2 } },
+    [day(2)]: { visits: 4, unique: 3, platforms: { ios: 3 } }
+  } } });
+  const { json } = await call(handler, { action: 'analytics' });
+  assert.equal(json.periods.d7.total, 14);
+  assert.equal(json.periods.d7.unique, 7);
+  assert.equal(json.daily.at(-1).total, 10);
+  assert.deepEqual(json.platforms, { android_app: 5, android_web: 0, ios: 3, desktop: 2, inconnu: 0 });
 });

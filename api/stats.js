@@ -1,6 +1,36 @@
 // api/stats.js — Statistiques & analytique (Admin SDK, admins seulement).
 const { app, verifyAdmin, bearer, listAllAuthUsers } = require("./_lib/fb");
 
+// Compteurs d'audience ANONYMES écrits par asrar-main pour TOUS les comptes
+// (pages/api/track.js, countAudience) : analytics/daily/{jour} =
+// { visits, unique, platforms: {catégorie: n}, countries: {CODE: n} } et
+// analytics/geo/{AAAA-MM}/{CODE} = utilisateurs distincts du mois (« XX » =
+// pays inconnu). Le journal détaillé analytics/visits/{jour}/{uid}, lui, ne
+// couvre que les comptes ayant coché la mesure détaillée (décochée par
+// défaut) : c'est pourquoi les statistiques restaient à 0.
+const DAY_MS = 864e5;
+const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+async function loadAudience(db, now, days) {
+  const snap = await db.ref("analytics/daily").orderByKey().startAt(isoDay(now - (days - 1) * DAY_MS)).once("value");
+  return snap.val() || {};
+}
+let regionNames = null;
+try { regionNames = new Intl.DisplayNames(["fr"], { type: "region" }); } catch { /* ICU réduit */ }
+const countryName = (code) => {
+  try { return (regionNames && regionNames.of(code)) || code; } catch { return code; }
+};
+async function loadGeo(db, now) {
+  const month = isoDay(now).slice(0, 7);
+  const prev = new Date(now); prev.setUTCDate(1); prev.setUTCMonth(prev.getUTCMonth() - 1);
+  const prevMonth = isoDay(prev.getTime()).slice(0, 7);
+  const [cur, old] = await Promise.all([db.ref("analytics/geo/" + month).once("value"), db.ref("analytics/geo/" + prevMonth).once("value")]);
+  const has = (v) => v && Object.values(v).some((n) => Number(n) > 0);
+  if (has(cur.val())) return { month, counts: cur.val() };
+  if (has(old.val())) return { month: prevMonth, counts: old.val() };
+  return null;
+}
+const num = (v) => Math.max(0, Number(v) || 0);
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
   const body = typeof req.body === "object" && req.body ? req.body
@@ -93,13 +123,23 @@ module.exports = async (req, res) => {
       }
       // 90 jours (au lieu de 14) : le client choisit 7/30/90 j sans re-requête
       // (sélecteur de période du graphique, cf. admin-dashboard.js).
+      // Chaque jour : le plus grand des deux relevés (compteurs anonymes de
+      // tous les comptes / journal détaillé des comptes consentants) — les
+      // jours antérieurs aux compteurs anonymes gardent le journal détaillé.
+      const audience = await loadAudience(db, now, 90);
       const spark = [];
       for (let i = 89; i >= 0; i--) {
         const d = dstr(now - i * DAY);
+        const a = audience[d] || {};
+        dayTotal[d] = Math.max(dayTotal[d] || 0, num(a.visits));
+        dayUniq[d] = Math.max(dayUniq[d] || 0, num(a.unique));
         // bucket en date complète (pas pré-tronquée) : le client formate
         // l'affichage (dates françaises, cf. window.frDate, admin-core.js).
-        spark.push({ bucket: d, total: dayTotal[d] || 0, unique: dayUniq[d] || 0 });
+        spark.push({ bucket: d, total: dayTotal[d], unique: dayUniq[d] });
       }
+      const sparkVisits30 = spark.slice(-30).reduce((sum, r) => sum + r.total, 0);
+      visits30 = Math.max(visits30, sparkVisits30);
+      visitsTotal = Math.max(visitsTotal, spark.reduce((sum, r) => sum + r.total, 0));
 
       // Comptes Auth : total + nouveaux (7 j / 30 j) — mise en cache 30 s (voir _lib/fb).
       const authUsers = await listAllAuthUsers(app());
@@ -153,10 +193,28 @@ module.exports = async (req, res) => {
       // Nombre de comptes ayant autorisé la mesure détaillée (visites, pays).
       const analyticsOptIn = Object.values(settingsSnap.val() || {})
         .filter((st) => st && typeof st === "object" && st.analytics === true).length;
+      // Pays : compteurs anonymes du mois (tous les comptes) dès qu'ils
+      // existent ; sinon, repli sur les pays des comptes consentants.
+      const geo = await loadGeo(db, now);
+      let countryBase = sessionsTotal, countryPeriod = null;
+      if (geo) {
+        for (const key of Object.keys(countryCounts)) delete countryCounts[key];
+        countryBase = 0;
+        for (const [code, n] of Object.entries(geo.counts)) {
+          const users = num(n);
+          if (!users) continue;
+          countryBase += users;
+          const known = /^[A-Z]{2}$/.test(code) && code !== "XX";
+          const key = known ? code : "";
+          if (!countryCounts[key]) countryCounts[key] = { country: known ? countryName(code) : "Inconnu", countryCode: key, users: 0 };
+          countryCounts[key].users += users;
+        }
+        countryPeriod = geo.month;
+      }
       const countryBreakdown = Object.values(countryCounts)
         .filter((c) => c.countryCode) // le pays inconnu n'entre pas dans le classement…
         .sort((a, b) => b.users - a.users)
-        .map((c) => ({ ...c, pct: sessionsTotal ? Math.round((c.users / sessionsTotal) * 1000) / 10 : 0 }));
+        .map((c) => ({ ...c, pct: countryBase ? Math.round((c.users / countryBase) * 1000) / 10 : 0 }));
       const unknownCountry = countryCounts[""]; // …mais reste visible séparément si non vide.
 
       // Activité récente — événements métier compréhensibles (connexion,
@@ -176,7 +234,7 @@ module.exports = async (req, res) => {
           activeSubs, newSubs7, newSubs30,
           usersTotal, new7, new30,
           uniqueToday: dayUniq[today] || 0, visitsToday: dayTotal[today] || 0,
-          unique30: uniq30.size, uniqueAll: uniqAll.size, visits30, visitsTotal,
+          unique30: Math.max(uniq30.size, active30), uniqueAll: Math.max(uniqAll.size, sessionsTotal), visits30, visitsTotal,
           boutiques: Object.keys(profSnap.val() || {}).length,
           admins: adminsCount,
           vips: Object.keys(vipsSnap.val() || {}).length,
@@ -185,7 +243,9 @@ module.exports = async (req, res) => {
         spark,
         recent,
         countryBreakdown,
-        unknownCountry: unknownCountry ? { users: unknownCountry.users, pct: sessionsTotal ? Math.round((unknownCountry.users / sessionsTotal) * 1000) / 10 : 0 } : null
+        countryPeriod,
+        audienceAnonymous: Object.keys(audience).length > 0,
+        unknownCountry: unknownCountry ? { users: unknownCountry.users, pct: countryBase ? Math.round((unknownCountry.users / countryBase) * 1000) / 10 : 0 } : null
       });
     }
 
@@ -283,9 +343,31 @@ module.exports = async (req, res) => {
         const week = 1 + Math.round(((d - firstThu) / 864e5 - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
         return d.getUTCFullYear() + "-S" + String(week).padStart(2, "0");
       };
-      const daily = bucketize((d) => d);
-      const weekly = bucketize(isoWeek);
-      const monthly = bucketize((d) => d.slice(0, 7));
+      // Compteurs anonymes (tous les comptes) : par jour, on garde le plus
+      // grand des deux relevés ; semaines et mois additionnent les visites
+      // et, pour les uniques, au moins le meilleur jour de la période (les
+      // compteurs anonymes ne permettent pas d'union exacte sur plusieurs jours).
+      const audience = await loadAudience(db, now, 400);
+      const mergeAudience = (rows, keyFn) => {
+        const map = new Map(rows.map((r) => [r.bucket, { ...r }]));
+        const anon = {};
+        for (const [date, a] of Object.entries(audience)) {
+          const b = keyFn(date);
+          const cur = anon[b] || (anon[b] = { total: 0, uniqueMax: 0 });
+          cur.total += num(a && a.visits);
+          cur.uniqueMax = Math.max(cur.uniqueMax, num(a && a.unique));
+        }
+        for (const [bucket, a] of Object.entries(anon)) {
+          const r = map.get(bucket) || { bucket, unique: 0, total: 0 };
+          r.total = Math.max(r.total, a.total);
+          r.unique = Math.max(r.unique, a.uniqueMax);
+          map.set(bucket, r);
+        }
+        return [...map.values()].sort((a, b) => (a.bucket < b.bucket ? -1 : 1));
+      };
+      const daily = mergeAudience(bucketize((d) => d), (d) => d);
+      const weekly = mergeAudience(bucketize(isoWeek), isoWeek);
+      const monthly = mergeAudience(bucketize((d) => d.slice(0, 7)), (d) => d.slice(0, 7));
 
       // Uniques + visites cumulées sur toute la période (source de vérité pour « Tout »).
       const allUids = new Set();
@@ -318,15 +400,31 @@ module.exports = async (req, res) => {
           }
         }
       }
+      // Mêmes fenêtres d'après les jours fusionnés (compteurs anonymes
+      // compris) : visites additionnées ; uniques = au moins le meilleur jour.
+      const byDay = new Map(daily.map((r) => [r.bucket, r]));
+      const windowFrom = (w, back) => {
+        let total = 0, uniqueMax = 0;
+        for (let i = back; i < back + w; i++) {
+          const r = byDay.get(dstr(now - i * DAY));
+          if (r) { total += r.total; uniqueMax = Math.max(uniqueMax, r.unique); }
+        }
+        return { total, uniqueMax };
+      };
       const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
-      const periods = { all: { unique: allUids.size, total: totalVisits, deltaUnique: null, deltaTotal: null } };
+      const mergedTotal = daily.reduce((sum, r) => sum + r.total, 0);
+      const periods = { all: { unique: allUids.size, total: Math.max(totalVisits, mergedTotal), deltaUnique: null, deltaTotal: null } };
       for (const w of WINDOWS) {
+        const cur = windowFrom(w, 0), prev = windowFrom(w, w);
+        const unique = Math.max(curSet[w].size, cur.uniqueMax), prevUnique = Math.max(prevSet[w].size, prev.uniqueMax);
+        const total = Math.max(curTotal[w], cur.total), prevTot = Math.max(prevTotal[w], prev.total);
         periods["d" + w] = {
-          unique: curSet[w].size, total: curTotal[w],
-          deltaUnique: pct(curSet[w].size, prevSet[w].size),
-          deltaTotal: pct(curTotal[w], prevTotal[w])
+          unique, total,
+          deltaUnique: pct(unique, prevUnique),
+          deltaTotal: pct(total, prevTot)
         };
       }
+      periods.all.unique = Math.max(periods.all.unique, ...WINDOWS.map((w) => periods["d" + w].unique));
 
       // ── Normalisation des libellés de page — l'app a changé de socle
       // (site statique .html → Next.js App Router, cf. next.config.mjs LEGACY)
@@ -462,13 +560,22 @@ module.exports = async (req, res) => {
       }
       const platforms = { android_app: 0, android_web: 0, ios: 0, desktop: 0, inconnu: 0 };
       for (const p of latest.values()) platforms[PLATFORM_IDS.includes(p) ? p : "inconnu"]++;
+      // Compteurs anonymes (tous les comptes) sur 30 jours : visiteurs
+      // uniques par jour additionnés — retenus s'ils couvrent plus de monde.
+      const anonPlatforms = { android_app: 0, android_web: 0, ios: 0, desktop: 0, inconnu: 0 };
+      for (const [date, a] of Object.entries(audience)) {
+        if (date < from30) continue;
+        for (const [p, n] of Object.entries((a && a.platforms) || {})) anonPlatforms[PLATFORM_IDS.includes(p) ? p : "inconnu"] += num(n);
+      }
+      const sumOf = (o) => Object.values(o).reduce((x, y) => x + y, 0);
+      if (sumOf(anonPlatforms) > sumOf(platforms)) Object.assign(platforms, anonPlatforms);
 
       return res.json({
         daily: daily.slice(-90), weekly, monthly, topPages, recent, boutiques,
         periods, platforms,
         totals: {
-          uniqueAllTime: allUids.size,
-          totalVisits,
+          uniqueAllTime: periods.all.unique,
+          totalVisits: periods.all.total,
           days: daily.length,
           events: Object.keys(feed).length,
           boutiques: boutiques.length,
