@@ -16,14 +16,23 @@
   // dans le [title] du survol si besoin.
   const shortTime = (t) => t ? new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—";
 
-  // Drapeau à partir d'un code pays ISO 3166-1 alpha-2 — purement algorithmique
-  // (indicateurs régionaux Unicode), aucune table de correspondance à tenir à
-  // jour côté admin : le nom du pays, lui, vient tel quel de user_sessions
-  // (déjà résolu côté serveur par asrar-main, cf. lib/countries.js).
-  const flagEmoji = (code) => {
-    if (!code || code.length !== 2) return "🏳️";
-    return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)));
+  // Drapeau d'un code pays ISO 3166-1 alpha-2, en IMAGE (flagcdn.com) : les
+  // drapeaux emoji ne s'affichent pas sous Windows (seulement « SN », « ML »…),
+  // d'où l'absence de drapeaux constatée côté administration. Si l'image ne
+  // charge pas, le code pays s'affiche à la place (cf. écouteur « error »).
+  const flagImg = (code) => {
+    const c = String(code || "").toLowerCase();
+    if (!/^[a-z]{2}$/.test(c)) return '<span class="flag flag-none">🌐</span>';
+    return `<img class="flag" src="https://flagcdn.com/w40/${c}.png" srcset="https://flagcdn.com/w80/${c}.png 2x" width="24" height="18" alt="" data-code="${c.toUpperCase()}">`;
   };
+  document.addEventListener("error", (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains("flag")) return;
+    const span = document.createElement("span");
+    span.className = "flag flag-code";
+    span.textContent = img.getAttribute("data-code") || "";
+    img.replaceWith(span);
+  }, true);
 
   // ── Carte KPI principale : total et nouveaux octrois sur 30 jours.
   // The API returns totals within a window, not percentage growth. Labels
@@ -51,7 +60,7 @@
   // e-mail) — connexion (avec pays), inscription, achat réel ou abonnement
   // offert par un admin.
   const FEED_META = {
-    connection: { icon: "visits", cls: "signup", title: (e) => flagEmoji(e.countryCode) + " Nouvelle connexion" + (e.country ? " · " + e.country : "") },
+    connection: { icon: "visits", cls: "signup", title: (e) => "Nouvelle connexion" + (e.country ? " · " + e.country : "") },
     signup: { icon: "users", cls: "signup", title: () => "Nouvelle inscription" },
     purchase: { icon: "revenue", cls: "purchase", title: (e) => "Achat abonnement · " + money(e.amount) },
     grant: { icon: "gift", cls: "", title: () => "Abonnement offert (admin)" }
@@ -62,7 +71,7 @@
       <div class="feed-row">
         <span class="feed-ic ${meta.cls}">${ic(meta.icon)}</span>
         <div class="feed-main">
-          <span class="feed-title">${esc(meta.title(e))}</span>
+          <span class="feed-title">${e.type === "connection" && e.countryCode ? flagImg(e.countryCode) + " " : ""}${esc(meta.title(e))}</span>
           <span class="feed-email">${esc(e.email || "—")}</span>
         </div>
         <span class="feed-time" title="${esc(when(e.at))}">${shortTime(e.at)}</span>
@@ -160,7 +169,9 @@
     }
     const sessions = Number(k.sessionsTotal) || 0;
     const optIn = Number(k.analyticsOptIn) || 0;
-    const partial = sessions > 0 && optIn < sessions;
+    // Avec les compteurs anonymes (asrar-main, tous les comptes), le
+    // graphique n'est plus limité aux comptes ayant accepté la mesure détaillée.
+    const partial = !(DASH && DASH.audienceAnonymous) && sessions > 0 && optIn < sessions;
     const tNote = $("dashTrafficNote");
     if (tNote) {
       tNote.hidden = !partial;
@@ -171,10 +182,14 @@
     const cNote = $("dashCountriesNote");
     if (cNote) {
       const unknown = Number(DASH && DASH.unknownCountry && DASH.unknownCountry.users) || 0;
-      cNote.hidden = !unknown;
-      cNote.textContent = unknown
-        ? "Le pays n'est enregistré que pour les utilisateurs qui ont autorisé la mesure des visites. Les autres apparaissent en « Pays inconnu »."
-        : "";
+      const period = DASH && DASH.countryPeriod;
+      const monthLabel = period ? new Date(period + "-01T00:00:00Z").toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" }) : "";
+      cNote.hidden = !period && !unknown;
+      cNote.textContent = period
+        ? `Utilisateurs distincts par pays en ${monthLabel} (tous les comptes, mesure anonyme).`
+        : unknown
+          ? "Le pays n'est enregistré que pour les utilisateurs qui ont autorisé la mesure des visites. Les autres apparaissent en « Pays inconnu »."
+          : "";
     }
   }
 
@@ -243,7 +258,7 @@
     const max = Math.max(1, ...countries.map((country) => Number(country.users) || 0));
     el.innerHTML = countries.map((country) => `
       <div class="country-row">
-        <span class="country-flag" aria-hidden="true">${country.countryCode ? flagEmoji(country.countryCode) : "🌐"}</span>
+        <span class="country-flag" aria-hidden="true">${flagImg(country.countryCode)}</span>
         <span class="country-name">${esc(country.country)}</span>
         <span class="country-count">${fmt(country.users)} <small>${esc(country.pct)} %</small></span>
         <div class="country-track" aria-hidden="true"><span style="width:${Math.min(100, Math.max(0, Math.round((Number(country.users) || 0) / max * 100)))}%"></span></div>
