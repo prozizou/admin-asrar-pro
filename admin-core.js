@@ -56,10 +56,10 @@
   // Utilitaires pour les cartes
   window.isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
   window.cardTitle = (v, k) => isObj(v)
-    ? (v.title || v.titre || v.nom || v.name || v.label || v.profile_name || v.verset || v.sourate || v.faida || k)
+    ? (v.faida || v.text || v.title || v.titre || v.nom || v.name || v.label || v.profile_name || v.sourate || v.verset || k)
     : String(v ?? k);
   window.cardDesc = (v) => isObj(v)
-    ? String(v.sirr || v.content || v.description || v.faida || v.texte || v.details || v.benefit || "")
+    ? String(v.sirr || v.content || v.interpretation || v.contenu || v.description || v.benefits || v.benefit || v.meaning || v.texte || v.details || "")
     : String(v ?? "");
   window.cardImg = (v) => isObj(v) ? String(v.image || v.img || v.url || v.imageUrl || "") : "";
 

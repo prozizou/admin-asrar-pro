@@ -35,6 +35,16 @@ const nodes = {
 function response(endpoint, action, payload) {
   if (endpoint === 'stats' && action === 'overview') return overview;
   if (endpoint === 'content' && action === 'nodes') return { nodes };
+  if (endpoint === 'content' && action === 'get') {
+    const byNode = {
+      db_sirr_ouverture: { faida: 'Secret de l’ouverture', sirr: 'Texte complet du secret.', img: 'https://example.com/s.jpg', createdAt: 1 },
+      almaqtab: { text: 'كل ما فيه مجربات', pdf: 'https://drive.example/x', img: 'https://example.com/b.jpg' },
+      theme_fondamental: { titre: 'Fortuna Major', interpretation: 'Grande fortune.' },
+      asmaUlHusna: { name: 'الرَّحْمَنُ', translit: 'Ar-Rahman', meaning: 'Le Tout Miséricordieux', benefits: 'Invoquer la miséricorde', number: 1 },
+      versetRef: { key: '2:255', verset: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ' }
+    };
+    return { value: byNode[payload && payload.node] || null };
+  }
   if (endpoint === 'content' && action === 'list') return { value: { first: { titre: 'Les bienfaits du dhikr', sirr: 'Découvrez cette publication et les indications associées.' }, second: { titre: 'Ouverture et connaissance', sirr: 'Une nouvelle ressource pour enrichir votre bibliothèque.' }, third: { titre: 'Les noms et leurs bienfaits', sirr: 'Contenu détaillé de la publication.' } } };
   if (endpoint === 'users' && action === 'list_access') return { total: 3, items: ['amina', 'moussa', 'fatou'].map((name, i) => ({ email: name + '@example.com', active: true, level: i ? 15000 : 45000, expiresAt: now + 90 * DAY, at: now - DAY, lastActiveAt: now - 3600000, lastPage: 'Chapelet' })) };
   if (endpoint === 'market') return { totalShops: 0, totalProducts: 0, shops: [], products: [] };

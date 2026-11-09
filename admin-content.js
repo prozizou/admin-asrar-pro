@@ -194,6 +194,54 @@
     catch (e) { showToast(e.message, "err"); }
   };
 
+  // ── Champs réels de chaque rubrique, tels que l'application les lit
+  // (asrar-main) : sans cette table, l'éditeur lisait toujours title/content
+  // et s'ouvrait VIDE sur un secret (faida/sirr) — puis aurait écrit dans des
+  // champs que l'application n'affiche pas.
+  //   keys : champs lus dans l'ordre (le premier présent est celui réécrit).
+  //   images : galerie affichée ou non ; imageKey : champ lu par l'app.
+  const SECRET_SCHEMA = {
+    title: { keys: ["faida", "title", "titre"], label: "Titre" },        // app/asrar/page.tsx
+    content: { keys: ["sirr", "content"], label: "Contenu détaillé" },
+    images: true, imageKey: "img"
+  };
+  const SCHEMAS = {
+    almaqtab: {                                                           // app/bibliotheque/page.tsx
+      title: { keys: ["text", "title", "titre"], label: "Titre" },
+      content: null, images: true, imageKey: "img"
+    },
+    theme_fondamental: {                                                  // lib/geomancie.js
+      title: { keys: ["titre"], label: "Titre de la figure" },
+      content: { keys: ["interpretation"], label: "Interprétation" }, images: false
+    },
+    sourate: {                                                            // lib/alqalam.js
+      title: { keys: ["sourate"], label: "Sourate" },
+      content: { keys: ["contenu"], label: "Contenu" }, images: false
+    },
+    versetRef: {                                                          // lib/alqalam.js, lib/rouwhania.js
+      title: null,
+      content: { keys: ["verset"], label: "Verset" }, images: false
+    },
+    asmaUlHusna: {                                                        // lib/benefits.js
+      title: { keys: ["name"], label: "Nom divin" },
+      content: { keys: ["benefits", "benefit"], label: "Description" }, images: false
+    },
+    profile_clients: {                                                    // lib/market.js shopProfiles
+      title: { keys: ["profile_name"], label: "Nom de la boutique" },
+      content: { keys: ["description"], label: "Description" }, images: true, imageKey: "img"
+    }
+  };
+  const DEFAULT_SCHEMA = {
+    title: { keys: ["title", "titre", "nom", "name"], label: "Titre" },
+    content: { keys: ["content", "description"], label: "Contenu détaillé" },
+    images: true, imageKey: "image"
+  };
+  const schemaFor = (node) => (String(node || "").startsWith("db_sirr_") ? SECRET_SCHEMA : SCHEMAS[node] || DEFAULT_SCHEMA);
+  // Champ à réécrire : celui qui porte déjà la valeur, sinon le champ principal.
+  const fieldKey = (field, obj) => field.keys.find((k) => obj && obj[k] != null && String(obj[k]).trim() !== "") || field.keys[0];
+  const fieldValue = (field, obj) => { const k = fieldKey(field, obj); return obj && obj[k] != null ? String(obj[k]) : ""; };
+  window.contentSchemaFor = schemaFor;
+
   // ── Éditeur principal ──
   // Volontairement minimal : Images (galerie multiple) → Titre → Contenu
   // détaillé → Enregistrer. L'ancien champ « Faïda » et les « champs
@@ -203,7 +251,8 @@
   // réécrits, rien d'autre n'est jamais supprimé silencieusement.
   window.openEditor = async function (key = null) {
     let original = null;
-    let item = { title: "", content: "", image: "", imageId: "", images: null };
+    let item = {};
+    const schema = schemaFor(CURRENT_NODE);
     if (key) {
       try {
         const d = await api("content", { action: "get", node: CURRENT_NODE, key });
@@ -215,9 +264,10 @@
 
     // État de la galerie : depuis item.images (nouveau schéma) sinon, à
     // défaut, depuis l'ancien couple image/imageId (rétrocompatibilité).
-    let images = Array.isArray(item.images) && item.images.length
+    const mainImage = schema.images ? (item[schema.imageKey] || item.image || item.img || "") : "";
+    let images = !schema.images ? [] : Array.isArray(item.images) && item.images.length
       ? item.images.map((im) => ({ url: (im && im.url) || "", id: (im && im.id) || "", isNew: false }))
-      : ((item.image || item.img) ? [{ url: item.image || item.img, id: item.imageId || "", isNew: false }] : []);
+      : (mainImage ? [{ url: mainImage, id: item.imageId || "", isNew: false }] : []);
 
     $("bigcard").innerHTML = `
       <div class="bighead">
@@ -226,12 +276,12 @@
       </div>
       ${item.pdfUrl ? `<p class="muted" style="margin-bottom:12px">📄 PDF : <a href="${esc(item.pdfUrl)}" target="_blank">Télécharger</a></p>` : ''}
 
-      <label class="field-lg"><span>Images</span></label>
+      ${schema.images ? `<label class="field-lg"><span>Images</span></label>
       <div id="imgGalleryWrap"></div>
-      <input type="file" id="fileField" accept="image/*" multiple hidden>
+      <input type="file" id="fileField" accept="image/*" multiple hidden>` : ""}
 
-      <label class="field-lg"><span>Titre</span><input type="text" id="editTitle" value="${esc(item.title || "")}"></label>
-      <label class="field-lg"><span>Contenu détaillé</span><textarea id="editContent" rows="8">${esc(item.content || "")}</textarea></label>
+      ${schema.title ? `<label class="field-lg"><span>${esc(schema.title.label)}</span><input type="text" id="editTitle" dir="auto" value="${esc(fieldValue(schema.title, item))}"></label>` : ""}
+      ${schema.content ? `<label class="field-lg"><span>${esc(schema.content.label)}</span><textarea id="editContent" rows="10" dir="auto">${esc(fieldValue(schema.content, item))}</textarea></label>` : ""}
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:22px; gap:12px;">
         ${key ? `<button id="btnDeleteBig" class="btn text danger-text">Supprimer</button>` : `<span></span>`}
@@ -273,9 +323,9 @@
       });
       $("imgAddTile").onclick = () => $("fileField").click();
     }
-    renderGallery();
+    if (schema.images) renderGallery();
 
-    $("fileField").onchange = (e) => {
+    if ($("fileField")) $("fileField").onchange = (e) => {
       const files = Array.from(e.target.files || []);
       e.target.value = ""; // permet de resélectionner le même fichier plus tard
       files.forEach((f) => images.push({ url: URL.createObjectURL(f), id: "", isNew: true, file: f }));
@@ -297,21 +347,30 @@
           URL.revokeObjectURL(localUrl);
         }
 
-        const title = $("editTitle").value.trim();
-        if (!title) throw new Error("Le champ « Titre » ne peut rester vide.");
-        const content = $("editContent").value.trim();
+        const title = schema.title ? $("editTitle").value.trim() : "";
+        const content = schema.content ? $("editContent").value.trim() : "";
+        if (schema.title && !title) throw new Error("Le champ « " + schema.title.label + " » ne peut rester vide.");
+        if (!schema.title && schema.content && !content) throw new Error("Le champ « " + schema.content.label + " » ne peut rester vide.");
 
-        // Part de l'enregistrement existant (préserve tout champ hérité que
-        // cette vue simplifiée n'affiche plus) puis applique le formulaire.
+        // Part de l'enregistrement existant (préserve tout champ que cette vue
+        // n'affiche pas) puis réécrit UNIQUEMENT les champs de la rubrique,
+        // sous le nom que l'application lit.
         const out = isObj(original) ? { ...original } : {};
-        out.title = title;
-        if (content) out.content = content; else delete out.content;
-        if (images.length) {
-          out.images = images.map((im) => ({ url: im.url, id: im.id }));
-          out.image = images[0].url;
-          if (images[0].id) out.imageId = images[0].id; else delete out.imageId;
-        } else {
-          delete out.images; delete out.image; delete out.imageId;
+        if (schema.title) out[fieldKey(schema.title, original)] = title;
+        if (schema.content) {
+          const ck = fieldKey(schema.content, original);
+          if (content) out[ck] = content; else delete out[ck];
+        }
+        if (schema.images) {
+          const imgKeys = [...new Set([schema.imageKey, "image", "img"])].filter((k) => k === schema.imageKey || (original && k in original));
+          if (images.length) {
+            out.images = images.map((im) => ({ url: im.url, id: im.id }));
+            for (const k of imgKeys) out[k] = images[0].url;
+            if (images[0].id) out.imageId = images[0].id; else delete out.imageId;
+          } else {
+            delete out.images; delete out.imageId;
+            for (const k of imgKeys) delete out[k];
+          }
         }
         if (!key) out.createdAt = Date.now();
 
