@@ -9,6 +9,31 @@ const { app, verifyAdmin, bearer, listAllAuthUsers, audit } = require("./_lib/fb
 // couvre que les comptes ayant coché la mesure détaillée (décochée par
 // défaut) : c'est pourquoi les statistiques restaient à 0.
 const RESET_WORD = "SUPPRIMER";
+
+// ── Identifiant de boutique du Marché — copie conforme de lib/market.js
+// (asrar-main) : fnv1a, emailVendorKey, vendorKey, safeKey. À garder identique,
+// sinon les chiffres des boutiques divergent de ceux de l'application.
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+const emailVendorKey = (email) => "v_" + fnv1a(String(email).trim().toLowerCase());
+function vendorKey(p) {
+  if (p.vendorKey) return p.vendorKey;
+  if (p.email) return emailVendorKey(p.email);
+  return p.uid || p.vendeurId || "inconnu";
+}
+const marketSafeKey = (k) => String(k).replace(/[.#$/[\]]/g, "_");
+// Moyenne des avis (commentaires avec `stars` 1-5) — lib/reviews.js avgStars.
+function avgStars(obj) {
+  let sum = 0, count = 0;
+  for (const c of Object.values(obj || {})) {
+    const n = Math.round(Number(c && c.stars));
+    if (Number.isFinite(n) && n >= 1 && n <= 5) { sum += n; count++; }
+  }
+  return { avg: count ? sum / count : 0, count };
+}
 const DAY_MS = 864e5;
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 async function loadAudience(db, now, days) {
@@ -549,62 +574,54 @@ module.exports = async (req, res) => {
       periods.d90.interactions = interactions90;
       periods.all.interactions = Object.keys(feed).length;
 
-      // Produits par propriétaire (uid prioritaire, e-mail en repli — même
-      // logique que estProprietaire() côté asrar-main) : pour rattacher un
-      // nombre de produits + un total de vues à chaque boutique profile_clients.
+      // Boutiques — MÊME logique que le Marché de l'application (asrar-main,
+      // lib/market.js extractVendors + pages/api/social.js « vendor-likes ») :
+      //   • identifiant de boutique = vendorKey : empreinte de l'e-mail du
+      //     vendeur (« v_ » + FNV-1a), à défaut son uid — appliqué aux produits
+      //     (det_produits) ET aux fiches (profile_clients). L'uid seul ne suffit
+      //     pas : il change quand un compte est recréé (d'où des produits manquants).
+      //   • j'aime = nombre d'entrées de ratings/vendor/{vendorKey} (malgré son
+      //     nom, ce nœud porte les ♥, pas des notes).
+      //   • avis = commentaires de comments/vendor/{vendorKey} portant `stars`
+      //     (1-5) ; note = leur moyenne.
+      //   • visites = vues des produits de la boutique (views/product).
       const prodVal = prodSnap.val() || {};
       const viewsVal = viewsSnap.val() || {};
-      const productsByOwner = {};
+      const productsByVendor = {};
       for (const [pk, p] of Object.entries(prodVal)) {
         if (!p || typeof p !== "object") continue;
-        const ownerKey = p.uid ? "u:" + p.uid : (p.email ? "e:" + String(p.email).toLowerCase() : null);
-        if (!ownerKey) continue;
-        (productsByOwner[ownerKey] = productsByOwner[ownerKey] || []).push({
+        (productsByVendor[vendorKey(p)] = productsByVendor[vendorKey(p)] || []).push({
           key: pk, name: p.produit || "Produit", price: p.Prix || 0, image: p.Image || "",
           views: Object.keys(viewsVal[pk] || {}).length
         });
       }
-      const ownerProducts = (uid, email) =>
-        (uid && productsByOwner["u:" + uid]) ||
-        (email && productsByOwner["e:" + String(email).toLowerCase()]) || [];
-
-      // Boutiques (profile_clients). La première version de « J'aime » comptait
-      // les champs booléens écrits DIRECTEMENT sur profile_clients/{id} —
-      // toujours à 0 en pratique, alors que le Marché affiche de vrais avis.
-      // Les avis/notes réels vivent dans ratings/vendor/{clé}/{uid} = note 1-5
-      // (même schéma que ratings/product, cf. pages/api/shop.js « stats ») et
-      // comments/vendor/{clé}/{commentId} ; { clé } = uid vendeur classique OU
-      // id de la fiche profile_clients selon ce que le Marché écrit côté client.
-      // ⚠️ La clé exacte utilisée pour une boutique « profil » (id vs uid une
-      // fois liée) n'a pas pu être revérifiée sur le dépôt asrar-main depuis
-      // cette session — à confirmer avec de vraies données une fois déployé.
-      // Remplace « J'aime » (mécanisme non retrouvé, jamais alimenté) par une
-      // vraie note + un vrai compte d'avis/commentaires.
-      const ratingsVal = ratingsSnap.val() || {};
+      const likesVal = ratingsSnap.val() || {};
       const commentsVal = commentsSnap.val() || {};
-      const vendorEntries = (all, id, uid) => all[id] || (uid && all[uid]) || {};
-
       const prof = profSnap.val() || {};
-      const boutiques = Object.entries(prof).map(([id, pc]) => {
-        const products = ownerProducts(pc && pc.uid, pc && pc.email);
-        const ratings = vendorEntries(ratingsVal, id, pc && pc.uid);
-        const ratingValues = Object.values(ratings).map(Number).filter((n) => n >= 1 && n <= 5);
-        const rating = ratingValues.length
-          ? Math.round((ratingValues.reduce((s, n) => s + n, 0) / ratingValues.length) * 10) / 10
-          : 0;
-        return {
-          id,
-          name: (pc && pc.profile_name) || id,
-          img: (pc && pc.img) || "",
-          number: (pc && pc.number) || "",
-          follow: pc && pc.follow != null ? (Number(pc.follow) || 0) : 0,
-          rating, ratingsCount: ratingValues.length,
-          comments: Object.keys(vendorEntries(commentsVal, id, pc && pc.uid)).length,
+      const seen = new Set();
+      const boutiques = [];
+      for (const [id, pc] of Object.entries(prof)) {
+        if (!pc || typeof pc !== "object") continue;
+        const vk = vendorKey(pc);
+        if (vk === "inconnu" || seen.has(vk)) continue; // fiche non rattachable, ou doublon (comme l'app)
+        seen.add(vk);
+        const products = productsByVendor[vk] || [];
+        const reviews = avgStars(commentsVal[marketSafeKey(vk)]);
+        boutiques.push({
+          id, vendorKey: vk,
+          name: String(pc.profile_name || "").trim() || "Boutique",
+          img: pc.img || "",
+          number: pc.number || "",
+          likes: Object.keys(likesVal[marketSafeKey(vk)] || {}).length,
+          rating: reviews.count ? Math.round(reviews.avg * 10) / 10 : 0,
+          ratingsCount: reviews.count,
+          comments: Object.keys(commentsVal[marketSafeKey(vk)] || {}).length,
           products: products.length,
-          views: products.reduce((s, p) => s + p.views, 0),
+          views: products.reduce((sum, p) => sum + p.views, 0),
           productList: products.slice(0, 20)
-        };
-      }).sort((a, b) => b.views - a.views || b.ratingsCount - a.ratingsCount || b.follow - a.follow);
+        });
+      }
+      boutiques.sort((a, b) => b.likes - a.likes || b.ratingsCount - a.ratingsCount || b.products - a.products);
 
       // Répartition par appareil (visiteurs uniques sur 30 jours) : catégorie
       // écrite par asrar-main à chaque visite (analytics/visits/{jour}/{uid}/

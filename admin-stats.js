@@ -6,6 +6,8 @@
   const nf = new Intl.NumberFormat("fr-FR");
   const fmt = (n) => nf.format(Math.round(Number(n) || 0));
   const fmtPct = (n) => nf.format(Math.abs(n)) + " %";
+  // Note sur 5 à une décimale, à la française (5,0) — comme le Marché de l'app.
+  const frNum = (n) => (Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   const kpi = (val, lbl) => `<div class="kpi"><div class="kpi-val">${esc(val)}</div><div class="kpi-lbl">${esc(lbl)}</div></div>`;
   const hbars = (items, labelFn, subFn) => {
@@ -253,10 +255,10 @@
           <div class="bq-name">${esc(b.name)}</div>
           <div class="bq-sub">${esc(b.number || "—")}</div>
           <div class="bq-stats">
-            <span><b>${fmt(b.follow)}</b> abonnés</span>
-            <span><b>${b.ratingsCount ? b.rating.toFixed(1) : "—"}</b> ★ ${b.ratingsCount ? "(" + fmt(b.ratingsCount) + ")" : ""}</span>
-            <span><b>${fmt(b.views)}</b> visites</span>
-            <span><b>${fmt(b.products)}</b> produits</span>
+            <span><b>${fmt(b.products)}</b> produit${b.products > 1 ? "s" : ""}</span>
+            <span>${b.ratingsCount ? `<b>★ ${frNum(b.rating)}</b> · ${fmt(b.ratingsCount)} avis` : "Aucun avis"}</span>
+            <span><b>♥ ${fmt(b.likes)}</b> j'aime</span>
+            <span><b>${fmt(b.views)}</b> vues produits</span>
           </div>
         </div>
         <span class="bq-chevron">${ic("open")}</span>
@@ -274,7 +276,7 @@
         <div class="frame" id="previewImg">${b.img ? `<img src="${esc(b.img)}" alt="">` : `<div class="noimg">Aucun logo</div>`}</div>
       </div>
       <div class="kpis" style="margin-bottom:18px">
-        ${kpi(fmt(b.follow), "Abonnés")}${kpi(b.ratingsCount ? b.rating.toFixed(1) : "—", "Note")}${kpi(fmt(b.comments), "Avis")}${kpi(fmt(b.views), "Visites produits")}${kpi(fmt(b.products), "Produits")}
+        ${kpi(fmt(b.products), "Produits")}${kpi(b.ratingsCount ? frNum(b.rating) + " ★" : "—", "Note")}${kpi(fmt(b.ratingsCount), "Avis")}${kpi(fmt(b.likes), "J'aime")}${kpi(fmt(b.views), "Vues produits")}
       </div>
       <p class="muted" style="margin-bottom:10px">${esc(b.number || "Aucun numéro renseigné")}</p>
       <h3 style="margin-bottom:10px">Produits</h3>
