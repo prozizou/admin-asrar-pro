@@ -101,9 +101,19 @@ body, button, input, select, textarea { font-family: var(--body); }
 .rc-bar.uniq { background: var(--chart-2); }
 .card:hover { box-shadow: var(--shadow); }
 
-/* Bloc « Passer à l'action » : carte sombre de l'application. */
-.quick-block { background: var(--sidebar); border-color: var(--sidebar); }
-.quick-block .eyebrow, .quick-block .shortcut:hover { color: #fdba74; }
-.quick-block > p, .quick-block .shortcut > span:last-child, .quick-block .shortcut small { color: #a8a8b0; }
-.quick-block .shortcut { border-top-color: rgba(255, 255, 255, 0.1); }
-.quick-block .shortcut .ic { color: #fb923c; background: rgba(255, 255, 255, 0.06); }
+/* ── Épuré : moins d'ornements, surfaces plates, hiérarchie par la typographie. ── */
+.page-heading .eyebrow, .section-icon { display: none; }
+.block, .stat, .card, .row, .access-card { box-shadow: none; }
+.stat:hover, .card:hover { transform: none; box-shadow: none; border-color: var(--line-2); }
+.block { border-radius: var(--radius, 12px); }
+.dashboard-grid .activity-block { grid-column: 1 / -1; }
+.activity-block .list { max-height: 360px; }
+.section-caption { color: var(--muted); }
+.nav-scrim, .bigwrap, .command-palette::backdrop { backdrop-filter: none; }
+
+/* Zone de suppression des statistiques. */
+.danger-zone { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.danger-zone .muted { display: block; margin: 0 0 14px; max-width: 70ch; }
+.danger-zone .btn.danger { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.danger-zone .btn.danger:hover { background: var(--danger); color: #fff; }
+@media (max-width: 600px) { .danger-zone .btn.danger { width: 100%; justify-content: center; } }

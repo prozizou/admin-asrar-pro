@@ -114,6 +114,27 @@
   });
   document.addEventListener("input", (e) => { if (e.target && e.target.id === "actSearch") renderSessions(); });
 
+  // ── Remise à zéro : confirmation par saisie de « SUPPRIMER ».
+  document.addEventListener("click", async (e) => {
+    if (!e.target.closest || !e.target.closest("#btnResetStats")) return;
+    const typed = await uiPrompt({
+      title: "Supprimer toutes les statistiques ?",
+      message: "Action définitive : visites, pays, connexions, journal des actions, vues des produits et mesures des publicités seront effacés de Firebase.\nTapez SUPPRIMER pour confirmer.",
+      icon: "warning", danger: true, confirmText: "Supprimer", placeholder: "SUPPRIMER"
+    });
+    if (typed == null) return;
+    if (typed.trim() !== "SUPPRIMER") { showToast("Texte de confirmation incorrect : rien n'a été supprimé.", "err"); return; }
+    const btn = $("btnResetStats");
+    if (btn) btn.disabled = true;
+    try {
+      await api("stats", { action: "reset_stats", confirm: "SUPPRIMER" });
+      showToast("Statistiques supprimées : tout repart de zéro.");
+      loadAnalytics();
+      if (typeof loadDashboard === "function") loadDashboard();
+    } catch (err) { showToast(err.message, "err"); }
+    finally { if (btn) btn.disabled = false; }
+  });
+
   window.loadAnalytics = async function () {
     loadActivity();
     if ($("anaPages")) $("anaPages").innerHTML = "<div class='empty'>Chargement…</div>";

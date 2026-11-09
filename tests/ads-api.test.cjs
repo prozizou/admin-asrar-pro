@@ -96,12 +96,14 @@ function loadWith(data) {
   const fbPath = require.resolve(path.join(__dirname, '..', 'api', '_lib', 'fb.js'));
   const snap = (val) => ({ val: () => (val === undefined ? null : val), forEach: () => {} });
   const at = (p) => p.split('/').reduce((v, k) => (v == null ? undefined : v[k]), data);
-  const database = { ref: (p) => ({
+  const database = { ref: (p = '') => ({
+    update: async (patch) => { for (const [k, v] of Object.entries(patch)) { const keys = (p ? p + '/' + k : k).split('/'); let node = data; for (const key of keys.slice(0, -1)) node = node[key] ??= {}; if (v === null) delete node[keys.at(-1)]; else node[keys.at(-1)] = v; } },
+    push: async () => {},
     once: async () => snap(at(p)),
     limitToLast: () => ({ once: async () => snap(at(p)) }),
     orderByKey: () => ({ startAt: (from) => ({ once: async () => snap(Object.fromEntries(Object.entries(at(p) || {}).filter(([k]) => k >= from))) }) })
   }) };
-  require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: { app: () => ({ database: () => database }), verifyAdmin: async () => ({ email: 'admin@example.test' }), bearer: () => 'token', listAllAuthUsers: async () => [] } };
+  require.cache[fbPath] = { id: fbPath, filename: fbPath, loaded: true, exports: { app: () => ({ database: () => database }), verifyAdmin: async () => ({ email: 'admin@example.test' }), bearer: () => 'token', listAllAuthUsers: async () => [], audit: async () => {} } };
   const statsPath = require.resolve(path.join(__dirname, '..', 'api', 'stats.js'));
   delete require.cache[statsPath];
   return require(statsPath);
@@ -170,4 +172,25 @@ test('activity : connexions (e-mail, pays, heure) et actions, filtrables par e-m
   assert.deepEqual(all.actions.map((a) => a.page), ['marche', 'zikr', 'accueil']);
   const one = (await call(handler, { action: 'activity', email: 'a@x.test' })).json;
   assert.deepEqual(one.actions.map((a) => a.type), ['click', 'page']);
+});
+
+test('reset_stats : refusé sans « SUPPRIMER », puis efface uniquement les statistiques', async () => {
+  const data = {
+    analytics: { daily: { x: 1 }, visits: { y: 1 }, ads: {}, csp: {} },
+    activity_feed: { k: { email: 'a@x.test' } },
+    user_sessions: { a: { email: 'a@x.test' } },
+    views: { product: { p1: { u: 1 } } },
+    purchased_user: { 'a@x,test': { level: 15000 } },
+    det_produits: { p1: { produit: 'Livre' } },
+    ratings: { vendor: { v: { u: 5 } } },
+    account_settings: { a: { pushEnabled: true } }
+  };
+  const handler = loadWith(data);
+  const refused = await call(handler, { action: 'reset_stats', confirm: 'oui' });
+  assert.equal(refused.status, 400);
+  assert.ok(data.analytics && data.activity_feed);
+  const { json } = await call(handler, { action: 'reset_stats', confirm: 'SUPPRIMER' });
+  assert.equal(json.ok, true);
+  assert.deepEqual(Object.keys(data).sort(), ['account_settings', 'det_produits', 'purchased_user', 'ratings', 'views']);
+  assert.deepEqual(data.views, {});
 });
