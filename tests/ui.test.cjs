@@ -85,8 +85,9 @@ test('Desktop: dashboard, exact chart windows, navigation, history, search, them
   const { page, context, errors, writes } = await openPage();
   try {
     await page.locator('#dashGrid .stat').first().waitFor();
-    assert.equal(await page.locator('#dashGrid .stat').count(), 4);
-    assert.match(await page.locator('#dashGrid').innerText(), /Valeur des accès/);
+    assert.equal(await page.locator('#dashGrid .stat').count(), 2);
+    assert.match(await page.locator('#dashGrid').innerText(), /Abonnements actifs[\s\S]*Utilisateurs/);
+    assert.doesNotMatch(await page.locator('#dashGrid').innerText(), /Valeur des accès/);
     assert.equal(await page.locator('#dashActive .active-user-stat').count(), 3);
     assert.match(await page.locator('#dashActive').innerText(), /214[\s\S]*Actifs \(7 j\)/);
     assert.equal(await page.locator('#dashTrafficNote').isVisible(), false);

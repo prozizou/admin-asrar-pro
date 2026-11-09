@@ -191,6 +191,19 @@ test('reset_stats : refusé sans « SUPPRIMER », puis efface uniquement les sta
   assert.ok(data.analytics && data.activity_feed);
   const { json } = await call(handler, { action: 'reset_stats', confirm: 'SUPPRIMER' });
   assert.equal(json.ok, true);
-  assert.deepEqual(Object.keys(data).sort(), ['account_settings', 'det_produits', 'purchased_user', 'ratings', 'views']);
+  assert.deepEqual(Object.keys(data).sort(), ['account_settings', 'admin_meta', 'det_produits', 'purchased_user', 'ratings', 'views']);
   assert.deepEqual(data.views, {});
+  assert.ok(data.admin_meta.statsResetAt >= Date.now() - 5000);
+});
+
+test('overview : l’activité récente ne montre rien d’antérieur à la remise à zéro', async () => {
+  const now = Date.now();
+  const handler = loadWith({
+    admin_meta: { statsResetAt: now - 60000 },
+    purchased_user: { 'old@x,test': { productId: 'admin_grant', at: now - 3600000, expiresAt: now + 1e9 }, 'new@x,test': { productId: 'admin_grant', at: now - 1000, expiresAt: now + 1e9 } },
+    user_sessions: { a: { email: 'a@x.test', lastLoginAt: now - 500 } }
+  });
+  const { json } = await call(handler, { action: 'overview' });
+  assert.deepEqual(json.recent.map((e) => e.email), ['a@x.test', 'new@x.test']);
+  assert.equal(json.kpis.activeSubs, 2); // les chiffres réels restent complets
 });

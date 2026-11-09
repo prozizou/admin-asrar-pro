@@ -46,14 +46,6 @@
       <div class="stat-sub"><b>${esc(recent)}</b> sur 30 jours</div>
     </div>`;
 
-  // ── Indicateur secondaire (contexte) : bande compacte, sans icône ni
-  // bordure dorée — regroupe tout ce qui n'est pas un des 4 KPI clés.
-  const miniStat = (val, label) => `
-    <div class="stat-mini">
-      <span class="stat-mini-val">${esc(val)}</span>
-      <span class="stat-mini-lbl">${esc(label)}</span>
-    </div>`;
-
   const shortcut = (tab, icon, label) =>
     `<button class="shortcut" data-goto="${tab}">${ic(icon)}<span>${esc(label)}</span></button>`;
 
@@ -99,7 +91,7 @@
     if (active) active.innerHTML = "";
     for (const id of ["dashTrafficNote", "dashCountriesNote"]) { const n = $(id); if (n) { n.hidden = true; n.textContent = ""; } }
     DASH = null;
-    root.innerHTML = skeleton("kpis", 4);
+    root.innerHTML = skeleton("kpis", 2);
     const rootSec = $("dashGridSecondary");
     if (rootSec) rootSec.innerHTML = "";
     const feed = $("dashRecent");
@@ -142,17 +134,11 @@
     if (!DASH || !root) return;
     const k = DASH.kpis || {};
 
+    // Chiffres clés : les deux seuls indicateurs suivis au quotidien.
     root.innerHTML =
-      stat({ icon: "revenue", val: fmt(k.revenueTotal), unit: "FCFA", label: "Valeur des accès", recent: money(k.revenue30), note: "Valorisation des accès selon leur palier, y compris les octrois manuels. Ce montant ne constitue pas un relevé des paiements encaissés." }) +
-      stat({ icon: "market", val: fmt(k.salesTotal), label: "Accès valorisés", recent: fmt(k.sales30) + " accès", note: "Accès dont le palier ou le montant est supérieur à zéro, y compris les octrois manuels." }) +
       stat({ icon: "gift", val: fmt(k.activeSubs), label: "Abonnements actifs", recent: fmt(k.newSubs30) + " octrois", period: "EN COURS" }) +
       stat({ icon: "users", val: fmt(k.usersTotal), label: "Utilisateurs", recent: fmt(k.new30) + " inscriptions" });
-
-    if (rootSec) rootSec.innerHTML =
-      miniStat(fmt(k.unique30), "Visiteurs mesurés (30 j)") +
-      miniStat(fmt(k.visits30), "Visites mesurées (30 j)") +
-      miniStat(fmt(k.boutiques), "Boutiques") +
-      miniStat(fmt(k.admins) + " / " + fmt(k.vips), "Admins / VIP");
+    if (rootSec) rootSec.innerHTML = "";
   }
 
   // Utilisateurs actifs (24 h / 7 j / 30 j) — d'après la dernière activité

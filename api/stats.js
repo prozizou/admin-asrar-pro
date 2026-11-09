@@ -67,15 +67,17 @@ module.exports = async (req, res) => {
         return PLAN_PRICES[Number(p.level)] || Number(p.amount) || 0;
       };
 
-      const [purchSnap, visitsSnap, adminsSnap, vipsSnap, profSnap, sessionsSnap, settingsSnap] = await Promise.all([
+      const [purchSnap, visitsSnap, adminsSnap, vipsSnap, profSnap, sessionsSnap, settingsSnap, resetSnap] = await Promise.all([
         db.ref("purchased_user").once("value"),
         db.ref("analytics/visits").once("value"),
         db.ref("admins").once("value"),
         db.ref("vip_users").once("value"),
         db.ref("profile_clients").once("value"),
         db.ref("user_sessions").once("value"),
-        db.ref("account_settings").once("value")
+        db.ref("account_settings").once("value"),
+        db.ref("admin_meta/statsResetAt").once("value")
       ]);
+      const statsResetAt = Number(resetSnap && resetSnap.val()) || 0;
 
       // Abonnements & revenus (purchased_user) + événements « achat/abonnement »
       // pour le flux d'activité récente (cf. plus bas) : un octroi manuel
@@ -222,7 +224,9 @@ module.exports = async (req, res) => {
       // inscription, achat, abonnement offert) plutôt que le journal brut de
       // navigation (activity_feed), qui n'était qu'une suite de pages/e-mails
       // répétés.
+      // Rien d'antérieur à la dernière remise à zéro des statistiques.
       const recent = [...connectionEvents, ...signupEvents, ...subEvents]
+        .filter((e) => e.at >= statsResetAt)
         .sort((a, b) => b.at - a.at)
         .slice(0, 12);
 
@@ -245,6 +249,7 @@ module.exports = async (req, res) => {
         recent,
         countryBreakdown,
         countryPeriod,
+        statsResetAt: statsResetAt || null,
         audienceAnonymous: Object.keys(audience).length > 0,
         unknownCountry: unknownCountry ? { users: unknownCountry.users, pct: countryBase ? Math.round((unknownCountry.users / countryBase) * 1000) / 10 : 0 } : null
       });
@@ -260,9 +265,14 @@ module.exports = async (req, res) => {
     if (action === "reset_stats") {
       if (body.confirm !== RESET_WORD) return res.status(400).json({ error: "Confirmation manquante : saisissez " + RESET_WORD + "." });
       const paths = { analytics: null, activity_feed: null, user_sessions: null, "views/product": null };
-      await db.ref().update(paths);
+      // admin_meta/statsResetAt : l'activité récente du tableau de bord
+      // mélange les connexions (effacées ici) avec les inscriptions (comptes
+      // Firebase Auth) et les abonnements (purchased_user), qui ne doivent pas
+      // être supprimés — elle n'affiche donc plus rien d'antérieur à cette date.
+      const resetAt = Date.now();
+      await db.ref().update({ ...paths, "admin_meta/statsResetAt": resetAt });
       await audit(who, "reset_stats", null, { paths: Object.keys(paths) });
-      return res.json({ ok: true, cleared: Object.keys(paths) });
+      return res.json({ ok: true, cleared: Object.keys(paths), resetAt });
     }
 
     // ── ACTIVITÉ DES UTILISATEURS ────────────────────────────────────────
