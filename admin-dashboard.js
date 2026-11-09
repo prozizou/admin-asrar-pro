@@ -85,6 +85,9 @@
     root.setAttribute("aria-busy", "true");
     $("dashUpdated").textContent = "Actualisation…";
     $("dashTrafficSummary").textContent = "";
+    const active = $("dashActive");
+    if (active) active.innerHTML = "";
+    for (const id of ["dashTrafficNote", "dashCountriesNote"]) { const n = $(id); if (n) { n.hidden = true; n.textContent = ""; } }
     DASH = null;
     root.innerHTML = skeleton("kpis", 4);
     const rootSec = $("dashGridSecondary");
@@ -101,6 +104,7 @@
       if (currentRequest !== requestId) return;
       DASH = data;
       renderDashStats();
+      renderDashActive();
       renderDashChart();
       renderDashFeed();
       renderDashCountries();
@@ -135,10 +139,43 @@
       stat({ icon: "users", val: fmt(k.usersTotal), label: "Utilisateurs", recent: fmt(k.new30) + " inscriptions" });
 
     if (rootSec) rootSec.innerHTML =
-      miniStat(fmt(k.unique30), "Visiteurs uniques (30 j)") +
-      miniStat(fmt(k.visits30), "Visites (30 j)") +
+      miniStat(fmt(k.unique30), "Visiteurs mesurés (30 j)") +
+      miniStat(fmt(k.visits30), "Visites mesurées (30 j)") +
       miniStat(fmt(k.boutiques), "Boutiques") +
       miniStat(fmt(k.admins) + " / " + fmt(k.vips), "Admins / VIP");
+  }
+
+  // Utilisateurs actifs (24 h / 7 j / 30 j) — d'après la dernière activité
+  // enregistrée pour CHAQUE utilisateur (user_sessions), y compris ceux qui
+  // n'ont pas autorisé la mesure détaillée. Le graphique de visites, lui, ne
+  // compte que les comptes ayant coché « Autoriser la mesure des visites »
+  // (désactivé par défaut côté asrar-main) : une note le rappelle.
+  function renderDashActive() {
+    const k = (DASH && DASH.kpis) || {};
+    const el = $("dashActive");
+    if (el) {
+      if (k.active30 == null) el.innerHTML = "";
+      else el.innerHTML = [[k.active1, "Actifs (24 h)"], [k.active7, "Actifs (7 j)"], [k.active30, "Actifs (30 j)"]]
+        .map(([val, label]) => `<div class="active-user-stat"><strong>${esc(fmt(val))}</strong><span>${esc(label)}</span></div>`).join("");
+    }
+    const sessions = Number(k.sessionsTotal) || 0;
+    const optIn = Number(k.analyticsOptIn) || 0;
+    const partial = sessions > 0 && optIn < sessions;
+    const tNote = $("dashTrafficNote");
+    if (tNote) {
+      tNote.hidden = !partial;
+      tNote.textContent = partial
+        ? `Utilisateurs actifs : tous les comptes connectés. Le graphique de visites ne compte que les ${fmt(optIn)} utilisateur${optIn > 1 ? "s" : ""} (sur ${fmt(sessions)}) qui ont autorisé la mesure des visites dans leur page Compte.`
+        : "";
+    }
+    const cNote = $("dashCountriesNote");
+    if (cNote) {
+      const unknown = Number(DASH && DASH.unknownCountry && DASH.unknownCountry.users) || 0;
+      cNote.hidden = !unknown;
+      cNote.textContent = unknown
+        ? "Le pays n'est enregistré que pour les utilisateurs qui ont autorisé la mesure des visites. Les autres apparaissent en « Pays inconnu »."
+        : "";
+    }
   }
 
   // Exact, data-driven SVG chart. The expandable table exposes the same
@@ -197,7 +234,7 @@
     const el = $("dashCountries");
     if (!el || !DASH) return;
     const rows = DASH.countryBreakdown || [];
-    if (!rows.length) {
+    if (!rows.length && !DASH.unknownCountry?.users) {
       el.innerHTML = "<div class='empty'>Aucune donnée de géolocalisation pour l'instant.</div>";
       return;
     }

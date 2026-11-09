@@ -36,13 +36,14 @@ module.exports = async (req, res) => {
         return PLAN_PRICES[Number(p.level)] || Number(p.amount) || 0;
       };
 
-      const [purchSnap, visitsSnap, adminsSnap, vipsSnap, profSnap, sessionsSnap] = await Promise.all([
+      const [purchSnap, visitsSnap, adminsSnap, vipsSnap, profSnap, sessionsSnap, settingsSnap] = await Promise.all([
         db.ref("purchased_user").once("value"),
         db.ref("analytics/visits").once("value"),
         db.ref("admins").once("value"),
         db.ref("vip_users").once("value"),
         db.ref("profile_clients").once("value"),
-        db.ref("user_sessions").once("value")
+        db.ref("user_sessions").once("value"),
+        db.ref("account_settings").once("value")
       ]);
 
       // Abonnements & revenus (purchased_user) + événements « achat/abonnement »
@@ -132,6 +133,26 @@ module.exports = async (req, res) => {
         }
       }
       const sessionsTotal = Object.keys(sessions).length;
+
+      // Utilisateurs actifs — source fiable pour TOUS les utilisateurs.
+      // asrar-main (pages/api/track.js) met à jour user_sessions/{uid}
+      // (lastLoginAt / lastActivityAt) à chaque ouverture de l'app, que
+      // l'utilisateur ait ou non autorisé la mesure détaillée ; au contraire,
+      // analytics/visits (graphique de trafic) et le pays n'existent que pour
+      // les comptes ayant coché « Autoriser la mesure des visites » dans leur
+      // page Compte (account_settings/{uid}/analytics === true, décoché par
+      // défaut). Fenêtres glissantes : 24 h, 7 j, 30 j.
+      let active1 = 0, active7 = 0, active30 = 0;
+      for (const s of Object.values(sessions)) {
+        if (!s || typeof s !== "object") continue;
+        const last = Math.max(Number(s.lastActivityAt) || 0, Number(s.lastLoginAt) || 0);
+        if (last >= now - DAY) active1++;
+        if (last >= now - 7 * DAY) active7++;
+        if (last >= now - 30 * DAY) active30++;
+      }
+      // Nombre de comptes ayant autorisé la mesure détaillée (visites, pays).
+      const analyticsOptIn = Object.values(settingsSnap.val() || {})
+        .filter((st) => st && typeof st === "object" && st.analytics === true).length;
       const countryBreakdown = Object.values(countryCounts)
         .filter((c) => c.countryCode) // le pays inconnu n'entre pas dans le classement…
         .sort((a, b) => b.users - a.users)
@@ -158,7 +179,8 @@ module.exports = async (req, res) => {
           unique30: uniq30.size, uniqueAll: uniqAll.size, visits30, visitsTotal,
           boutiques: Object.keys(profSnap.val() || {}).length,
           admins: adminsCount,
-          vips: Object.keys(vipsSnap.val() || {}).length
+          vips: Object.keys(vipsSnap.val() || {}).length,
+          active1, active7, active30, sessionsTotal, analyticsOptIn
         },
         spark,
         recent,
