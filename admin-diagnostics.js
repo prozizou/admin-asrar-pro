@@ -2,21 +2,22 @@
 // technique nettoyés par le serveur de l'application.
 (function () {
   'use strict';
-  let incidents = [], limited = false, loading = false;
+  let incidents = [], limited = false, loading = false, clearing = false;
   const devices = { android_app: 'Application Android', android_web: 'Site Android', ios: 'iPhone / iPad', desktop: 'Ordinateur', server: 'Serveur' };
   const isSlow = item => item.kind === 'freeze' || item.kind === 'slow_api' || item.kind === 'slow_task';
   const date = at => at ? new Date(at).toLocaleString('fr-FR') : '—';
   const duration = ms => (Number(ms || 0) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' s';
   window.loadDiagnostics = async function () {
-    if (loading) return;
+    if (loading || clearing) return;
     loading = true;
+    $('btnDeleteAllDiagnostics').disabled = true;
     $('diagnosticsNotice').textContent = 'Chargement des incidents…';
     try {
       const data = await api('diagnostics', { action: 'list' });
       incidents = data.items || []; limited = data.limited;
       render();
     } catch (error) { $('diagnosticsNotice').textContent = error.message; }
-    finally { loading = false; }
+    finally { loading = false; $('btnDeleteAllDiagnostics').disabled = clearing; }
   };
   function render() {
     const status = $('diagnosticsStatus').value, type = $('diagnosticsType').value;
@@ -72,5 +73,18 @@
   }
   ['diagnosticsStatus', 'diagnosticsType'].forEach(id => $(id).addEventListener('change', render));
   $('diagnosticsSearch').addEventListener('input', render);
+  $('btnDeleteAllDiagnostics').onclick = async () => {
+    if (loading || clearing) return;
+    const confirmation = window.prompt('Supprimer définitivement TOUS les logs, bugs et lenteurs enregistrés, y compris les incidents résolus et ceux masqués par les filtres ? Vous pouvez les exporter avant cette action. La collecte continuera. Saisissez SUPPRIMER pour confirmer.');
+    if (confirmation === null) return;
+    if (confirmation !== 'SUPPRIMER') { showToast('Saisissez exactement SUPPRIMER pour confirmer.', 'err'); return; }
+    clearing = true; $('btnDeleteAllDiagnostics').disabled = true;
+    try {
+      await api('diagnostics', { action: 'delete_all', confirm: confirmation });
+      incidents = []; limited = false; render();
+      showToast('Tous les incidents enregistrés ont été supprimés. Les nouvelles remontées pourront apparaître.');
+    } catch (error) { showToast(error.message, 'err'); }
+    finally { clearing = false; $('btnDeleteAllDiagnostics').disabled = false; }
+  };
   $('btnReloadDiagnostics').onclick = () => loadDiagnostics();
 })();

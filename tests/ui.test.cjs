@@ -383,3 +383,42 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
     } finally { await context.close(); }
   }
 });
+
+test('Diagnostics : tout supprimer sur mobile et ordinateur, filtres, annulation et échec', async () => {
+  for (const width of [390, 1440]) {
+    const { page, context, errors } = await openPage({ width, hash: '#diagnostics' });
+    try {
+      await page.locator('#diagnosticsList details').first().waitFor();
+      await page.waitForFunction(() => !document.getElementById('btnDeleteAllDiagnostics').disabled);
+      let attempts = 0, fail = true;
+      await page.route('**/api/diagnostics', async route => {
+        if (route.request().postDataJSON()?.action === 'delete_all') {
+          attempts++;
+          if (fail) return route.fulfill({ status: 503, json: { error: 'Suppression indisponible.' } });
+        }
+        return route.fallback();
+      });
+      await page.locator('#diagnosticsSearch').fill('introuvable');
+      const clear = page.locator('#btnDeleteAllDiagnostics');
+      assert.equal(await clear.isEnabled(), true);
+      await noOverflow(page, 'suppression globale ' + width);
+      page.once('dialog', dialog => dialog.dismiss()); await clear.click();
+      assert.equal(attempts, 0);
+      page.once('dialog', dialog => dialog.accept('supprimer')); await clear.click();
+      assert.equal(attempts, 0);
+      page.once('dialog', dialog => { assert.match(dialog.message(), /masqués par les filtres/); return dialog.accept('SUPPRIMER'); });
+      await clear.click();
+      await page.waitForFunction(() => !document.getElementById('btnDeleteAllDiagnostics').disabled);
+      assert.equal(attempts, 1);
+      assert.match(await page.locator('#diagnosticsSummary').innerText(), /15 remontées/);
+      fail = false;
+      page.once('dialog', dialog => dialog.accept('SUPPRIMER')); await clear.click();
+      await page.waitForFunction(() => document.getElementById('diagnosticsSummary').textContent.includes('0 remontées'));
+      assert.equal(attempts, 2);
+      await page.locator('#diagnosticsSearch').fill('');
+      assert.equal(await page.locator('#diagnosticsList details').count(), 0);
+      assert.equal(await page.locator('#btnExportDiagnosticsJson').isDisabled(), true);
+      assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+  }
+});

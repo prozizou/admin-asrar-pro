@@ -19,6 +19,12 @@ module.exports = async (req, res) => {
       const items = Object.entries(snap.val() || {}).map(([id, value]) => ({ ...value, id })).sort((a, b) => b.lastAt - a.lastAt);
       return res.status(200).json({ items, limited: items.length === 500, retentionDays: 30 });
     }
+    if (body.action === 'delete_all') {
+      if (body.confirm !== 'SUPPRIMER') return res.status(400).json({ error: 'Saisissez SUPPRIMER pour confirmer la suppression de tous les incidents.' });
+      await db.ref('app_diagnostics').remove();
+      await audit(who, 'diagnostic:delete_all', null, { path: 'app_diagnostics' });
+      return res.status(200).json({ ok: true });
+    }
     if (body.action === 'delete') {
       if (!/^\d{8}_[a-f0-9]{32}$/.test(body.id) || !Number.isSafeInteger(body.expectedCount) || body.expectedCount < 1 || !Number.isSafeInteger(body.expectedLastAt) || body.expectedLastAt < 1) {
         return res.status(400).json({ error: 'Incident ou version invalide' });
