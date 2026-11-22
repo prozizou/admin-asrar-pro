@@ -19,6 +19,18 @@ module.exports = async (req, res) => {
       const items = Object.entries(snap.val() || {}).map(([id, value]) => ({ ...value, id })).sort((a, b) => b.lastAt - a.lastAt);
       return res.status(200).json({ items, limited: items.length === 500, retentionDays: 30 });
     }
+    if (body.action === 'delete') {
+      if (!/^\d{8}_[a-f0-9]{32}$/.test(body.id) || !Number.isSafeInteger(body.expectedCount) || body.expectedCount < 1 || !Number.isSafeInteger(body.expectedLastAt) || body.expectedLastAt < 1) {
+        return res.status(400).json({ error: 'Incident ou version invalide' });
+      }
+      const result = await db.ref('app_diagnostics/' + body.id).transaction(current => {
+        if (!current || current.count !== body.expectedCount || current.lastAt !== body.expectedLastAt) return;
+        return null;
+      });
+      if (!result.committed) return res.status(409).json({ error: 'L’incident a changé ou a déjà été supprimé. Actualisez avant de recommencer.' });
+      await audit(who, 'diagnostic:delete', body.id);
+      return res.status(200).json({ ok: true });
+    }
     if (body.action === 'status') {
       if (!/^\d{8}_[a-f0-9]{32}$/.test(body.id) || !['open', 'resolved'].includes(body.status) || !Number.isSafeInteger(body.expectedCount)) {
         return res.status(400).json({ error: 'Incident ou statut invalide' });

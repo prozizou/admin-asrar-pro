@@ -35,9 +35,23 @@
         <pre class="diagnostic-stack">${esc(item.stack || 'Aucune position de fichier disponible.')}</pre>
         <button type="button" class="btn" data-export-diagnostic="${esc(item.id)}">Enregistrer en TXT</button>
         <button type="button" class="btn" data-diagnostic="${esc(item.id)}">${item.status === 'resolved' ? 'Rouvrir' : 'Marquer comme résolu'}</button>
+        <button type="button" class="btn danger" data-delete-diagnostic="${esc(item.id)}">Supprimer cet incident</button>
       </details>`).join('') : '<div class="empty">Aucun incident pour ces filtres.</div>';
     $('diagnosticsList').querySelectorAll('[data-export-diagnostic]').forEach(button => {
       button.onclick = () => downloadDiagnostics([incidents.find(item => item.id === button.dataset.exportDiagnostic)], false);
+    });
+    $('diagnosticsList').querySelectorAll('[data-delete-diagnostic]').forEach(button => {
+      button.onclick = async () => {
+        const item = incidents.find(row => row.id === button.dataset.deleteDiagnostic);
+        if (!item || !window.confirm('Supprimer définitivement cet incident et ses ' + item.count + ' remontée(s) regroupée(s) ? Une nouvelle occurrence pourra créer un nouvel incident.')) return;
+        button.disabled = true;
+        try {
+          await api('diagnostics', { action: 'delete', id: item.id, expectedCount: item.count, expectedLastAt: item.lastAt });
+          incidents = incidents.filter(row => row.id !== item.id);
+          render();
+          showToast('Incident supprimé.');
+        } catch (error) { showToast(error.message, 'err'); button.disabled = false; }
+      };
     });
     $('diagnosticsList').querySelectorAll('[data-diagnostic]').forEach(button => {
       button.onclick = async () => {

@@ -41,6 +41,7 @@ test('diagnostics : l’authentification et le rôle sont vérifiés avant tout 
     const api = load({ denied: status });
     assert.equal((await api.call({ action: 'list' })).code, status);
     assert.equal((await api.call({ action: 'status', id: key, expectedCount: 1, status: 'resolved' })).code, status);
+    assert.equal((await api.call({ action: 'delete', id: key, expectedCount: 1, expectedLastAt: 1 })).code, status);
     assert.equal(api.initialized(), false);
   }
 });
@@ -69,4 +70,18 @@ test('diagnostics : validation des mutations et méthodes', async () => {
   assert.equal((await api.call({}, 'token', 'GET')).code, 405);
   assert.equal((await api.call('null')).code, 400);
   assert.equal(api.writes.length, 0);
+});
+
+test('diagnostics : suppression atomique, audit et protection contre une nouvelle remontée', async () => {
+  const entries = { [key]: { count: 2, lastAt: 100 } }; const api = load({ entries });
+  for (const request of [{ expectedCount: 1, expectedLastAt: 100 }, { expectedCount: 2, expectedLastAt: 99 }]) {
+    assert.equal((await api.call({ action: 'delete', id: key, ...request })).code, 409);
+    assert.equal(api.writes.length, 0);
+  }
+  assert.equal((await api.call({ action: 'delete', id: '../admins/a', expectedCount: 2, expectedLastAt: 100 })).code, 400);
+  assert.equal((await api.call({ action: 'delete', id: key, expectedCount: -1, expectedLastAt: 100 })).code, 400);
+  assert.equal((await api.call({ action: 'delete', id: key, expectedCount: 2, expectedLastAt: 100 })).code, 200);
+  assert.equal(entries[key], null); assert.equal(api.writes.length, 1);
+  assert.equal(api.audits[0][1], 'diagnostic:delete');
+  assert.equal((await api.call({ action: 'delete', id: key, expectedCount: 2, expectedLastAt: 100 })).code, 409);
 });
