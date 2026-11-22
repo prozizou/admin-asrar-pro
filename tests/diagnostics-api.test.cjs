@@ -11,6 +11,7 @@ function load({ denied = 0, entries = {} } = {}) {
       orderByKey() { query.order = 'key'; return ref; },
       startAt(value) { query.start = value; return ref; },
       limitToLast(value) { query.limit = value; return ref; },
+      async remove() { writes.push({ p, next: null }); for (const id of Object.keys(entries)) delete entries[id]; },
       async once() { reads.push(query); return { val: () => entries }; },
       async transaction(fn) {
         const id = p.split('/').at(-1), next = fn(entries[id]);
@@ -42,6 +43,7 @@ test('diagnostics : l’authentification et le rôle sont vérifiés avant tout 
     assert.equal((await api.call({ action: 'list' })).code, status);
     assert.equal((await api.call({ action: 'status', id: key, expectedCount: 1, status: 'resolved' })).code, status);
     assert.equal((await api.call({ action: 'delete', id: key, expectedCount: 1, expectedLastAt: 1 })).code, status);
+    assert.equal((await api.call({ action: 'delete_all', confirm: 'SUPPRIMER' })).code, status);
     assert.equal(api.initialized(), false);
   }
 });
@@ -84,4 +86,19 @@ test('diagnostics : suppression atomique, audit et protection contre une nouvell
   assert.equal(entries[key], null); assert.equal(api.writes.length, 1);
   assert.equal(api.audits[0][1], 'diagnostic:delete');
   assert.equal((await api.call({ action: 'delete', id: key, expectedCount: 2, expectedLastAt: 100 })).code, 409);
+});
+
+test('diagnostics : tout supprimer exige confirmation et efface uniquement la racine des incidents', async () => {
+  const entries = { [key]: { count: 2, status: 'resolved' }, hidden: { count: 3 }, older: { count: 4 } };
+  const api = load({ entries });
+  for (const confirm of [undefined, '', 'supprimer', true]) {
+    assert.equal((await api.call({ action: 'delete_all', confirm })).code, 400);
+    assert.equal(api.writes.length, 0);
+  }
+  assert.equal((await api.call({ action: 'delete_all', confirm: 'SUPPRIMER' })).code, 200);
+  assert.deepEqual(entries, {});
+  assert.deepEqual(api.writes, [{ p: 'app_diagnostics', next: null }]);
+  assert.equal(api.reads.length, 0);
+  assert.equal(api.audits[0][1], 'diagnostic:delete_all');
+  assert.equal((await api.call({ action: 'delete_all', confirm: 'SUPPRIMER' })).code, 200);
 });
