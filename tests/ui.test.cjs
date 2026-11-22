@@ -333,6 +333,7 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
       assert.match(await page.locator('#diagnosticsList').innerText(), /Aucun incident/);
       await page.locator('#diagnosticsSearch').fill('');
       await page.locator('#diagnosticsList summary').click();
+      assert.match(await page.locator('#diagnosticsList').innerText(), /Inconnue/);
       await page.locator('#diagnosticsList [data-diagnostic]').click();
       await page.locator('#btnReloadDiagnostics').click();
       assert.ok(writes.some(w => w.endpoint === 'diagnostics' && w.action === 'status'));

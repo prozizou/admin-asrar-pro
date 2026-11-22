@@ -49,7 +49,7 @@ function response(endpoint, action, payload) {
   if (endpoint === 'users' && action === 'list_access') return { total: 3, items: ['amina', 'moussa', 'fatou'].map((name, i) => ({ email: name + '@example.com', active: true, level: i ? 15000 : 45000, expiresAt: now + 90 * DAY, at: now - DAY, lastActiveAt: now - 3600000, lastPage: 'Chapelet' })) };
   if (endpoint === 'diagnostics' && action === 'list') return { limited: false, items: [
     { id: '20261122_' + 'a'.repeat(32), kind: 'render', title: 'Erreur d’affichage', name: 'TypeError', page: '/zikr', endpoint: '', count: 12, status: 'open', version: 'v46.93', platform: 'android_app', firstAt: now - 900000, lastAt: now - 60000, maxDurationMs: 0, statusCode: 0, online: true, lastUid: 'demo-account', stack: '/_next/static/chunks/example.js:12:8' },
-    { id: '20261122_' + 'b'.repeat(32), kind: 'slow_api', title: 'Réponse API lente', name: 'Error', page: '/bibliotheque', endpoint: '/api/list-content', count: 3, status: 'open', version: 'v46.93', platform: 'android_web', firstAt: now - 300000, lastAt: now, maxDurationMs: 8000, statusCode: 200, online: true }
+    { id: '20261122_' + 'b'.repeat(32), kind: 'slow_api', title: 'Réponse API lente', name: 'Error', page: '/bibliotheque', endpoint: '/api/list-content', count: 3, status: 'open', version: 'v46.93', platform: 'android_web', firstAt: now - 300000, lastAt: now, maxDurationMs: 8000, statusCode: 200 }
   ] };
   if (endpoint === 'market') return { totalShops: 0, totalProducts: 0, shops: [], products: [] };
   if (endpoint === 'fonts') return { fonts: [] };
