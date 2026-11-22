@@ -18,6 +18,10 @@
       'Première remontée : ' + stamp(item.firstAt), 'Dernière remontée : ' + stamp(item.lastAt),
       'Connexion : ' + (typeof item.online === 'boolean' ? item.online ? 'En ligne' : 'Hors ligne' : 'Inconnue'),
       'Dernier compte concerné (UID) : ' + field(item.lastUid),
+      'Contexte technique (dernière occurrence reçue) :',
+      item.details ? JSON.stringify(item.details, null, 2) : 'Non collecté par cette ancienne version.',
+      'Lecture : timings en ms ; auth = session, token = identité, headers = attente réseau/serveur, json = lecture/décodage. Chronologie : at = ms depuis l’ouverture de la page.',
+      'Limites : état réseau déclaré par le navigateur ; une tâche bloquante ne fournit pas toujours sa pile causale. Les positions API sont celles de l’appelant. Aucun contenu privé ni jeton n’est collecté.',
       'Résolution : ' + stamp(item.resolvedAt), 'Positions des fichiers :', field(item.stack), '',
     ])).join('\n');
   };

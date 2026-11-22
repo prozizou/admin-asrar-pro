@@ -4,7 +4,7 @@
   'use strict';
   let incidents = [], limited = false, loading = false;
   const devices = { android_app: 'Application Android', android_web: 'Site Android', ios: 'iPhone / iPad', desktop: 'Ordinateur', server: 'Serveur' };
-  const isSlow = item => item.kind === 'freeze' || item.kind === 'slow_api';
+  const isSlow = item => item.kind === 'freeze' || item.kind === 'slow_api' || item.kind === 'slow_task';
   const date = at => at ? new Date(at).toLocaleString('fr-FR') : '—';
   const duration = ms => (Number(ms || 0) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' s';
   window.loadDiagnostics = async function () {
