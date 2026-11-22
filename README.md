@@ -35,6 +35,16 @@ ces groupes reçus, après déduplication et quotas. La collecte est disponible
 les diagnostics sur une fenêtre de 30 jours UTC, avec nettoyage quotidien. Aucune clé
 API, nouvelle règle Firebase ou configuration externe n’est nécessaire.
 
+Les lenteurs de l’application SW v46.94 sont signalées au-delà de 1 000 ms.
+Les répétitions en attente sont regroupées avec leur nombre d’occurrences.
+**Enregistrer en TXT** télécharge la fiche d’un incident ; **Exporter les
+résultats en TXT** télécharge les groupes qui correspondent aux filtres.
+Le fichier UTF-8 est généré sur l’appareil, sans service tiers, et comporte
+les dates UTC, les versions, les durées exactes en ms et les traces nettoyées.
+Sur téléphone, ouvrir le panneau dans le navigateur pour retrouver le fichier
+dans les téléchargements. Les copies locales ne sont pas effacées par la
+purge du journal RTDB et doivent être supprimées manuellement. SW admin-v38.
+
 ## Interface et vérification
 
 La refonte propose une interface ivoire et vert profond, un thème sombre,

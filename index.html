@@ -428,7 +428,7 @@
       </section>
 
       <section id="tab-diagnostics" class="panel" hidden>
-        <div class="bar"><h3 class="star">Bugs et lenteurs</h3><button id="btnReloadDiagnostics" class="btn" type="button">Actualiser</button></div>
+        <div class="bar"><h3 class="star">Bugs et lenteurs</h3><button id="btnExportDiagnostics" class="btn" type="button" disabled>Exporter les résultats en TXT</button><button id="btnReloadDiagnostics" class="btn" type="button">Actualiser</button></div>
         <p id="diagnosticsNotice" class="muted" role="status"></p>
         <p id="diagnosticsSummary"></p>
         <div class="diagnostic-filters">
@@ -437,7 +437,7 @@
           <label>Rechercher<input id="diagnosticsSearch" type="search" placeholder="Page, version, appareil…"></label>
         </div>
         <div id="diagnosticsList"></div>
-        <p class="muted">Une nouvelle remontée rouvre automatiquement l’incident. Les lenteurs réseau et blocages JavaScript sont détectés pendant l’utilisation ; un arrêt du téléphone ou de l’application avant le chargement ne produit pas toujours de diagnostic.</p>
+        <p class="muted">Les nouvelles lenteurs de plus d’une seconde sont signalées. Une nouvelle remontée rouvre automatiquement l’incident. Les lenteurs réseau et blocages JavaScript sont détectés pendant l’utilisation ; un arrêt du téléphone ou de l’application avant le chargement ne produit pas toujours de diagnostic.</p>
       </section>
 
       <section id="tab-analytics" class="panel" hidden>
@@ -541,6 +541,7 @@
   <script src="admin-referral.js" defer></script>
   <script src="admin-stats.js" defer></script>
   <script src="admin-ads.js" defer></script>
+  <script src="admin-diagnostic-export.js" defer></script>
   <script src="admin-diagnostics.js" defer></script>
   <script src="admin-shell.js" defer></script>
   <script src="pwa.js" defer></script>
