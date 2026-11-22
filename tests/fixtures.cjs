@@ -47,6 +47,10 @@ function response(endpoint, action, payload) {
   }
   if (endpoint === 'content' && action === 'list') return { value: { first: { titre: 'Les bienfaits du dhikr', sirr: 'Découvrez cette publication et les indications associées.' }, second: { titre: 'Ouverture et connaissance', sirr: 'Une nouvelle ressource pour enrichir votre bibliothèque.' }, third: { titre: 'Les noms et leurs bienfaits', sirr: 'Contenu détaillé de la publication.' } } };
   if (endpoint === 'users' && action === 'list_access') return { total: 3, items: ['amina', 'moussa', 'fatou'].map((name, i) => ({ email: name + '@example.com', active: true, level: i ? 15000 : 45000, expiresAt: now + 90 * DAY, at: now - DAY, lastActiveAt: now - 3600000, lastPage: 'Chapelet' })) };
+  if (endpoint === 'diagnostics' && action === 'list') return { limited: false, items: [
+    { id: '20261122_' + 'a'.repeat(32), kind: 'render', title: 'Erreur d’affichage', name: 'TypeError', page: '/zikr', endpoint: '', count: 12, status: 'open', version: 'v46.93', platform: 'android_app', firstAt: now - 900000, lastAt: now - 60000, maxDurationMs: 0, statusCode: 0, online: true, lastUid: 'demo-account', stack: '/_next/static/chunks/example.js:12:8' },
+    { id: '20261122_' + 'b'.repeat(32), kind: 'slow_api', title: 'Réponse API lente', name: 'Error', page: '/bibliotheque', endpoint: '/api/list-content', count: 3, status: 'open', version: 'v46.93', platform: 'android_web', firstAt: now - 300000, lastAt: now, maxDurationMs: 8000, statusCode: 200, online: true }
+  ] };
   if (endpoint === 'market') return { totalShops: 0, totalProducts: 0, shops: [], products: [] };
   if (endpoint === 'fonts') return { fonts: [] };
   if (endpoint === 'referral') return { totals: { sponsors: 12, active: 10, blocked: 2, clicks: 840, conv: 12.5, points: 1400, rewards: 8 }, periods: { d30: { sponsors: 4, invited: 31 } }, daily: daily.map(row => ({ bucket: row.bucket, invited: Math.floor(row.total / 20) })), sponsors: [], alerts: [], settings: { enabled: true, pointsPerInvite: 10, rewardPoints: 100, rewardDays: 30, maxAccountAgeDays: 7 } };

@@ -17,6 +17,24 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 > écrit dans `allowedUsers`) : les deux restent compatibles côté barrière
 > d'accès (`server/access.js` lit les deux nœuds), mais ne partagent pas de code.
 
+## Bugs et lenteurs de l’application
+
+La rubrique **Bugs et lenteurs** (`#diagnostics`, menu Plus sur mobile) reçoit
+les diagnostics écrits dans `app_diagnostics` par l’application principale.
+Elle affiche les erreurs, blocages et lenteurs, leur page, version, catégorie
+d’appareil, fréquence et positions des fichiers. Les filtres permettent de
+chercher une page/version et de distinguer les incidents à traiter et résolus.
+Une remontée supplémentaire rouvre automatiquement son groupe. La résolution
+est vérifiée en transaction et inscrite dans le journal d’audit.
+
+L’API `/api/diagnostics` exige un jeton valide, non révoqué, et le rôle admin.
+La liste est limitée à 500 groupes des jours les plus récents ; un avertissement
+indique quand cette limite est atteinte. Les compteurs portent uniquement sur
+ces groupes reçus, après déduplication et quotas. La collecte est disponible
+à partir de SW v46.93 de l’application. Le cron quotidien de celle-ci supprime
+les diagnostics sur une fenêtre de 30 jours UTC, avec nettoyage quotidien. Aucune clé
+API, nouvelle règle Firebase ou configuration externe n’est nécessaire.
+
 ## Interface et vérification
 
 La refonte propose une interface ivoire et vert profond, un thème sombre,

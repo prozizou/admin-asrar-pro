@@ -444,3 +444,13 @@ button.act-row:hover { border-color: var(--line-2); }
 .act-sub { font-size: 11px; margin-top: 3px; overflow-wrap: anywhere; }
 .act-time { font-size: 11px; text-align: right; white-space: nowrap; line-height: 1.5; }
 @media (max-width: 600px) { .row.act-row { flex-direction: column; gap: 4px; } .act-time { text-align: left; } }
+
+/* Diagnostics : lisibles sur téléphone, traces longues sans débordement. */
+.diagnostic-filters{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
+.diagnostic-filters label{display:grid;gap:6px;flex:1;min-width:140px}
+.diagnostic-card{margin:12px 0;min-width:0}
+.diagnostic-card summary{cursor:pointer;overflow-wrap:anywhere}
+.diagnostic-card summary .access-sub{display:block;margin-top:6px}
+.diagnostic-meta{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px;margin:20px 0;font-size:13px}
+.diagnostic-meta dd{margin:0;overflow-wrap:anywhere}
+.diagnostic-stack{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font-size:12px;padding:12px;background:var(--bg);border-radius:8px}

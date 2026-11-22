@@ -10,6 +10,7 @@
     fonts: ["Polices Al-Qalam", "VOTRE COLLECTION", "Enrichissez les polices disponibles dans l'application.", "Ajouter une police", "font", "fonts"],
     referral: ["Parrainage", "DÉVELOPPER LA COMMUNAUTÉ", "Suivez les invitations et récompensez vos ambassadeurs.", "Voir les parrains", "sponsors", "referral"],
     analytics: ["Statistiques", "COMPRENDRE VOTRE ACTIVITÉ", "Explorez la fréquentation et les contenus qui intéressent vos utilisateurs.", "Actualiser", "analytics", "analytics"],
+    diagnostics: ["Bugs et lenteurs", "AMÉLIORER L’APPLICATION", "Identifiez les incidents et suivez leur résolution.", "Actualiser", "diagnostics", "block"],
     ads: ["Publicités", "VOS REVENUS PUBLICITAIRES", "Mesurez si vos visiteurs laissent les publicités s'afficher.", "Actualiser", "ads", "ads"]
   };
   const primary = $("pagePrimaryAction");
@@ -18,9 +19,9 @@
     $("pageHeading").textContent = page[0];
     $("pageEyebrow").textContent = page[1];
     $("pageDescription").textContent = page[2];
-    primary.innerHTML = ic(page[4] === "analytics" || page[4] === "ads" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
+    primary.innerHTML = ic(page[4] === "analytics" || page[4] === "ads" || page[4] === "diagnostics" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
     primary.dataset.action = page[4];
-    $("moreNav").classList.toggle("active", ["ads", "market", "fonts", "referral"].includes(target));
+    $("moreNav").classList.toggle("active", ["ads", "diagnostics", "market", "fonts", "referral"].includes(target));
   }
   document.addEventListener("admin:tabchange", (event) => updateHeading(event.detail.target));
   updateHeading(document.body.dataset.activeTab || "dashboard");
@@ -50,6 +51,7 @@
     font: () => $("btnOpenAddFont").click(),
     sponsors: () => { showTab("referral"); $("refSeg").querySelector('[data-refsub="sponsors"]').click(); },
     analytics: () => loadAnalytics(),
+    diagnostics: () => loadDiagnostics(),
     ads: () => loadAds()
   };
   document.addEventListener("click", async (event) => {

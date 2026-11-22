@@ -1,10 +1,10 @@
 // sw.js — SW du panneau admin. Cache DYNAMIQUE + mise à jour immédiate.
 // Change SW_VERSION à chaque déploiement → purge de l'ancien cache + reload auto.
-const SW_VERSION = 'admin-v36';
+const SW_VERSION = 'admin-v37';
 const CACHE = 'asrar-admin-' + SW_VERSION;
 const SHELL = ['/', '/index.html', '/admin.css',
   '/admin-design.css', '/admin-app-theme.css', '/admin-theme.js', '/admin-shell.js',
-  '/admin-core.js', '/admin-dashboard.js', '/admin-content.js', '/admin-market.js', '/admin-users.js', '/admin-fonts.js', '/admin-referral.js', '/admin-stats.js', '/admin-ads.js',
+  '/admin-core.js', '/admin-dashboard.js', '/admin-content.js', '/admin-market.js', '/admin-users.js', '/admin-fonts.js', '/admin-referral.js', '/admin-stats.js', '/admin-ads.js', '/admin-diagnostics.js',
   '/pwa.js', '/manifest.json',
   '/assets/logo-mark.png', '/assets/favicon.png', '/assets/icon-192.png',
   '/assets/fonts/carlito-latin-400-normal.woff2', '/assets/fonts/carlito-latin-700-normal.woff2',
