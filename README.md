@@ -22,8 +22,15 @@ fonctionner (les nœuds sensibles restent `read/write:false` côté client).
 La refonte propose une interface ivoire et vert profond, un thème sombre,
 une navigation latérale sur ordinateur et une barre inférieure sur mobile.
 La recherche `Ctrl/Cmd + K` ouvre les sections et les actions courantes.
-Les URL `#content`, `#users` (Abonnements), `#ads` (Publicités), etc. conservent la section au rechargement et
+Les URL `#content`, `#users` (Abonnements), `#ads` (Publicités), `#bugs` (Bugs), etc. conservent la section au rechargement et
 permettent de revenir en arrière avec le navigateur.
+
+L'onglet **Bugs** (`admin-bugs.js`, `api/bugs.js`) liste les erreurs, lenteurs
+et signalements remontés par l'application (`bug_reports/*`, écrit par
+`/api/client-error` d'asrar-main, voir son `SUIVI_BUGS.md`) : bugs regroupés,
+pastille du nombre de bugs ouverts dans le menu, courbe sur 30 jours, filtres,
+pile d'appels et dernières occurrences, « Marquer comme résolu » (un bug qui
+revient est rouvert), suppression, copie d'un rapport prêt à transmettre.
 
 Le tableau de bord affiche les données des API existantes : indicateurs,
 trafic sur 7/30/90 jours, pays et activité récente. Les fenêtres de création,
@@ -48,7 +55,7 @@ npm test
 
 Les tests démarrent leur serveur local et simulent Firebase et les API dans
 le navigateur. Ils ne requièrent aucun secret et n'appellent pas la base de
-production. Ils couvrent les huit sections à 360, 390, 768, 1024 et 1440 px,
+production. Ils couvrent les neuf sections à 360, 390, 768, 1024 et 1440 px,
 les fenêtres d'édition, le focus clavier, la recherche, l'historique de
 navigation, le thème, la déconnexion, les comptes refusés, les données vides,
 le stockage local indisponible et la relance après une erreur serveur.

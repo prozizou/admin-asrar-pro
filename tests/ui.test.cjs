@@ -50,7 +50,7 @@ async function openPage({ width = 1440, signedIn = true, denied = false, fail = 
     if (url.pathname.startsWith('/api/')) {
       const payload = route.request().postDataJSON() || {};
       const endpoint = url.pathname.split('/').pop();
-      if (!['overview', 'analytics', 'activity', 'ads', 'list', 'nodes', 'list_access'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
+      if (!['overview', 'analytics', 'activity', 'ads', 'list', 'nodes', 'list_access', 'events'].includes(payload.action)) writes.push({ endpoint, action: payload.action });
       if (denied) return route.fulfill({ status: 403, json: { error: 'Forbidden test account' } });
       if (failed && endpoint === 'stats') return route.fulfill({ status: 503, json: { error: 'Service temporairement indisponible.' } });
       if (empty && endpoint === 'stats' && payload.action === 'overview') return route.fulfill({ json: { kpis: {}, spark: [], countryBreakdown: [], recent: [] } });
@@ -101,13 +101,13 @@ test('Desktop: dashboard, exact chart windows, navigation, history, search, them
     assert.match(await page.locator('#dashTrafficSummary').innerText(), /30 jours/);
     await page.locator('.chart-data summary').click();
     assert.equal(await page.locator('.chart-data tbody tr').count(), 5);
-    for (const tab of ['users', 'content', 'market', 'fonts', 'referral', 'analytics', 'ads']) {
+    for (const tab of ['users', 'content', 'market', 'fonts', 'referral', 'analytics', 'ads', 'bugs']) {
       await page.locator('#mainNav [data-tab="' + tab + '"]').click();
       await page.locator('#tab-' + tab).waitFor({ state: 'visible' });
       await noOverflow(page, 'desktop ' + tab);
     }
     await page.goBack();
-    await page.locator('#tab-analytics').waitFor({ state: 'visible' });
+    await page.locator('#tab-ads').waitFor({ state: 'visible' });
     await page.keyboard.press('Control+k');
     await page.locator('#commandInput').fill('abonnem');
     await page.keyboard.press('Enter');
@@ -150,7 +150,7 @@ test('Mobile and tablet: every section fits, drawer and bottom navigation, conte
       await page.locator('#dashGrid .stat').first().waitFor();
       await noOverflow(page, width + ' dashboard');
       if (width === 390) await capture(page, 'dashboard-mobile', false);
-      for (const tab of ['content', 'users', 'market', 'fonts', 'referral', 'analytics', 'ads']) {
+      for (const tab of ['content', 'users', 'market', 'fonts', 'referral', 'analytics', 'ads', 'bugs']) {
         if (width <= 820) {
           await page.locator('#moreNav').click();
           assert.equal(await page.locator('#mainContent').evaluate(el => el.inert), true);
@@ -191,7 +191,7 @@ test('Navigation par groupes, abonnements sans publicité, formations retirées,
     const groups = await page.locator('#mainNav .nav-label').allInnerTexts();
     assert.deepEqual(groups, ['COMMUNAUTÉ', 'CATALOGUE']);
     const order = await page.locator('#mainNav [data-tab]').evaluateAll((els) => els.map((el) => el.dataset.tab));
-    assert.deepEqual(order, ['dashboard', 'analytics', 'ads', 'users', 'referral', 'content', 'market', 'fonts']);
+    assert.deepEqual(order, ['dashboard', 'analytics', 'ads', 'bugs', 'users', 'referral', 'content', 'market', 'fonts']);
     assert.equal(await page.locator('#mainNav [data-tab="users"]').innerText(), 'Abonnements');
 
     // Formations : plus d'onglet, de bouton ni de raccourci.
@@ -312,4 +312,64 @@ test('Contenus : l’éditeur lit et réécrit les champs réels de chaque rubri
   assert.equal(await page.locator('#editContent').inputValue(), 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ');
   assert.deepEqual(errors, []);
   await context.close();
+});
+
+test('Bugs : liste regroupée, filtres, détail, résolution', async () => {
+  const { page, context, errors, writes } = await openPage();
+  try {
+    await page.locator('#dashGrid .stat').first().waitFor();
+    // Pastille du menu chargée dès l'ouverture du panneau.
+    await page.locator('#bugsNavBadge:not([hidden])').waitFor();
+    assert.equal(await page.locator('#bugsNavBadge').innerText(), '3');
+    await page.locator('#mainNav [data-tab="bugs"]').click();
+    await page.locator('#tab-bugs').waitFor({ state: 'visible' });
+    await page.locator('#bugsKpis .stat').first().waitFor();
+    assert.equal(await page.locator('#bugsKpis .stat').count(), 4);
+    assert.match(await page.locator('#bugsKpis').innerText(), /Bugs ouverts/);
+    assert.ok(await page.locator('#bugsChart .rc-col').count() > 0);
+    // Ouverts par défaut : le bug résolu est masqué.
+    assert.equal(await page.locator('#bugsList .bug-card').count(), 3);
+    assert.match(await page.locator('#bugsList').innerText(), /Revenu/i);
+    assert.match(await page.locator('#bugsList').innerText(), /moyenne 3,4 s/);
+    await page.locator('#bugsKindSeg [data-kind="user"]').click();
+    assert.equal(await page.locator('#bugsList .bug-card').count(), 1);
+    assert.match(await page.locator('#bugsList').innerText(), /amina@example\.com/);
+    await page.locator('#bugsKindSeg [data-kind="all"]').click();
+    await page.locator('#bugsStatusSeg [data-status="resolved"]').click();
+    assert.equal(await page.locator('#bugsList .bug-card').count(), 1);
+    await page.locator('#bugsStatusSeg [data-status="all"]').click();
+    await page.locator('#bugsSearch').fill('planete');
+    assert.equal(await page.locator('#bugsList .bug-card').count(), 1);
+    await page.locator('#bugsSearch').fill('');
+    await page.locator('#bugsStatusSeg [data-status="open"]').click();
+    await noOverflow(page, 'desktop bugs');
+    await capture(page, 'bugs-desktop');
+
+    await page.locator('[data-bug="e_abc"]').click();
+    await page.locator('.bug-stack').waitFor();
+    assert.match(await page.locator('#bugDetail').innerText(), /ZikrPage/);
+    assert.equal(await page.locator('.bug-events .row').count(), 2);
+    assert.match(await page.locator('.bug-facts').innerText(), /v46\.93 \(37\)/);
+    await capture(page, 'bugs-detail');
+    await page.locator('#btnResolveBug').click();
+    await page.locator('#big').waitFor({ state: 'hidden' });
+    assert.deepEqual(writes, [{ endpoint: 'bugs', action: 'resolve' }]);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Bugs : affichage mobile', async () => {
+  const { page, context, errors } = await openPage({ width: 360 });
+  try {
+    await page.locator('#dashGrid .stat').first().waitFor();
+    await page.locator('#moreNav').click();
+    await page.locator('#mainNav [data-tab="bugs"]').click();
+    await page.locator('#bugsList .bug-card').first().waitFor();
+    await noOverflow(page, '360 bugs');
+    await capture(page, 'bugs-mobile', false);
+    await page.locator('[data-bug="l_def"]').click();
+    await page.locator('#bugDetail .bug-facts').waitFor();
+    await noOverflow(page, '360 bug detail');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });

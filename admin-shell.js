@@ -10,7 +10,8 @@
     fonts: ["Polices Al-Qalam", "VOTRE COLLECTION", "Enrichissez les polices disponibles dans l'application.", "Ajouter une police", "font", "fonts"],
     referral: ["Parrainage", "DÉVELOPPER LA COMMUNAUTÉ", "Suivez les invitations et récompensez vos ambassadeurs.", "Voir les parrains", "sponsors", "referral"],
     analytics: ["Statistiques", "COMPRENDRE VOTRE ACTIVITÉ", "Explorez la fréquentation et les contenus qui intéressent vos utilisateurs.", "Actualiser", "analytics", "analytics"],
-    ads: ["Publicités", "VOS REVENUS PUBLICITAIRES", "Mesurez si vos visiteurs laissent les publicités s'afficher.", "Actualiser", "ads", "ads"]
+    ads: ["Publicités", "VOS REVENUS PUBLICITAIRES", "Mesurez si vos visiteurs laissent les publicités s'afficher.", "Actualiser", "ads", "ads"],
+    bugs: ["Bugs", "QUALITÉ DE L'APPLICATION", "Erreurs, lenteurs et problèmes signalés par vos utilisateurs.", "Actualiser", "bugs", "bug"]
   };
   const primary = $("pagePrimaryAction");
   function updateHeading(target) {
@@ -18,9 +19,9 @@
     $("pageHeading").textContent = page[0];
     $("pageEyebrow").textContent = page[1];
     $("pageDescription").textContent = page[2];
-    primary.innerHTML = ic(page[4] === "analytics" || page[4] === "ads" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
+    primary.innerHTML = ic(page[4] === "analytics" || page[4] === "ads" || page[4] === "bugs" ? "refresh" : page[4] === "sponsors" ? "users" : "add") + esc(page[3]);
     primary.dataset.action = page[4];
-    $("moreNav").classList.toggle("active", ["ads", "market", "fonts", "referral"].includes(target));
+    $("moreNav").classList.toggle("active", ["ads", "bugs", "market", "fonts", "referral"].includes(target));
   }
   document.addEventListener("admin:tabchange", (event) => updateHeading(event.detail.target));
   updateHeading(document.body.dataset.activeTab || "dashboard");
@@ -50,7 +51,8 @@
     font: () => $("btnOpenAddFont").click(),
     sponsors: () => { showTab("referral"); $("refSeg").querySelector('[data-refsub="sponsors"]').click(); },
     analytics: () => loadAnalytics(),
-    ads: () => loadAds()
+    ads: () => loadAds(),
+    bugs: () => loadBugs()
   };
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-action]");

@@ -68,6 +68,21 @@ function response(endpoint, action, payload) {
     ] };
   }
   if (endpoint === 'stats' && action === 'analytics') return { platforms: { android_app: 30, android_web: 120, ios: 45, desktop: 25, inconnu: 80 }, totals: { boutiques: 12, avisTotal: 28, pagesTotal: 2400 }, periods: { d30: { unique: 842, total: 9648, interactions: 2140, deltaUnique: 12, deltaTotal: 18 } }, daily, monthly: [], topPages: [{ page: 'Chapelet', count: 1200 }, { page: 'Bibliothèque', count: 740 }, { page: 'Secrets', count: 460 }], boutiques: [] };
+  if (endpoint === 'bugs' && action === 'list') return {
+    groups: [
+      { id: 'e_abc', kind: 'error', message: "Cannot read properties of undefined (reading 'members')", detail: '', label: '', page: '/zikr', count: 37, firstAt: now - 3 * DAY, lastAt: now - 120000, status: 'open', regressed: true, lastVersion: 'v46.93', reporter: '', platforms: { android_app: 30, desktop: 7 }, avgMs: 0, maxMs: 0 },
+      { id: 'l_def', kind: 'lag', message: 'Interface figée', detail: '', label: 'Interface figée', page: '/planete', count: 12, firstAt: now - 5 * DAY, lastAt: now - 3600000, status: 'open', regressed: false, lastVersion: 'v46.93', reporter: '', platforms: { android_web: 12 }, avgMs: 3400, maxMs: 6100 },
+      { id: 'u_ghi', kind: 'user', message: 'Signalement', detail: 'Le compteur du zikr reste bloqué après Participer.', label: '', page: '/zikr', count: 1, firstAt: now - DAY, lastAt: now - DAY, status: 'open', regressed: false, lastVersion: 'v46.93', reporter: 'amina@example.com', platforms: { android_app: 1 }, avgMs: 0, maxMs: 0 },
+      { id: 'e_old', kind: 'error', message: 'Ancienne erreur corrigée', detail: '', label: '', page: '/', count: 4, firstAt: now - 20 * DAY, lastAt: now - 15 * DAY, status: 'resolved', regressed: false, resolvedAt: now - 14 * DAY, lastVersion: 'v46.80', reporter: '', platforms: { ios: 4 }, avgMs: 0, maxMs: 0 }
+    ],
+    daily: daily.slice(-30).map((row, i) => ({ bucket: row.bucket, error: i % 4, lag: i % 3 ? 1 : 0, user: i === 29 ? 1 : 0 })),
+    totals: { open: 3, openErrors: 1, regressed: 1, errors7: 11, lags7: 5, reports7: 1 }
+  };
+  if (endpoint === 'bugs' && action === 'events') return {
+    group: { ...response('bugs', 'list').groups.find((g) => g.id === payload.id), stack: "TypeError: Cannot read properties of undefined (reading 'members')\n    at ZikrPage (/_next/static/chunks/app/zikr/page.js)", versions: { 'v46,93': 37 } },
+    events: [{ id: 'k2', at: now - 120000, page: '/zikr', platform: 'android_app', version: 'v46.93', email: 'amina@example.com' }, { id: 'k1', at: now - 7200000, page: '/zikr', platform: 'desktop', version: 'v46.93' }]
+  };
+  if (endpoint === 'bugs') return { ok: true, removed: 1 };
   return {};
 }
 module.exports = { overview, response };
