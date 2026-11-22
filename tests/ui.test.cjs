@@ -332,6 +332,14 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
       assert.match(singleText, /Erreur d’affichage/);
       assert.match(singleText, /example.js:12:8/);
       assert.doesNotMatch(singleText, /Réponse API lente/);
+      const jsonDownload = page.waitForEvent('download');
+      await page.locator('#diagnosticsList [data-export-diagnostic-json]').first().click();
+      const jsonFile = await jsonDownload;
+      assert.match(jsonFile.suggestedFilename(), /\.json$/);
+      const jsonReport = JSON.parse(fs.readFileSync(await jsonFile.path(), 'utf8'));
+      assert.equal(jsonReport.groupCount, 1);
+      assert.equal(jsonReport.incidents[0].kind, 'render');
+      assert.match(jsonReport.incidents[0].stack, /example.js:12:8/);
       await noOverflow(page, 'diagnostics ' + width);
       await capture(page, 'diagnostics-' + width);
       await page.locator('#diagnosticsType').selectOption('slow');
@@ -343,9 +351,16 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
       assert.match(filteredText, /Réponse API lente/);
       assert.match(filteredText, /8\s?000|8000/);
       assert.doesNotMatch(filteredText, /Erreur d’affichage/);
+      const filteredJsonDownload = page.waitForEvent('download');
+      await page.locator('#btnExportDiagnosticsJson').click();
+      const filteredJson = JSON.parse(fs.readFileSync(await (await filteredJsonDownload).path(), 'utf8'));
+      assert.equal(filteredJson.groupCount, 1);
+      assert.equal(filteredJson.incidents[0].kind, 'slow_api');
+      assert.equal(filteredJson.incidents[0].maxDurationMs, 8000);
       await page.locator('#diagnosticsSearch').fill('introuvable');
       assert.match(await page.locator('#diagnosticsList').innerText(), /Aucun incident/);
       assert.equal(await page.locator('#btnExportDiagnostics').isDisabled(), true);
+      assert.equal(await page.locator('#btnExportDiagnosticsJson').isDisabled(), true);
       await page.locator('#diagnosticsSearch').fill('');
       await page.locator('#diagnosticsList summary').click();
       assert.match(await page.locator('#diagnosticsList').innerText(), /Inconnue/);
@@ -363,6 +378,7 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
       await page.waitForFunction(() => document.querySelectorAll('#diagnosticsList details').length === 0);
       assert.equal(writes.filter(w => w.endpoint === 'diagnostics' && w.action === 'delete').length, 1);
       assert.equal(await page.locator('#btnExportDiagnostics').isDisabled(), true);
+      assert.equal(await page.locator('#btnExportDiagnosticsJson').isDisabled(), true);
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
