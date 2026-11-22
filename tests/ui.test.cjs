@@ -191,7 +191,7 @@ test('Navigation par groupes, abonnements sans publicité, formations retirées,
     const groups = await page.locator('#mainNav .nav-label').allInnerTexts();
     assert.deepEqual(groups, ['COMMUNAUTÉ', 'CATALOGUE']);
     const order = await page.locator('#mainNav [data-tab]').evaluateAll((els) => els.map((el) => el.dataset.tab));
-    assert.deepEqual(order, ['dashboard', 'analytics', 'ads', 'users', 'referral', 'content', 'market', 'fonts']);
+    assert.deepEqual(order, ['dashboard', 'analytics', 'ads', 'diagnostics', 'users', 'referral', 'content', 'market', 'fonts']);
     assert.equal(await page.locator('#mainNav [data-tab="users"]').innerText(), 'Abonnements');
 
     // Formations : plus d'onglet, de bouton ni de raccourci.
@@ -312,4 +312,32 @@ test('Contenus : l’éditeur lit et réécrit les champs réels de chaque rubri
   assert.equal(await page.locator('#editContent').inputValue(), 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ');
   assert.deepEqual(errors, []);
   await context.close();
+});
+
+
+test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution', async () => {
+  for (const width of [390, 1440]) {
+    const { page, context, errors, writes } = await openPage({ width, hash: '#diagnostics' });
+    try {
+      await page.locator('#diagnosticsList details').first().waitFor();
+      assert.match(await page.locator('#pageHeading').innerText(), /Bugs et lenteurs/);
+      assert.match(await page.locator('#diagnosticsSummary').innerText(), /15 remontées/);
+      await page.locator('#diagnosticsList summary').first().click();
+      assert.match(await page.locator('#diagnosticsList pre').first().innerText(), /example.js:12:8/);
+      await noOverflow(page, 'diagnostics ' + width);
+      await capture(page, 'diagnostics-' + width);
+      await page.locator('#diagnosticsType').selectOption('slow');
+      assert.equal(await page.locator('#diagnosticsList details').count(), 1);
+      assert.match(await page.locator('#diagnosticsList').innerText(), /Réponse API lente/);
+      await page.locator('#diagnosticsSearch').fill('introuvable');
+      assert.match(await page.locator('#diagnosticsList').innerText(), /Aucun incident/);
+      await page.locator('#diagnosticsSearch').fill('');
+      await page.locator('#diagnosticsList summary').click();
+      assert.match(await page.locator('#diagnosticsList').innerText(), /Inconnue/);
+      await page.locator('#diagnosticsList [data-diagnostic]').click();
+      await page.locator('#btnReloadDiagnostics').click();
+      assert.ok(writes.some(w => w.endpoint === 'diagnostics' && w.action === 'status'));
+      assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+  }
 });

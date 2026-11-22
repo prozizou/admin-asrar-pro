@@ -480,7 +480,7 @@
   // Titre affiché dans l'en-tête (à côté du logo) — reprend le libellé du bouton nav.
   const TAB_TITLES = {
     dashboard: "Vue d'ensemble", content: "Contenus", market: "Marché", users: "Abonnements",
-    fonts: "Polices Al-Qalam", referral: "Parrainage", analytics: "Statistiques", ads: "Publicités"
+    fonts: "Polices Al-Qalam", referral: "Parrainage", analytics: "Statistiques", ads: "Publicités", diagnostics: "Bugs et lenteurs"
   };
 
   // Affiche un onglet et charge SES données à la demande (lazy) — une seule fois.
@@ -509,6 +509,7 @@
     $("tab-referral").hidden = target !== "referral";
     $("tab-analytics").hidden = target !== "analytics";
     $("tab-ads").hidden = target !== "ads";
+    $("tab-diagnostics").hidden = target !== "diagnostics";
     document.dispatchEvent(new CustomEvent("admin:tabchange", { detail: { target, title: TAB_TITLES[target] } }));
     if (changed) {
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -516,6 +517,7 @@
     }
 
     // Onglets rechargés à chaque visite (données volatiles).
+    if (target === "diagnostics") return loadDiagnostics();
     if (target === "dashboard") return loadDashboard();
     if (target === "market") return loadMarket();
 
