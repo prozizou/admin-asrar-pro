@@ -352,6 +352,17 @@ test('Diagnostics : navigation mobile/desktop, détails, filtres et résolution'
       await page.locator('#diagnosticsList [data-diagnostic]').click();
       await page.locator('#btnReloadDiagnostics').click();
       assert.ok(writes.some(w => w.endpoint === 'diagnostics' && w.action === 'status'));
+      await page.waitForFunction(() => document.getElementById('diagnosticsNotice').textContent.startsWith('Dernière actualisation'));
+      if (!await page.locator('#diagnosticsList details').evaluate(el => el.open)) await page.locator('#diagnosticsList summary').click();
+      const deleteButton = page.locator('#diagnosticsList [data-delete-diagnostic]');
+      page.once('dialog', dialog => dialog.dismiss());
+      await deleteButton.click();
+      assert.equal(writes.filter(w => w.endpoint === 'diagnostics' && w.action === 'delete').length, 0);
+      page.once('dialog', dialog => dialog.accept());
+      await deleteButton.click();
+      await page.waitForFunction(() => document.querySelectorAll('#diagnosticsList details').length === 0);
+      assert.equal(writes.filter(w => w.endpoint === 'diagnostics' && w.action === 'delete').length, 1);
+      assert.equal(await page.locator('#btnExportDiagnostics').isDisabled(), true);
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
