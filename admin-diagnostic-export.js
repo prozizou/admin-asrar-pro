@@ -25,18 +25,35 @@
       'Résolution : ' + stamp(item.resolvedAt), 'Positions des fichiers :', field(item.stack), '',
     ])).join('\n');
   };
-  window.downloadDiagnostics = function (items, limited) {
+  window.diagnosticsJson = function (items, limited) {
+    const fields = ['id', 'kind', 'title', 'name', 'status', 'page', 'endpoint', 'version', 'platform', 'count', 'durationMs', 'maxDurationMs', 'statusCode', 'firstAt', 'lastAt', 'online', 'lastUid', 'resolvedAt', 'stack', 'details'];
+    return JSON.stringify({
+      schemaVersion: 1, application: 'ASRAR PRO', exportedAt: new Date().toISOString(),
+      lagThresholdMs: 1000, thresholdComparison: 'strictly-greater-than',
+      groupCount: items.length, limited: Boolean(limited), retentionDays: 30,
+      notes: [
+        'Les incidents sont regroupés ; count représente les remontées reçues.',
+        'L’export contient uniquement les groupes sélectionnés ou les résultats filtrés chargés (500 maximum).',
+        'Les durées et timings sont en ms ; les dates numériques sont en ms depuis Unix UTC. breadcrumbs.at est relatif à la navigation.',
+        'details décrit le contexte collecté ; un ancien incident peut ne pas en posséder. La durée maximale et le contexte peuvent provenir de remontées différentes.',
+        'statusCode 0 et durée 0 peuvent signifier une mesure indisponible. Le réseau est déclaré ou estimé par le navigateur ; la cause racine n’est pas toujours déterminable.',
+      ],
+      incidents: items.map(item => Object.fromEntries(fields.map(key => [key, item[key] ?? null]))),
+    }, null, 2);
+  };
+  window.downloadDiagnostics = function (items, limited, format = 'txt') {
     if (!items.length) return;
     try {
-      const text = diagnosticsText(items, limited);
-      const blob = new Blob(['\uFEFF', text], { type: 'text/plain;charset=utf-8' });
+      const json = format === 'json';
+      const text = json ? diagnosticsJson(items, limited) : diagnosticsText(items, limited);
+      const blob = new Blob([json ? '' : '\uFEFF', text], { type: json ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'asrar-diagnostics-' + new Date().toISOString().replace(/[:.]/g, '-') + '.txt';
+      link.download = 'asrar-diagnostics-' + new Date().toISOString().replace(/[:.]/g, '-') + (json ? '.json' : '.txt');
       link.rel = 'noopener'; document.body.appendChild(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-      showToast('Téléchargement du fichier TXT demandé. Retrouvez-le dans les téléchargements de votre appareil.');
+      showToast('Téléchargement du fichier ' + (json ? 'JSON' : 'TXT') + ' demandé. Retrouvez-le dans les téléchargements de votre appareil.');
     } catch { showToast('Le fichier n’a pas pu être téléchargé. Réessayez dans votre navigateur.', 'err'); }
   };
 })();
